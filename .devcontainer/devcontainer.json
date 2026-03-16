@@ -1,7 +1,7 @@
 {
   "name": "Portfolio",
   "image": "mcr.microsoft.com/devcontainers/javascript-node:22",
-  "postCreateCommand": "npm install",
+  "postCreateCommand": "sudo corepack enable && pnpm install",
   "forwardPorts": [4321],
   "customizations": {
     "vscode": {
