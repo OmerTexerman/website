@@ -9,24 +9,29 @@ const links = [
 ];
 ---
 
-<header class="fixed top-0 left-0 right-0 z-50 border-b border-zinc-800/50 bg-zinc-950/80 backdrop-blur-md">
-  <nav class="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
-    <a href="/" class="text-lg font-semibold tracking-tight hover:text-indigo-400 transition-colors">
-      portfolio
+<header class="fixed top-0 left-0 right-0 z-50 bg-cream/90 backdrop-blur-sm border-b-2 border-ink">
+  <nav class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+    <a href="/" class="group flex items-center gap-2">
+      <span class="inline-flex items-center justify-center w-10 h-10 bg-coral text-white font-display font-bold text-sm rounded-lg border-2 border-ink hard-shadow-sm group-hover:translate-x-[-1px] group-hover:translate-y-[-1px] group-hover:shadow-[4px_4px_0_var(--color-ink)] transition-all">
+        OT
+      </span>
     </a>
-    <ul class="flex items-center gap-8">
+    <ul class="flex items-center gap-6 sm:gap-8">
       {links.map(({ href, label }) => (
         <li>
           <a
             href={href}
             class:list={[
-              "text-sm transition-colors",
+              "font-mono text-sm relative py-1 transition-colors",
               pathname === href
-                ? "text-white"
-                : "text-zinc-400 hover:text-white",
+                ? "text-ink font-bold"
+                : "text-muted hover:text-ink",
             ]}
           >
             {label}
+            {pathname === href && (
+              <span class="absolute -bottom-0.5 left-0 right-0 h-[2px] bg-coral" />
+            )}
           </a>
         </li>
       ))}

@@ -1,6 +1,7 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import Hero from "../components/Hero.astro";
+import SkillsTicker from "../components/SkillsTicker.astro";
 import About from "../components/About.astro";
 import Projects from "../components/Projects.astro";
 import Contact from "../components/Contact.astro";
@@ -8,10 +9,8 @@ import Contact from "../components/Contact.astro";
 
 <BaseLayout title="Omer Texerman | Full Stack Developer">
   <Hero />
-  <div class="border-t border-zinc-800/50" />
+  <SkillsTicker />
   <About />
-  <div class="border-t border-zinc-800/50" />
   <Projects />
-  <div class="border-t border-zinc-800/50" />
   <Contact />
 </BaseLayout>

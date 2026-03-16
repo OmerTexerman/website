@@ -1,21 +1,29 @@
 ---
 const skills = [
-  "TypeScript",
-  "React",
-  "Node.js",
-  "Go",
-  "PostgreSQL",
-  "Docker",
-  "AWS",
-  "Kubernetes",
+  { name: "TypeScript", color: "bg-sky" },
+  { name: "React", color: "bg-lavender" },
+  { name: "Node.js", color: "bg-mint" },
+  { name: "Go", color: "bg-yellow" },
+  { name: "PostgreSQL", color: "bg-sky" },
+  { name: "Docker", color: "bg-lavender" },
+  { name: "AWS", color: "bg-mint" },
+  { name: "Kubernetes", color: "bg-yellow" },
 ];
 ---
 
 <section id="about" class="py-24 px-6">
-  <div class="max-w-5xl mx-auto">
-    <h2 class="text-3xl font-bold tracking-tight mb-12">About</h2>
-    <div class="grid md:grid-cols-2 gap-12">
-      <div class="space-y-4 text-zinc-400 leading-relaxed">
+  <div class="max-w-6xl mx-auto">
+    <div class="flex items-start gap-6 mb-12" data-animate>
+      <span class="font-display font-extrabold text-[8rem] leading-none section-number select-none hidden md:block">
+        01
+      </span>
+      <div class="pt-6">
+        <h2 class="font-display text-4xl font-bold">About</h2>
+      </div>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-12 items-start">
+      <div class="space-y-4 text-muted leading-relaxed text-lg" data-animate>
         <p>
           Write a few paragraphs about yourself here. Your background,
           what drives you, and what you're currently working on.
@@ -25,17 +33,16 @@ const skills = [
           or anything else you'd like visitors to know.
         </p>
       </div>
-      <div>
-        <h3 class="text-sm font-semibold text-zinc-500 uppercase tracking-wider mb-4">
-          Technologies
-        </h3>
-        <div class="flex flex-wrap gap-2">
-          {skills.map((skill) => (
-            <span class="px-3 py-1.5 text-sm rounded-lg bg-zinc-800/80 text-zinc-300 border border-zinc-700/50">
-              {skill}
-            </span>
-          ))}
-        </div>
+      <div class="grid grid-cols-2 gap-3">
+        {skills.map((skill, i) => (
+          <div
+            data-animate
+            style={`transition-delay: ${i * 0.06}s`}
+            class={`${skill.color} border-2 border-ink rounded-lg p-4 font-mono text-sm font-bold text-ink hard-shadow-sm hard-shadow-hover cursor-default`}
+          >
+            {skill.name}
+          </div>
+        ))}
       </div>
     </div>
   </div>
