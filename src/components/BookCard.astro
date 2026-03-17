@@ -1,0 +1,25 @@
+---
+interface Props {
+  title: string;
+  author: string;
+  spineColor: string;
+  url?: string;
+}
+
+const { title, author, spineColor, url } = Astro.props;
+---
+
+<div class="flex items-center gap-4 bg-cream rounded-xl p-4 transition-all hover:ring-2 hover:ring-accent/40">
+  <!-- Spine color indicator -->
+  <div class="w-3 h-14 rounded-sm shrink-0" style={`background-color: ${spineColor}`}></div>
+  <div class="flex-1 min-w-0">
+    {url ? (
+      <a href={url} target="_blank" rel="noopener" class="font-display text-lg font-bold text-dark hover:text-accent transition-colors block truncate">
+        {title}
+      </a>
+    ) : (
+      <p class="font-display text-lg font-bold text-dark truncate">{title}</p>
+    )}
+    <p class="text-muted text-sm">{author}</p>
+  </div>
+</div>

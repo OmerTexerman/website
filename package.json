@@ -1,21 +1,32 @@
 {
-  "name": "portfolio",
-  "type": "module",
-  "version": "0.0.1",
-  "scripts": {
-    "dev": "astro dev --host",
-    "build": "astro build",
-    "preview": "astro preview --host",
-    "astro": "astro"
-  },
-  "dependencies": {
-    "astro": "^6.0.0",
-    "@astrojs/vercel": "^10.0.0"
-  },
-  "devDependencies": {
-    "tailwindcss": "^4.1.0",
-    "@tailwindcss/vite": "^4.1.0",
-    "@tailwindcss/typography": "^0.5.0",
-    "typescript": "^5.7.0"
-  }
+	"name": "portfolio",
+	"type": "module",
+	"version": "0.0.1",
+	"scripts": {
+		"dev": "astro dev --host",
+		"build": "astro build",
+		"preview": "astro preview --host",
+		"astro": "astro",
+		"lint": "biome check .",
+		"lint:fix": "biome check --write .",
+		"format": "biome format --write .",
+		"check": "astro check"
+	},
+	"dependencies": {
+		"@astrojs/rss": "^4.0.0",
+		"@astrojs/sitemap": "^3.3.0",
+		"@astrojs/vercel": "^10.0.0",
+		"astro": "^6.0.0",
+		"posthog-js": "^1.236.0",
+		"three": "^0.175.0"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.0.0",
+		"@tailwindcss/typography": "^0.5.0",
+		"@tailwindcss/vite": "^4.1.0",
+		"@types/three": "^0.175.0",
+		"lefthook": "^1.11.0",
+		"tailwindcss": "^4.1.0",
+		"typescript": "^5.7.0"
+	}
 }
