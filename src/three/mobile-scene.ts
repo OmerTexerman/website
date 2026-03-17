@@ -16,7 +16,7 @@ import { disposeAnimations, easeInOutCubic, tickAnimations } from "./animations"
 import { addHitbox } from "./hitbox";
 import { type DeskInteraction, setupInteraction } from "./interaction";
 import { disposeMaterials } from "./materials";
-import { createVendingMachine } from "./objects/vending-machine";
+import { type BookData, createVendingMachine } from "./objects/vending-machine";
 
 // ─── Camera ─────────────────────────────────────────────────────
 const MACHINE_CENTER_Y = 2.5;
@@ -100,10 +100,7 @@ function getModal(): DeskModal | null {
 }
 
 // ─── Scene ──────────────────────────────────────────────────────
-export interface BookData {
-	title: string;
-	spineColor: string;
-}
+export type { BookData };
 
 export function initMobileScene(
 	canvas: HTMLCanvasElement,
@@ -153,9 +150,8 @@ export function initMobileScene(
 		addHitbox(comp, 0.05);
 	}
 
-	// Store original item Y positions for return animation
+	// Store original item positions for return animation
 	const restYs = items.map((item) => item.position.y);
-	const PICKUP_Y = -0.2; // world Y of pickup slot (machine shifted up by 1)
 
 	let dirty = true;
 	let introComplete = false;
@@ -190,14 +186,13 @@ export function initMobileScene(
 
 			const item = items[compIndex];
 			const startY = item.position.y;
-			const parentY = compartments[compIndex].position.y;
-			const dropTarget = PICKUP_Y - parentY; // local Y to reach pickup slot
+			// Drop item just below its shelf — scale distance by position in machine
+			// Top items drop more, bottom items drop less (so they don't phase through floor)
+			const dropDistance = 0.6 + (sections.length - 1 - compIndex) * 0.2;
+			const dropTarget = startY - dropDistance;
 
-			animateLocal(`drop-${compIndex}`, 450, (p) => {
-				// Drop with overshoot bounce
-				const drop = lerp(startY, dropTarget, p);
-				const bounce = p >= 0.85 ? Math.sin(((p - 0.85) / 0.15) * Math.PI) * 0.06 : 0;
-				item.position.y = drop + bounce;
+			animateLocal(`drop-${compIndex}`, 400, (p) => {
+				item.position.y = lerp(startY, dropTarget, p);
 			});
 
 			dirty = true;

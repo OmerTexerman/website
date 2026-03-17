@@ -72,8 +72,10 @@ import { site, navItems } from "../config";
         deskScene.style.display = "block";
         const canvas = document.getElementById("desk-canvas") as HTMLCanvasElement;
         const labels = document.getElementById("desk-labels") as HTMLElement;
+        const booksJson = deskScene.getAttribute("data-books");
+        const books = booksJson ? JSON.parse(booksJson) : undefined;
         const { initDeskScene } = await import("../three/scene");
-        activeCleanup = initDeskScene(canvas, labels);
+        activeCleanup = initDeskScene(canvas, labels, books);
       }
     }
 

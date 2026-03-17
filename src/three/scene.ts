@@ -43,6 +43,11 @@ import { createNotebook } from "./objects/notebook";
 import { createPen } from "./objects/pen";
 import { createPhotoFrame } from "./objects/photo-frame";
 
+export interface BookData {
+	title: string;
+	spineColor: string;
+}
+
 const MOBILE_BREAKPOINT = 768;
 const HOVER_SCALE = 1.05;
 const HOVER_LERP = 0.16;
@@ -82,7 +87,11 @@ function trackEvent(event: string, props: Record<string, string>): void {
 	w.posthog?.capture(event, props);
 }
 
-export function initDeskScene(canvas: HTMLCanvasElement, labelContainer: HTMLElement): () => void {
+export function initDeskScene(
+	canvas: HTMLCanvasElement,
+	labelContainer: HTMLElement,
+	books?: BookData[],
+): () => void {
 	const scene = new Scene();
 	scene.background = new Color("#1e1e1e");
 	scene.fog = new FogExp2(new Color("#1e1e1e"), 0.04);
@@ -121,7 +130,7 @@ export function initDeskScene(canvas: HTMLCanvasElement, labelContainer: HTMLEle
 
 	const notebook = createNotebook();
 	const laptop = createLaptop();
-	const bookStack = createBookStack();
+	const bookStack = createBookStack(books);
 	const photoFrame = createPhotoFrame();
 	scene.add(notebook);
 	scene.add(laptop);
