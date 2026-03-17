@@ -161,17 +161,28 @@ export function initUnifiedScene(
 		renderer.shadowMap.enabled = mode === "desktop";
 	}
 
-	applyRenderSettings(initialMode);
-	renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+	function getCanvasSize(): { width: number; height: number } {
+		const rect = canvas.getBoundingClientRect();
+		const width = Math.max(1, Math.round(rect.width || canvas.clientWidth || window.innerWidth));
+		const height = Math.max(
+			1,
+			Math.round(rect.height || canvas.clientHeight || window.innerHeight),
+		);
+		return { width, height };
+	}
 
-	const camera = createCamera(canvas.clientWidth / canvas.clientHeight);
+	const initialSize = getCanvasSize();
+	applyRenderSettings(initialMode);
+	renderer.setSize(initialSize.width, initialSize.height, false);
+
+	const camera = createCamera(initialSize.width / initialSize.height);
 
 	// Post-processing — bloom for screen glow (desktop/transition)
 	const composer = new EffectComposer(renderer);
 	const renderPass = new RenderPass(scene, camera);
 	composer.addPass(renderPass);
 	const bloomPass = new UnrealBloomPass(
-		new Vector2(canvas.clientWidth, canvas.clientHeight),
+		new Vector2(initialSize.width, initialSize.height),
 		0.6,
 		0.8,
 		0.7,
@@ -607,17 +618,19 @@ export function initUnifiedScene(
 
 	// ─── Resize handler ──────────────────────────────────────────
 	function handleResize(): void {
+		const { width, height } = getCanvasSize();
 		applyRenderSettings(currentMode);
-		renderer.setSize(canvas.clientWidth, canvas.clientHeight);
-		composer.setSize(canvas.clientWidth, canvas.clientHeight);
-		bloomPass.resolution.set(canvas.clientWidth, canvas.clientHeight);
-		camera.aspect = canvas.clientWidth / canvas.clientHeight;
+		renderer.setSize(width, height, false);
+		composer.setSize(width, height);
+		bloomPass.resolution.set(width, height);
+		camera.aspect = width / height;
 		camera.updateProjectionMatrix();
 		if (currentMode === "mobile" && !transitioning) syncMobileShelfCamera(mobileShelfCurrentT);
 		dirty = true;
 	}
 
 	window.addEventListener("resize", handleResize);
+	window.visualViewport?.addEventListener("resize", handleResize);
 
 	// ─── Transition ──────────────────────────────────────────────
 	let transitionPromise: Promise<void> | null = null;
@@ -774,6 +787,7 @@ export function initUnifiedScene(
 	// ─── Cleanup ─────────────────────────────────────────────────
 	function cleanup(): void {
 		window.removeEventListener("resize", handleResize);
+		window.visualViewport?.removeEventListener("resize", handleResize);
 		cancelAnimationFrame(animationId);
 		if (cleanupInteraction) cleanupInteraction();
 		if (cleanupDrag) cleanupDrag();
