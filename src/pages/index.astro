@@ -93,7 +93,6 @@ import { site, navItems } from "../config";
       if (resizeRaf) cancelAnimationFrame(resizeRaf);
       resizeRaf = requestAnimationFrame(() => {
         resizeRaf = 0;
-        sceneHandle?.resize();
         queueModeSync();
       });
     }
