@@ -143,31 +143,50 @@ export function initUnifiedScene(
 	labelContainer: HTMLElement,
 	initialMode: "desktop" | "mobile",
 	books?: BookData[],
-): { cleanup: () => void; transition: (target: "desktop" | "mobile") => Promise<void> } {
+): {
+	cleanup: () => void;
+	transition: (target: "desktop" | "mobile") => Promise<void>;
+	resize: () => void;
+} {
 	const scene = new Scene();
 	scene.background = new Color("#1e1e1e");
 	scene.fog = new FogExp2(new Color("#1e1e1e"), 0.04);
 
 	const isInitiallyMobile = initialMode === "mobile";
-	const pixelRatio = Math.min(window.devicePixelRatio, isInitiallyMobile ? 1.5 : 2);
 
 	const renderer = new WebGLRenderer({
 		canvas,
 		antialias: !isInitiallyMobile,
 		powerPreference: isInitiallyMobile ? "low-power" : "high-performance",
 	});
-	renderer.setPixelRatio(pixelRatio);
-	renderer.setSize(canvas.clientWidth, canvas.clientHeight);
-	renderer.shadowMap.enabled = !isInitiallyMobile;
 
-	const camera = createCamera(canvas.clientWidth / canvas.clientHeight);
+	function applyRenderSettings(mode: "desktop" | "mobile"): void {
+		renderer.setPixelRatio(Math.min(window.devicePixelRatio, mode === "mobile" ? 1.5 : 2));
+		renderer.shadowMap.enabled = mode === "desktop";
+	}
+
+	function getCanvasSize(): { width: number; height: number } {
+		const rect = canvas.getBoundingClientRect();
+		const width = Math.max(1, Math.round(rect.width || canvas.clientWidth || window.innerWidth));
+		const height = Math.max(
+			1,
+			Math.round(rect.height || canvas.clientHeight || window.innerHeight),
+		);
+		return { width, height };
+	}
+
+	const initialSize = getCanvasSize();
+	applyRenderSettings(initialMode);
+	renderer.setSize(initialSize.width, initialSize.height, false);
+
+	const camera = createCamera(initialSize.width / initialSize.height);
 
 	// Post-processing — bloom for screen glow (desktop/transition)
 	const composer = new EffectComposer(renderer);
 	const renderPass = new RenderPass(scene, camera);
 	composer.addPass(renderPass);
 	const bloomPass = new UnrealBloomPass(
-		new Vector2(canvas.clientWidth, canvas.clientHeight),
+		new Vector2(initialSize.width, initialSize.height),
 		0.6,
 		0.8,
 		0.7,
@@ -214,6 +233,8 @@ export function initUnifiedScene(
 	let cleanupInteraction: (() => void) | null = null;
 	let cleanupDrag: (() => void) | null = null;
 	let cleanupMobileShelfControls: (() => void) | null = null;
+	let lastCanvasWidth = initialSize.width;
+	let lastCanvasHeight = initialSize.height;
 	const microInteractions = new Map<Object3D, () => void>();
 
 	function syncMobileShelfCamera(t: number): void {
@@ -602,17 +623,34 @@ export function initUnifiedScene(
 	animationId = requestAnimationFrame(render);
 
 	// ─── Resize handler ──────────────────────────────────────────
-	function handleResize(): void {
-		renderer.setSize(canvas.clientWidth, canvas.clientHeight);
-		composer.setSize(canvas.clientWidth, canvas.clientHeight);
-		bloomPass.resolution.set(canvas.clientWidth, canvas.clientHeight);
-		camera.aspect = canvas.clientWidth / canvas.clientHeight;
+	function handleResize(force = false): void {
+		const { width, height } = getCanvasSize();
+		if (!force && width === lastCanvasWidth && height === lastCanvasHeight) return;
+
+		lastCanvasWidth = width;
+		lastCanvasHeight = height;
+
+		applyRenderSettings(currentMode);
+		renderer.setSize(width, height, false);
+		composer.setSize(width, height);
+		bloomPass.resolution.set(width, height);
+		camera.aspect = width / height;
 		camera.updateProjectionMatrix();
 		if (currentMode === "mobile" && !transitioning) syncMobileShelfCamera(mobileShelfCurrentT);
 		dirty = true;
 	}
 
+	const resizeObserver =
+		typeof ResizeObserver !== "undefined"
+			? new ResizeObserver(() => {
+					handleResize();
+				})
+			: null;
+	resizeObserver?.observe(canvas);
+	if (canvas.parentElement) resizeObserver?.observe(canvas.parentElement);
+
 	window.addEventListener("resize", handleResize);
+	window.visualViewport?.addEventListener("resize", handleResize);
 
 	// ─── Transition ──────────────────────────────────────────────
 	let transitionPromise: Promise<void> | null = null;
@@ -742,7 +780,7 @@ export function initUnifiedScene(
 		// Hide the wall we're not looking at
 		if (target === "desktop") {
 			setShelfVisible(false);
-			renderer.shadowMap.enabled = true;
+			applyRenderSettings("desktop");
 			targetInterval = 0;
 		} else {
 			mobileShelfCurrentT = 0.5;
@@ -755,7 +793,7 @@ export function initUnifiedScene(
 				}
 			});
 			setDeskVisible(false);
-			renderer.shadowMap.enabled = false;
+			applyRenderSettings("mobile");
 			targetInterval = 1000 / 30;
 		}
 
@@ -763,12 +801,15 @@ export function initUnifiedScene(
 
 		// Re-setup interactions for new mode
 		setupModeInteractions();
+		handleResize(true);
 		dirty = true;
 	}
 
 	// ─── Cleanup ─────────────────────────────────────────────────
 	function cleanup(): void {
 		window.removeEventListener("resize", handleResize);
+		window.visualViewport?.removeEventListener("resize", handleResize);
+		resizeObserver?.disconnect();
 		cancelAnimationFrame(animationId);
 		if (cleanupInteraction) cleanupInteraction();
 		if (cleanupDrag) cleanupDrag();
@@ -792,5 +833,9 @@ export function initUnifiedScene(
 		renderer.dispose();
 	}
 
-	return { cleanup, transition };
+	return {
+		cleanup,
+		transition,
+		resize: () => handleResize(true),
+	};
 }

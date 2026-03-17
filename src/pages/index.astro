@@ -10,7 +10,7 @@ import { site, navItems } from "../config";
   description={site.description}
   fullscreen
 >
-  <div class="relative w-full h-screen bg-dark">
+  <div class="fixed inset-0 h-dvh min-h-screen overflow-hidden bg-dark">
     <SceneCanvas />
     <ContentModal />
 
@@ -32,12 +32,20 @@ import { site, navItems } from "../config";
 
   <!-- Unified scene boot -->
   <script>
-    let sceneHandle: { cleanup: () => void; transition: (target: "desktop" | "mobile") => Promise<void> } | null = null;
+    let sceneHandle: {
+      cleanup: () => void;
+      transition: (target: "desktop" | "mobile") => Promise<void>;
+      resize: () => void;
+    } | null = null;
     let activeMode: "desktop" | "mobile" | null = null;
+    let transitionQueue: Promise<void> = Promise.resolve();
 
-    async function boot(mode: "desktop" | "mobile") {
+    function modeFromWidth(): "desktop" | "mobile" {
+      return window.innerWidth >= 768 ? "desktop" : "mobile";
+    }
+
+    async function applyMode(mode: "desktop" | "mobile") {
       if (!sceneHandle) {
-        // First boot — create the unified scene
         const root = document.getElementById("scene-root")!;
         const canvas = document.getElementById("scene-canvas") as HTMLCanvasElement;
         const labels = document.getElementById("scene-labels") as HTMLElement;
@@ -48,26 +56,55 @@ import { site, navItems } from "../config";
         sceneHandle = initUnifiedScene(canvas, labels, mode, books);
         (window as any).__sceneHandle = sceneHandle;
         activeMode = mode;
-      } else if (mode !== activeMode) {
-        // Subsequent calls — transition between modes
-        activeMode = mode;
-        await sceneHandle.transition(mode);
+        return;
       }
+
+      if (mode === activeMode) return;
+
+      await sceneHandle.transition(mode);
+      activeMode = mode;
+    }
+
+    function queueModeSync() {
+      transitionQueue = transitionQueue
+        .then(() => applyMode(modeFromWidth()))
+        .catch((error) => {
+          console.error("Failed to update scene mode", error);
+        });
     }
 
     function cleanup() {
       if (sceneHandle) {
         sceneHandle.cleanup();
         sceneHandle = null;
-        activeMode = null;
       }
+      activeMode = null;
+      window.removeEventListener("resize", onResize);
+      window.visualViewport?.removeEventListener("resize", onResize);
+      mql.removeEventListener("change", onMediaChange);
+    }
+
+    function onMediaChange() {
+      queueModeSync();
+    }
+
+    let resizeRaf = 0;
+    function onResize() {
+      if (resizeRaf) cancelAnimationFrame(resizeRaf);
+      resizeRaf = requestAnimationFrame(() => {
+        resizeRaf = 0;
+        sceneHandle?.resize();
+        queueModeSync();
+      });
     }
 
     document.addEventListener("astro:before-preparation", cleanup, { once: true });
     window.addEventListener("beforeunload", cleanup, { once: true });
 
     const mql = window.matchMedia("(min-width: 768px)");
-    mql.addEventListener("change", (e) => boot(e.matches ? "desktop" : "mobile"));
-    boot(mql.matches ? "desktop" : "mobile");
+    mql.addEventListener("change", onMediaChange);
+    window.addEventListener("resize", onResize, { passive: true });
+    window.visualViewport?.addEventListener("resize", onResize, { passive: true });
+    queueModeSync();
   </script>
 </BaseLayout>
