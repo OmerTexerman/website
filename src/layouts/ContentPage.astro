@@ -1,0 +1,35 @@
+---
+import BaseLayout from "./BaseLayout.astro";
+import ContentHeader from "../components/ContentHeader.astro";
+import BackToDesk from "../components/BackToDesk.astro";
+import Footer from "../components/Footer.astro";
+
+interface Props {
+  title: string;
+  description?: string;
+  image?: string;
+  type?: "website" | "article";
+  publishedDate?: Date;
+}
+
+const { title, description, image, type, publishedDate } = Astro.props;
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  image={image}
+  type={type}
+  publishedDate={publishedDate}
+>
+  <ContentHeader />
+  <main class="pt-14 min-h-screen">
+    <div class="max-w-4xl mx-auto px-6 py-16">
+      <div class="content-surface p-8 sm:p-12">
+        <slot />
+      </div>
+    </div>
+  </main>
+  <Footer />
+  <BackToDesk />
+</BaseLayout>

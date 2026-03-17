@@ -1,0 +1,149 @@
+---
+
+---
+
+<div id="desk-scene" class="relative w-full h-screen bg-dark">
+  <!-- Three.js canvas -->
+  <canvas id="desk-canvas" class="absolute inset-0 w-full h-full"></canvas>
+
+  <!-- Label container (HTML overlays positioned over 3D objects) -->
+  <div id="desk-labels" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
+
+  <!-- Content modal overlay -->
+  <div id="desk-modal" class="fixed inset-0 z-50 pointer-events-none opacity-0 transition-opacity duration-300">
+    <!-- Backdrop -->
+    <div id="desk-modal-backdrop" class="absolute inset-0 bg-dark/80 backdrop-blur-sm"></div>
+    <!-- Content panel -->
+    <div id="desk-modal-panel" class="absolute inset-x-4 bottom-0 top-16 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:max-w-3xl sm:w-full translate-y-full transition-transform duration-500 ease-out">
+      <div class="h-full bg-white rounded-t-2xl shadow-2xl overflow-hidden flex flex-col">
+        <!-- Modal header -->
+        <div class="flex items-center justify-between px-6 py-4 border-b border-dark/10">
+          <h2 id="desk-modal-title" class="font-display text-xl font-bold text-dark"></h2>
+          <button id="desk-modal-close" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-dark/10 transition-colors text-dark/60 hover:text-dark" aria-label="Close">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <!-- Modal body -->
+        <div id="desk-modal-body" class="flex-1 overflow-y-auto p-6 text-dark">
+          <div class="flex items-center justify-center py-12">
+            <div class="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        </div>
+        <!-- Modal footer -->
+        <div id="desk-modal-footer" class="px-6 py-4 border-t border-dark/10">
+          <a id="desk-modal-link" href="/" class="inline-flex items-center gap-2 font-mono text-sm text-accent hover:text-accent-hover transition-colors">
+            View full page
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Skip to navigation (accessibility) -->
+  <a
+    href="#text-nav"
+    class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-dark-surface focus:text-cream focus:px-4 focus:py-2 focus:rounded-lg focus:border focus:border-white/20 focus:font-mono focus:text-sm"
+  >
+    Skip to navigation
+  </a>
+
+  <!-- Hidden text navigation (accessible fallback) -->
+  <nav id="text-nav" class="sr-only focus-within:not-sr-only focus-within:absolute focus-within:bottom-8 focus-within:left-1/2 focus-within:-translate-x-1/2 focus-within:z-50 focus-within:bg-dark-surface/95 focus-within:backdrop-blur-sm focus-within:rounded-xl focus-within:border focus-within:border-white/10 focus-within:p-4" aria-label="Site navigation">
+    <ul class="flex gap-6 font-mono text-sm">
+      <li><a href="/blog" class="text-cream hover:text-accent transition-colors">Blog</a></li>
+      <li><a href="/projects" class="text-cream hover:text-accent transition-colors">Projects</a></li>
+      <li><a href="/reading" class="text-cream hover:text-accent transition-colors">Reading</a></li>
+      <li><a href="/photos" class="text-cream hover:text-accent transition-colors">Photos</a></li>
+    </ul>
+  </nav>
+</div>
+
+<script>
+  const modal = document.getElementById("desk-modal")!;
+  const panel = document.getElementById("desk-modal-panel")!;
+  const title = document.getElementById("desk-modal-title")!;
+  const body = document.getElementById("desk-modal-body")!;
+  const link = document.getElementById("desk-modal-link") as HTMLAnchorElement;
+  const closeBtn = document.getElementById("desk-modal-close")!;
+  const backdrop = document.getElementById("desk-modal-backdrop")!;
+
+  function openModal(label: string, href: string) {
+    title.textContent = label;
+    link.href = href;
+    body.innerHTML = `<div class="flex items-center justify-center py-12"><div class="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin"></div></div>`;
+
+    modal.classList.remove("pointer-events-none", "opacity-0");
+    modal.classList.add("pointer-events-auto", "opacity-100");
+    requestAnimationFrame(() => {
+      panel.classList.remove("translate-y-full");
+      panel.classList.add("translate-y-0");
+    });
+
+    // Fetch the page content
+    fetch(href)
+      .then(r => r.text())
+      .then(html => {
+        const doc = new DOMParser().parseFromString(html, "text/html");
+        // Extract the content-surface div, fall back to main
+        const content = doc.querySelector(".content-surface") || doc.querySelector("main");
+        if (content) {
+          body.innerHTML = content.innerHTML;
+          // Fix: data-animate elements start at opacity:0, force them visible
+          body.querySelectorAll("[data-animate]").forEach(el => {
+            el.classList.add("is-visible");
+          });
+        } else {
+          body.innerHTML = `<p class="text-muted text-center py-8">No content found. <a href="${href}" class="text-accent underline">Visit the page</a>.</p>`;
+        }
+      })
+      .catch(() => {
+        body.innerHTML = `<p class="text-muted text-center py-8">Could not load preview. <a href="${href}" class="text-accent underline">Visit the page</a>.</p>`;
+      });
+  }
+
+  let closeCallbacks: (() => void)[] = [];
+
+  function closeModal() {
+    panel.classList.remove("translate-y-0");
+    panel.classList.add("translate-y-full");
+    for (const cb of closeCallbacks) cb();
+    setTimeout(() => {
+      modal.classList.remove("pointer-events-auto", "opacity-100");
+      modal.classList.add("pointer-events-none", "opacity-0");
+    }, 300);
+  }
+
+  function onClose(cb: () => void) {
+    closeCallbacks.push(cb);
+  }
+
+  closeBtn.addEventListener("click", closeModal);
+  backdrop.addEventListener("click", closeModal);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeModal();
+  });
+
+  // Expose to Three.js scene
+  (window as any).__deskModal = { open: openModal, close: closeModal, onClose };
+
+  async function boot() {
+    const canvas = document.getElementById("desk-canvas") as HTMLCanvasElement;
+    const labels = document.getElementById("desk-labels") as HTMLElement;
+
+    if (!canvas || !labels) return;
+
+    const { initDeskScene } = await import("../three/scene");
+
+    const cleanup = initDeskScene(canvas, labels);
+
+    document.addEventListener("astro:before-preparation", cleanup, { once: true });
+    window.addEventListener("beforeunload", cleanup, { once: true });
+  }
+
+  boot();
+</script>

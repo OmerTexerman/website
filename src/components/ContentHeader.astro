@@ -1,0 +1,37 @@
+---
+const pathname = Astro.url.pathname;
+
+const links = [
+  { href: "/blog", label: "Blog" },
+  { href: "/projects", label: "Projects" },
+  { href: "/reading", label: "Reading" },
+  { href: "/photos", label: "Photos" },
+];
+---
+
+<header class="fixed top-0 left-0 right-0 z-50 bg-dark/90 backdrop-blur-sm border-b border-white/10">
+  <nav class="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+    <a href="/" class="group flex items-center gap-2" aria-label="Back to desk">
+      <span class="inline-flex items-center justify-center w-9 h-9 bg-accent text-white font-display font-bold text-sm rounded-lg transition-transform group-hover:scale-105">
+        OT
+      </span>
+    </a>
+    <ul class="flex items-center gap-6">
+      {links.map(({ href, label }) => (
+        <li>
+          <a
+            href={href}
+            class:list={[
+              "font-mono text-sm transition-colors",
+              pathname.startsWith(href)
+                ? "text-cream font-medium"
+                : "text-muted hover:text-cream",
+            ]}
+          >
+            {label}
+          </a>
+        </li>
+      ))}
+    </ul>
+  </nav>
+</header>

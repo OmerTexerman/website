@@ -1,0 +1,23 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import ContentHeader from "../components/ContentHeader.astro";
+---
+
+<BaseLayout title="404 — Not Found | Omer Texerman">
+  <ContentHeader />
+  <main class="pt-14 min-h-screen flex items-center justify-center">
+    <div class="text-center px-6">
+      <h1 class="font-display text-8xl font-bold text-accent mb-4">404</h1>
+      <p class="text-cream/80 text-lg mb-8">This page doesn't exist. Maybe it fell off the desk.</p>
+      <a
+        href="/"
+        class="inline-flex items-center gap-2 px-6 py-3 bg-accent text-white font-mono text-sm rounded-lg hover:bg-accent-hover transition-colors"
+      >
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+        Back to desk
+      </a>
+    </div>
+  </main>
+</BaseLayout>
