@@ -9,17 +9,17 @@ interface Props {
 const { title, author, spineColor, url } = Astro.props;
 ---
 
-<div class="flex items-center gap-4 bg-cream rounded-xl p-4 transition-all hover:ring-2 hover:ring-accent/40">
+<div class="flex items-center gap-4 rounded-xl border border-white/8 bg-dark-surface-elevated p-4 transition-all hover:ring-2 hover:ring-accent/40">
   <!-- Spine color indicator -->
   <div class="w-3 h-14 rounded-sm shrink-0" style={`background-color: ${spineColor}`}></div>
   <div class="flex-1 min-w-0">
     {url ? (
-      <a href={url} target="_blank" rel="noopener noreferrer" class="font-display text-lg font-bold text-dark hover:text-accent transition-colors block truncate">
+      <a href={url} target="_blank" rel="noopener noreferrer" class="font-display text-lg font-bold text-cream hover:text-accent transition-colors block truncate">
         {title}
       </a>
     ) : (
-      <p class="font-display text-lg font-bold text-dark truncate">{title}</p>
+      <p class="font-display text-lg font-bold text-cream truncate">{title}</p>
     )}
-    <p class="text-muted text-sm">{author}</p>
+    <p class="text-cream-dark text-sm">{author}</p>
   </div>
 </div>

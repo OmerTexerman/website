@@ -11,8 +11,8 @@ const projects = (await getCollection("projects"))
 
 <ContentPage title={`Projects | ${site.name}`} description={nav?.description}>
   <div class="mb-10" data-animate>
-    <h1 class="font-display text-4xl sm:text-5xl font-bold tracking-tight mb-3 text-dark">Projects</h1>
-    {nav?.description && <p class="text-muted text-lg">{nav.description}</p>}
+    <h1 class="font-display text-4xl sm:text-5xl font-bold tracking-tight mb-3 text-cream">Projects</h1>
+    {nav?.description && <p class="text-cream-dark text-lg">{nav.description}</p>}
   </div>
 
   {projects.length === 0 ? (

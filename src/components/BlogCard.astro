@@ -14,13 +14,13 @@ const { title, description, pubDate, tags, slug } = Astro.props;
 
 <a
   href={`/blog/${slug}`}
-  class="group block bg-cream rounded-xl p-4 sm:p-6 transition-all hover:ring-2 hover:ring-accent/40 hover:translate-y-[-2px] focus:outline-none focus:ring-2 focus:ring-accent"
+  class="group block rounded-xl border border-white/8 bg-dark-surface-elevated p-4 sm:p-6 transition-all hover:ring-2 hover:ring-accent/40 hover:translate-y-[-2px] focus:outline-none focus:ring-2 focus:ring-accent"
 >
   <time class="font-mono text-xs text-muted">{formatDate(pubDate)}</time>
-  <h3 class="font-display text-xl font-bold mt-2 mb-2 text-dark group-hover:text-accent transition-colors">
+  <h3 class="font-display text-xl font-bold mt-2 mb-2 text-cream group-hover:text-accent transition-colors">
     {title}
   </h3>
-  <p class="text-muted text-sm leading-relaxed mb-4">{description}</p>
+  <p class="text-cream-dark text-sm leading-relaxed mb-4">{description}</p>
   {tags && tags.length > 0 && (
     <div class="flex flex-wrap gap-2">
       {tags.map((tag) => (

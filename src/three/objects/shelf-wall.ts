@@ -34,10 +34,10 @@ export interface ShelfWallResult {
 }
 
 // ─── Shelf geometry constants ────────────────────────────────────
-const WALL_X = 5.35; // Room-local X position (to the right of desk)
+export const SHELF_WALL_X = 8.95; // Room-local X position (to the right of desk)
 const WALL_W = 4.8;
 const WALL_H = 5.2;
-const WALL_Z = 4.4;
+export const SHELF_WALL_Z = 4.4;
 const FLOOR_Y = -2;
 const BLEND_WALL_W = 7.4;
 const BLEND_WALL_H = WALL_H - FLOOR_Y + 0.7;
@@ -48,11 +48,24 @@ const SHELF_W = 3.8;
 const SHELF_DEPTH = 0.55;
 const SHELF_THICK = 0.06;
 const BRACKET_SIZE = 0.08;
+const WALL_X = SHELF_WALL_X;
+const WALL_Z = SHELF_WALL_Z;
 const SHELF_CENTER_X = WALL_X - SHELF_DEPTH / 2;
 
-const TOP_Y = 3.6;
-const MID_Y = 2.2;
-const BOT_Y = 0.8;
+export const SHELF_TOP_Y = 3.6;
+export const SHELF_MID_Y = 2.2;
+export const SHELF_BOT_Y = 0.8;
+const TOP_Y = SHELF_TOP_Y;
+const MID_Y = SHELF_MID_Y;
+const BOT_Y = SHELF_BOT_Y;
+
+function enableShadows(obj: Object3D): void {
+	obj.traverse((child) => {
+		if (!(child instanceof Mesh)) return;
+		child.castShadow = true;
+		child.receiveShadow = true;
+	});
+}
 
 // ─── Spine texture (adapted from book-stack.ts) ──────────────────
 function createSpineTexture(
@@ -164,21 +177,23 @@ function createShelfBooks(books?: BookData[]): Group {
 
 function createShelfNotebook(): Group {
 	const g = new Group();
+	const body = new Group();
+	g.add(body);
 
 	// Cover
 	const coverMat = new MeshStandardMaterial({ color: new Color("#9a3230"), roughness: 0.6 });
 	const cover = new Mesh(new BoxGeometry(0.45, 0.6, 0.03), coverMat);
-	g.add(cover);
+	body.add(cover);
 
 	// Pages
 	const pages = new Mesh(new BoxGeometry(0.41, 0.56, 0.04), paperMaterial);
 	pages.position.z = -0.02;
-	g.add(pages);
+	body.add(pages);
 
 	// Back cover
 	const backCover = new Mesh(new BoxGeometry(0.45, 0.6, 0.02), accentMaterial);
 	backCover.position.z = -0.04;
-	g.add(backCover);
+	body.add(backCover);
 
 	// Spiral rings
 	const ringMat = new MeshStandardMaterial({
@@ -190,12 +205,12 @@ function createShelfNotebook(): Group {
 	for (let i = 0; i < 5; i++) {
 		const ring = new Mesh(ringGeo, ringMat);
 		ring.position.set(-0.18 + i * 0.08, 0.3, -0.01);
-		g.add(ring);
+		body.add(ring);
 	}
 
-	// Keep the notebook upright so it reads cleanly against the shelf.
-	g.rotation.x = 0;
-	g.position.set(0, 0.3, 0.02);
+	// Lean back into the wall so it feels like it is resting on the shelf.
+	body.rotation.x = -0.28;
+	g.position.set(0, 0.29, -0.01);
 	return g;
 }
 
@@ -278,13 +293,6 @@ function createShelfCamera(): Group {
 	viewfinder.position.set(-0.1, 0.3, 0);
 	g.add(viewfinder);
 
-	// Small decorative film roll next to camera
-	const rollMat = new MeshStandardMaterial({ color: new Color("#333333"), roughness: 0.5 });
-	const roll = new Mesh(new CylinderGeometry(0.06, 0.06, 0.12, 12), rollMat);
-	roll.position.set(0.35, 0.06, 0.05);
-	roll.rotation.z = Math.PI / 2;
-	g.add(roll);
-
 	g.rotation.y = 0.15;
 	return g;
 }
@@ -322,6 +330,7 @@ function createShelfShell(): Group {
 	const wallPlane = new Mesh(new PlaneGeometry(BLEND_WALL_W, BLEND_WALL_H), wallMaterial);
 	wallPlane.position.set(WALL_X + 0.04, FLOOR_Y + BLEND_WALL_H / 2, WALL_Z);
 	wallPlane.rotation.y = -Math.PI / 2;
+	wallPlane.receiveShadow = true;
 	shell.add(wallPlane);
 
 	const returnWall = new Mesh(new PlaneGeometry(RETURN_W, BLEND_WALL_H), returnMaterial);
@@ -330,6 +339,7 @@ function createShelfShell(): Group {
 		FLOOR_Y + BLEND_WALL_H / 2,
 		WALL_Z - WALL_W / 2 - 1.4,
 	);
+	returnWall.receiveShadow = true;
 	shell.add(returnWall);
 
 	const floor = new Mesh(new PlaneGeometry(FLOOR_W, FLOOR_D), floorMaterial);
@@ -368,14 +378,17 @@ export function createShelfWall(books?: BookData[]): ShelfWallResult {
 	// Create shelf planks
 	const shelves = createShelfPlank(TOP_Y);
 	shelves.position.set(SHELF_CENTER_X, 0, WALL_Z);
+	enableShadows(shelves);
 	wall.add(shelves);
 
 	const midShelves = createShelfPlank(MID_Y);
 	midShelves.position.set(SHELF_CENTER_X, 0, WALL_Z);
+	enableShadows(midShelves);
 	wall.add(midShelves);
 
 	const botShelves = createShelfPlank(BOT_Y);
 	botShelves.position.set(SHELF_CENTER_X, 0, WALL_Z);
+	enableShadows(botShelves);
 	wall.add(botShelves);
 
 	const tapTargets: Group[] = [];
@@ -387,6 +400,7 @@ export function createShelfWall(books?: BookData[]): ShelfWallResult {
 	const topBooks = createShelfBooks(books);
 	topBooks.position.set(SHELF_CENTER_X - 0.04, TOP_Y + SHELF_THICK / 2, WALL_Z);
 	topBooks.rotation.y = -Math.PI / 2;
+	enableShadows(topBooks);
 	topGroup.add(topBooks);
 	addHitbox(topGroup, 0.1);
 	wall.add(topGroup);
@@ -397,8 +411,9 @@ export function createShelfWall(books?: BookData[]): ShelfWallResult {
 	const midLeftGroup = new Group();
 	midLeftGroup.userData = { interactive: true, href: "/blog", label: "Blog" };
 	const notebook = createShelfNotebook();
-	notebook.position.set(SHELF_CENTER_X - 0.08, MID_Y + SHELF_THICK / 2 + 0.28, WALL_Z - 0.54);
+	notebook.position.set(SHELF_CENTER_X + 0.08, MID_Y + SHELF_THICK / 2 + 0.28, WALL_Z - 0.54);
 	notebook.rotation.y = -Math.PI / 2;
+	enableShadows(notebook);
 	midLeftGroup.add(notebook);
 	addHitbox(midLeftGroup, 0.1);
 	wall.add(midLeftGroup);
@@ -411,6 +426,7 @@ export function createShelfWall(books?: BookData[]): ShelfWallResult {
 	const laptop = createShelfLaptop();
 	laptop.position.set(SHELF_CENTER_X - 0.14, MID_Y + SHELF_THICK / 2 + 0.025, WALL_Z + 0.62);
 	laptop.rotation.y = -Math.PI / 2;
+	enableShadows(laptop);
 	midRightGroup.add(laptop);
 	addHitbox(midRightGroup, 0.1);
 	wall.add(midRightGroup);
@@ -423,6 +439,7 @@ export function createShelfWall(books?: BookData[]): ShelfWallResult {
 	const camera = createShelfCamera();
 	camera.position.set(SHELF_CENTER_X - 0.02, BOT_Y + SHELF_THICK / 2, WALL_Z);
 	camera.rotation.y = -Math.PI / 2;
+	enableShadows(camera);
 	botGroup.add(camera);
 	addHitbox(botGroup, 0.1);
 	wall.add(botGroup);

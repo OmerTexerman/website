@@ -8,6 +8,7 @@
 
   --color-dark: #1e1e1e;
   --color-dark-surface: #2a2a2a;
+  --color-dark-surface-elevated: #312f2d;
   --color-accent: #c4453a;
   --color-accent-hover: #d65248;
   --color-cream: #f0ece4;
@@ -59,11 +60,15 @@ body {
   transform: translateY(0);
 }
 
-/* Content card surface — cream on dark */
+/* Content card surface — dark room panel */
 .content-surface {
-  background-color: var(--color-cream);
-  color: #1a1a1a;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0)),
+    var(--color-dark-surface);
+  color: var(--color-cream);
   border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.35);
 }
 
 .no-scrollbar {

@@ -20,13 +20,13 @@ const sections = [
 
 <ContentPage title={`Reading | ${site.name}`} description={nav?.description}>
   <div class="mb-10" data-animate>
-    <h1 class="font-display text-4xl sm:text-5xl font-bold tracking-tight mb-3 text-dark">Reading</h1>
-    {nav?.description && <p class="text-muted text-lg">{nav.description}</p>}
+    <h1 class="font-display text-4xl sm:text-5xl font-bold tracking-tight mb-3 text-cream">Reading</h1>
+    {nav?.description && <p class="text-cream-dark text-lg">{nav.description}</p>}
   </div>
 
   {sections.map((section, si) => (
     <div class={si > 0 ? "mt-10" : ""} data-animate style={`transition-delay: ${si * 0.15}s`}>
-      <h2 class="font-display text-2xl font-bold mb-4 text-dark">{section.title}</h2>
+      <h2 class="font-display text-2xl font-bold mb-4 text-cream">{section.title}</h2>
       <div class="space-y-3">
         {section.books.map((book) => (
           <BookCard

@@ -10,8 +10,8 @@ const posts = await getPublishedPosts();
 
 <ContentPage title={`Blog | ${site.name}`} description={nav?.description}>
   <div class="mb-10" data-animate>
-    <h1 class="font-display text-4xl sm:text-5xl font-bold tracking-tight mb-3 text-dark">Blog</h1>
-    {nav?.description && <p class="text-muted text-lg">{nav.description}</p>}
+    <h1 class="font-display text-4xl sm:text-5xl font-bold tracking-tight mb-3 text-cream">Blog</h1>
+    {nav?.description && <p class="text-cream-dark text-lg">{nav.description}</p>}
   </div>
 
   {posts.length === 0 ? (

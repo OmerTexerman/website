@@ -22,11 +22,13 @@ export function setupInteraction(
 	scene: Scene,
 	onHover: (interaction: DeskInteraction | null) => void,
 	onClick: (interaction: DeskInteraction) => void,
+	options?: { enableHover?: boolean },
 ): () => void {
 	const meshes = collectMeshesBy(scene, "interactive");
 	const groups = collectGroupsBy(scene, "interactive");
 	// Only navigable objects (those with href) are keyboard-focusable
 	const navigableGroups = groups.filter((g) => g.userData.href);
+	const enableHover = options?.enableHover ?? true;
 	let focusIndex = -1;
 	let pendingHoverFrame = 0;
 	let pointerDownX = 0;
@@ -64,6 +66,7 @@ export function setupInteraction(
 	}
 
 	function onPointerMove(e: PointerEvent): void {
+		if (!enableHover) return;
 		updatePointer(canvas, e.clientX, e.clientY);
 		requestHoverUpdate();
 	}
@@ -97,7 +100,10 @@ export function setupInteraction(
 		}
 	}
 
-	const onPointerLeave = () => setHover(null);
+	const onPointerLeave = () => {
+		if (!enableHover) return;
+		setHover(null);
+	};
 
 	canvas.addEventListener("pointerleave", onPointerLeave);
 	canvas.addEventListener("pointermove", onPointerMove, { passive: true });

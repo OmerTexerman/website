@@ -15,9 +15,9 @@ export const DESKTOP_POS = END_POS;
 export const DESKTOP_LOOK = END_LOOK;
 
 // ─── Mobile (shelf) camera poses ────────────────────────────────
-export const MOBILE_POS = new Vector3(0.0, 2.7, 6.8);
-export const MOBILE_LOOK = new Vector3(5.25, 2.35, 4.4);
-export const MOBILE_INTRO_START_POS = new Vector3(0.7, 4.0, 9.0);
+export const MOBILE_POS = new Vector3(5.8, 2.55, 5.95);
+export const MOBILE_LOOK = new Vector3(8.5, 2.2, 4.6);
+export const MOBILE_INTRO_START_POS = new Vector3(3.9, 3.7, 7.45);
 export const MOBILE_INTRO_DURATION = 2000;
 
 const _lookTarget = new Vector3();

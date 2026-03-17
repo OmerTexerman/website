@@ -15,7 +15,7 @@ const { photos } = Astro.props;
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
   {photos.map((photo, i) => (
     <button
-      class="group relative overflow-hidden rounded-xl bg-cream aspect-[4/3] cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent"
+      class="group relative overflow-hidden rounded-xl border border-white/8 bg-dark-surface-elevated aspect-[4/3] cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent"
       data-photo-index={i}
       aria-label={`View photo: ${photo.alt}`}
     >

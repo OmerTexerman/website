@@ -283,20 +283,50 @@ export function animateSpin(obj: Object3D): Promise<void> {
 
 // ─── SHELF WALL ANIMATIONS ─────────────────────────────────────
 
-/** Slide shelf items forward toward camera with accent highlight */
+/** Tip shelf items forward and drop them off the shelf before opening */
 export function animateShelfPresent(items: Object3D): Promise<void> {
+	saveRest(items, "x", items.position.x);
+	saveRest(items, "y", items.position.y);
 	saveRest(items, "z", items.position.z);
+	saveRest(items, "rx", items.rotation.x);
+	saveRest(items, "ry", items.rotation.y);
+	saveRest(items, "rz", items.rotation.z);
+	const restX = getRest(items, "x");
+	const restY = getRest(items, "y");
 	const restZ = getRest(items, "z");
-	return animate(`shelf-present-${items.uuid}`, 400, (p) => {
-		items.position.z = lerp(restZ, restZ + 0.15, p);
+	const restRX = getRest(items, "rx");
+	const restRY = getRest(items, "ry");
+	const restRZ = getRest(items, "rz");
+	return animate(`shelf-present-${items.uuid}`, 280, (p) => {
+		items.position.x = lerp(restX, restX - 0.7, p);
+		items.position.y = lerp(restY, restY - 1.45, p);
+		items.position.z = lerp(restZ, restZ + 0.12, p);
+		items.rotation.x = lerp(restRX, restRX - 0.55, p);
+		items.rotation.y = lerp(restRY, restRY + 0.12, p);
+		items.rotation.z = lerp(restRZ, restRZ + 0.3, p);
 	});
 }
 
 /** Return shelf items to rest position */
 export function animateShelfReset(items: Object3D): Promise<void> {
+	const curX = items.position.x;
+	const curY = items.position.y;
 	const curZ = items.position.z;
+	const curRX = items.rotation.x;
+	const curRY = items.rotation.y;
+	const curRZ = items.rotation.z;
+	const restX = getRest(items, "x");
+	const restY = getRest(items, "y");
 	const restZ = getRest(items, "z");
-	return animate(`shelf-present-${items.uuid}`, 300, (p) => {
+	const restRX = getRest(items, "rx");
+	const restRY = getRest(items, "ry");
+	const restRZ = getRest(items, "rz");
+	return animate(`shelf-present-${items.uuid}`, 320, (p) => {
+		items.position.x = lerp(curX, restX, p);
+		items.position.y = lerp(curY, restY, p);
 		items.position.z = lerp(curZ, restZ, p);
+		items.rotation.x = lerp(curRX, restRX, p);
+		items.rotation.y = lerp(curRY, restRY, p);
+		items.rotation.z = lerp(curRZ, restRZ, p);
 	});
 }
