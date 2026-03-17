@@ -1,5 +1,5 @@
 ---
-
+import { navItems } from "../config";
 ---
 
 <div id="desk-scene" class="relative w-full h-screen bg-dark">
@@ -55,10 +55,9 @@
   <!-- Hidden text navigation (accessible fallback) -->
   <nav id="text-nav" class="sr-only focus-within:not-sr-only focus-within:absolute focus-within:bottom-8 focus-within:left-1/2 focus-within:-translate-x-1/2 focus-within:z-50 focus-within:bg-dark-surface/95 focus-within:backdrop-blur-sm focus-within:rounded-xl focus-within:border focus-within:border-white/10 focus-within:p-4" aria-label="Site navigation">
     <ul class="flex gap-6 font-mono text-sm">
-      <li><a href="/blog" class="text-cream hover:text-accent transition-colors">Blog</a></li>
-      <li><a href="/projects" class="text-cream hover:text-accent transition-colors">Projects</a></li>
-      <li><a href="/reading" class="text-cream hover:text-accent transition-colors">Reading</a></li>
-      <li><a href="/photos" class="text-cream hover:text-accent transition-colors">Photos</a></li>
+      {navItems.map(({ href, label }) => (
+        <li><a href={href} class="text-cream hover:text-accent transition-colors">{label}</a></li>
+      ))}
     </ul>
   </nav>
 </div>

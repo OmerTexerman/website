@@ -1,4 +1,6 @@
 ---
+import { site } from "../config";
+
 interface Props {
   title: string;
   description: string;
@@ -27,7 +29,7 @@ const ogImageURL = new URL(image, Astro.site);
 <meta property="og:title" content={title} />
 <meta property="og:description" content={description} />
 <meta property="og:image" content={ogImageURL} />
-<meta property="og:site_name" content="Omer Texerman" />
+<meta property="og:site_name" content={site.name} />
 
 <!-- Twitter -->
 <meta name="twitter:card" content="summary_large_image" />
@@ -49,6 +51,6 @@ const ogImageURL = new URL(image, Astro.site);
   ...(type === "article" && publishedDate ? { datePublished: publishedDate.toISOString() } : {}),
   author: {
     "@type": "Person",
-    name: "Omer Texerman",
+    name: site.name,
   },
 })} />

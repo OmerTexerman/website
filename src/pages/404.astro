@@ -1,9 +1,10 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import ContentHeader from "../components/ContentHeader.astro";
+import { site } from "../config";
 ---
 
-<BaseLayout title="404 — Not Found | Omer Texerman">
+<BaseLayout title={`404 — Not Found | ${site.name}`}>
   <ContentHeader />
   <main class="pt-14 min-h-screen flex items-center justify-center">
     <div class="text-center px-6">

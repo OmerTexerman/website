@@ -1,6 +1,7 @@
 ---
 import "../styles/global.css";
 import SEOHead from "../components/SEOHead.astro";
+import { site, analytics } from "../config";
 
 interface Props {
   title: string;
@@ -14,14 +15,15 @@ interface Props {
 
 const {
   title,
-  description = "Full Stack Developer",
+  description = site.title,
   image,
   type = "website",
   publishedDate,
   fullscreen = false,
 } = Astro.props;
 
-const posthogKey = import.meta.env.PUBLIC_POSTHOG_KEY;
+const posthogKey = analytics.posthogKey;
+const posthogHost = analytics.posthogHost;
 ---
 
 <!doctype html>
@@ -32,7 +34,7 @@ const posthogKey = import.meta.env.PUBLIC_POSTHOG_KEY;
     <meta name="description" content={description} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="sitemap" href="/sitemap-index.xml" />
-    <link rel="alternate" type="application/rss+xml" title="Omer Texerman's Blog" href="/rss.xml" />
+    <link rel="alternate" type="application/rss+xml" title={`${site.name}'s Blog`} href="/rss.xml" />
     <link rel="manifest" href="/site.webmanifest" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -72,11 +74,11 @@ const posthogKey = import.meta.env.PUBLIC_POSTHOG_KEY;
     )}
 
     {posthogKey && (
-      <script define:vars={{ posthogKey }}>
+      <script define:vars={{ posthogKey, posthogHost }}>
         if (typeof window !== "undefined" && import.meta.env.PROD) {
           import("posthog-js").then(({ default: posthog }) => {
             posthog.init(posthogKey, {
-              api_host: "https://us.i.posthog.com",
+              api_host: posthogHost,
               capture_pageview: true,
               autocapture: false,
             });
