@@ -10,11 +10,13 @@ interface Props {
 }
 
 const { photos } = Astro.props;
+const galleryId = `photo-gallery-${crypto.randomUUID()}`;
 ---
 
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+<div id={galleryId} class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
   {photos.map((photo, i) => (
     <button
+      type="button"
       class="group relative overflow-hidden rounded-xl border border-white/8 bg-dark-surface-elevated aspect-[4/3] cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent"
       data-photo-index={i}
       aria-label={`View photo: ${photo.alt}`}
@@ -26,7 +28,7 @@ const { photos } = Astro.props;
         class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
       />
       {photo.caption && (
-        <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+        <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3 translate-y-full transition-transform duration-300 group-hover:translate-y-0 group-focus-visible:translate-y-0">
           <p class="text-cream text-sm">{photo.caption}</p>
         </div>
       )}
@@ -43,28 +45,56 @@ const { photos } = Astro.props;
   </div>
 </dialog>
 
-<script define:vars={{ photos: JSON.stringify(photos) }}>
+<script define:vars={{ galleryId, photos: JSON.stringify(photos) }}>
   const parsedPhotos = JSON.parse(photos);
-  const dialog = document.getElementById("lightbox");
-  const img = document.getElementById("lightbox-img");
-  const caption = document.getElementById("lightbox-caption");
-  const closeBtn = document.getElementById("lightbox-close");
+  const root = document.getElementById(galleryId);
+  const dialog = root?.nextElementSibling instanceof HTMLDialogElement ? root.nextElementSibling : null;
+  const img = dialog?.querySelector("#lightbox-img");
+  const caption = dialog?.querySelector("#lightbox-caption");
+  const closeBtn = dialog?.querySelector("#lightbox-close");
+  let lastTrigger = null;
 
-  document.querySelectorAll("[data-photo-index]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const idx = parseInt(btn.getAttribute("data-photo-index") || "0");
+  if (root && dialog && img instanceof HTMLImageElement && caption instanceof HTMLElement) {
+    const buttons = [...root.querySelectorAll("[data-photo-index]")];
+
+    const openPhoto = (btn) => {
+      const idx = parseInt(btn.getAttribute("data-photo-index") || "0", 10);
       const photo = parsedPhotos[idx];
-      if (photo && dialog && img && caption) {
-        img.src = photo.src;
-        img.alt = photo.alt;
-        caption.textContent = photo.caption || "";
-        dialog.showModal();
-      }
-    });
-  });
+      if (!photo) return;
+      img.src = photo.src;
+      img.alt = photo.alt;
+      caption.textContent = photo.caption || "";
+      lastTrigger = btn;
+      dialog.showModal();
+    };
 
-  closeBtn?.addEventListener("click", () => dialog?.close());
-  dialog?.addEventListener("click", (e) => {
-    if (e.target === dialog) dialog.close();
-  });
+    const buttonHandlers = buttons.map((btn) => {
+      const handler = () => openPhoto(btn);
+      btn.addEventListener("click", handler);
+      return { btn, handler };
+    });
+
+    const onCloseClick = () => dialog.close();
+    const onBackdropClick = (e) => {
+      if (e.target === dialog) dialog.close();
+    };
+    const onClose = () => {
+      lastTrigger?.focus();
+      lastTrigger = null;
+    };
+    const cleanup = () => {
+      for (const { btn, handler } of buttonHandlers) {
+        btn.removeEventListener("click", handler);
+      }
+      closeBtn?.removeEventListener("click", onCloseClick);
+      dialog.removeEventListener("click", onBackdropClick);
+      dialog.removeEventListener("close", onClose);
+      document.removeEventListener("astro:before-preparation", cleanup);
+    };
+
+    closeBtn?.addEventListener("click", onCloseClick);
+    dialog.addEventListener("click", onBackdropClick);
+    dialog.addEventListener("close", onClose);
+    document.addEventListener("astro:before-preparation", cleanup, { once: true });
+  }
 </script>

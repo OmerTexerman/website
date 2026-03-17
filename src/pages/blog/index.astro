@@ -1,6 +1,7 @@
 ---
 import ContentPage from "../../layouts/ContentPage.astro";
 import BlogCard from "../../components/BlogCard.astro";
+import PageIntro from "../../components/PageIntro.astro";
 import { site, navItems } from "../../config";
 import { getPublishedPosts } from "../../utils";
 
@@ -9,10 +10,7 @@ const posts = await getPublishedPosts();
 ---
 
 <ContentPage title={`Blog | ${site.name}`} description={nav?.description}>
-  <div class="mb-10" data-animate>
-    <h1 class="font-display text-4xl sm:text-5xl font-bold tracking-tight mb-3 text-cream">Blog</h1>
-    {nav?.description && <p class="text-cream-dark text-lg">{nav.description}</p>}
-  </div>
+  <PageIntro title="Blog" description={nav?.description} />
 
   {posts.length === 0 ? (
     <p class="text-muted font-mono">No posts yet. Check back soon!</p>

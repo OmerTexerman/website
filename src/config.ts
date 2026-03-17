@@ -1,3 +1,5 @@
+import { siteOrigin } from "../site.config.mjs";
+
 /**
  * Site-wide configuration — edit this file to update links, metadata,
  * social profiles, and navigation across the entire site.
@@ -12,7 +14,7 @@ export const site = {
 	initials: "OT",
 	description:
 		"Full Stack Developer — explore my interactive 3D desk to discover blog posts, projects, reading list, and photos.",
-	url: "https://omer.texerman.com",
+	url: siteOrigin,
 };
 
 /**
@@ -39,22 +41,22 @@ export const navItems: {
 	{
 		label: "Blog",
 		href: "/blog",
-		description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+		description: "Notes on building software, shipping products, and learning in public.",
 	},
 	{
 		label: "Projects",
 		href: "/projects",
-		description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+		description: "Selected work spanning web apps, experiments, and production systems.",
 	},
 	{
 		label: "Reading",
 		href: "/reading",
-		description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+		description: "Books I am reading, finished recently, or want to pick up next.",
 	},
 	{
 		label: "Photos",
 		href: "/photos",
-		description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+		description: "A small photo journal of places, light, and moments worth keeping.",
 	},
 ];
 

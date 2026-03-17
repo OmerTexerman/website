@@ -71,36 +71,8 @@ export const pcbMaterial = new MeshStandardMaterial({
 	metalness: 0.1,
 });
 
-// Shelf wall materials
-export const plasterMaterial = new MeshStandardMaterial({
-	color: new Color("#2a2520"),
-	roughness: 0.95,
-	metalness: 0.0,
-});
-
 export const shelfWoodMaterial = new MeshStandardMaterial({
 	color: new Color("#4a3520"),
 	roughness: 0.85,
 	metalness: 0.0,
 });
-
-const allSharedMaterials = [
-	woodMaterial,
-	darkWoodMaterial,
-	paperMaterial,
-	metalMaterial,
-	darkMetalMaterial,
-	screenMaterial,
-	accentMaterial,
-	corkMaterial,
-	ceramicMaterial,
-	pcbMaterial,
-	plasterMaterial,
-	shelfWoodMaterial,
-];
-
-export function disposeMaterials(): void {
-	for (const mat of allSharedMaterials) {
-		mat.dispose();
-	}
-}

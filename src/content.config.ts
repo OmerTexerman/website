@@ -2,6 +2,9 @@ import { defineCollection } from "astro:content";
 import { file, glob } from "astro/loaders";
 import { z } from "astro/zod";
 
+const hexColor = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
+const photoSource = /^(?:\/|https?:\/\/).+/i;
+
 const blog = defineCollection({
 	loader: glob({ pattern: "**/*.md", base: "./src/content/blog" }),
 	schema: z.object({
@@ -31,7 +34,7 @@ const books = defineCollection({
 	schema: z.object({
 		title: z.string(),
 		author: z.string(),
-		spineColor: z.string().default("#2a4a6a"),
+		spineColor: z.string().regex(hexColor).default("#2a4a6a"),
 		status: z.enum(["reading", "finished", "want-to-read"]),
 		url: z.string().url().optional(),
 	}),
@@ -40,7 +43,7 @@ const books = defineCollection({
 const photos = defineCollection({
 	loader: file("./src/content/photos/gallery.yaml"),
 	schema: z.object({
-		src: z.string(),
+		src: z.string().regex(photoSource, "Photo src must be an absolute path or URL."),
 		alt: z.string(),
 		caption: z.string().optional(),
 	}),

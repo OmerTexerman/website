@@ -16,6 +16,7 @@ const pathname = Astro.url.pathname;
         <li>
           <a
             href={href}
+            aria-current={pathname.startsWith(href) ? "page" : undefined}
             class:list={[
               "font-mono text-xs sm:text-sm transition-colors",
               pathname.startsWith(href)

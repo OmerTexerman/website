@@ -81,24 +81,3 @@ export function setupShelfLighting(roomGroup: Group): void {
 	bottomFill.position.set(SHELF_WALL_X - 1.0, SHELF_BOT_Y + 0.75, SHELF_WALL_Z + 0.9);
 	roomGroup.add(bottomFill);
 }
-
-/** Legacy: original setupLighting for backward compatibility during refactor */
-export function setupLighting(scene: Scene): void {
-	const hemi = new HemisphereLight(new Color("#e8e4e0"), new Color("#6a5a4a"), 1.5);
-	scene.add(hemi);
-
-	const ambient = new AmbientLight(new Color("#a0a0a0"), 2.5);
-	scene.add(ambient);
-
-	const roomFill = new PointLight(new Color("#ffe8cc"), 2.0, 30, 1.0);
-	roomFill.position.set(0, 6, 2);
-	scene.add(roomFill);
-
-	const frontFill = new PointLight(new Color("#e0d8d0"), 1.0, 20, 1.5);
-	frontFill.position.set(-3, 4, 5);
-	scene.add(frontFill);
-
-	const safelight = new PointLight(new Color("#c4453a"), 0.2, 12, 2);
-	safelight.position.set(3, 2.5, -1);
-	scene.add(safelight);
-}

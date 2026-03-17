@@ -2,8 +2,6 @@ import {
 	Color,
 	FogExp2,
 	Group,
-	type Material,
-	Mesh,
 	type Object3D,
 	Scene,
 	Vector2,
@@ -43,6 +41,7 @@ import {
 	MOBILE_POS,
 } from "./camera";
 import { createDesk } from "./desk";
+import { disposeObjectResources } from "./disposal";
 import { addStaticObstacle, disposePhysics, setupDrag, tickPhysics } from "./drag";
 import { addHitbox } from "./hitbox";
 import { type DeskInteraction, setupInteraction } from "./interaction";
@@ -53,7 +52,6 @@ import {
 	setupSceneLighting,
 	setupShelfLighting,
 } from "./lighting";
-import { disposeMaterials } from "./materials";
 import { createBookStack } from "./objects/book-stack";
 import { createCircuitBoard } from "./objects/circuit-board";
 import { createDeskLamp, toggleLamp } from "./objects/desk-lamp";
@@ -112,12 +110,12 @@ const CLOSE_ANIMATIONS: Record<string, (obj: Object3D) => Promise<void>> = {
 interface DeskModal {
 	open: (label: string, href: string) => void;
 	close: () => void;
-	onClose: (cb: () => void) => void;
+	onClose: (cb: () => void) => () => void;
 }
 
 function getModal(): DeskModal | null {
-	if (typeof window !== "undefined" && "__deskModal" in window) {
-		return (window as Window & { __deskModal: DeskModal }).__deskModal;
+	if (typeof window !== "undefined" && "__contentModal" in window) {
+		return (window as Window & { __contentModal: DeskModal }).__contentModal;
 	}
 	return null;
 }
@@ -245,6 +243,11 @@ export function initUnifiedScene(
 	let mobilePointerId: number | null = null;
 	let mobilePointerLastX = 0;
 	let mobilePointerLastY = 0;
+	let cleanupModalClose: (() => void) | null = null;
+	let disposed = false;
+	let pendingModalTimeout = 0;
+	let transitionAnimationId = 0;
+	let postTransitionRaf = 0;
 
 	// Wall state — lazily created
 	let deskCreated = false;
@@ -547,6 +550,8 @@ export function initUnifiedScene(
 			cleanupMobileShelfControls();
 			cleanupMobileShelfControls = null;
 		}
+		cleanupModalClose?.();
+		cleanupModalClose = null;
 		currentHover = null;
 		openObject = null;
 
@@ -603,7 +608,10 @@ export function initUnifiedScene(
 					openObject = { label, object };
 					OPEN_ANIMATIONS[label]?.(object);
 
-					setTimeout(() => {
+					if (pendingModalTimeout) window.clearTimeout(pendingModalTimeout);
+					pendingModalTimeout = window.setTimeout(() => {
+						pendingModalTimeout = 0;
+						if (disposed) return;
 						const modal = getModal();
 						if (modal) modal.open(label, href);
 						else window.location.href = href;
@@ -658,17 +666,18 @@ export function initUnifiedScene(
 
 		// Modal close handler
 		const modal = getModal();
-		modal?.onClose(() => {
-			if (!openObject) return;
-			if (currentMode === "desktop") {
-				CLOSE_ANIMATIONS[openObject.label]?.(openObject.object);
-			} else if (shelfData) {
-				const idx = shelfData.tapTargets.indexOf(openObject.object);
-				if (idx >= 0) animateShelfReset(shelfData.shelfItems[idx]);
-			}
-			openObject = null;
-			dirty = true;
-		});
+		cleanupModalClose =
+			modal?.onClose(() => {
+				if (!openObject) return;
+				if (currentMode === "desktop") {
+					CLOSE_ANIMATIONS[openObject.label]?.(openObject.object);
+				} else if (shelfData) {
+					const idx = shelfData.tapTargets.indexOf(openObject.object);
+					if (idx >= 0) animateShelfReset(shelfData.shelfItems[idx]);
+				}
+				openObject = null;
+				dirty = true;
+			}) ?? null;
 	}
 
 	// ─── Initial setup ───────────────────────────────────────────
@@ -782,6 +791,8 @@ export function initUnifiedScene(
 	animationId = requestAnimationFrame(render);
 
 	// ─── Resize handler ──────────────────────────────────────────
+	let resizeFrame = 0;
+
 	function handleResize(): void {
 		const { width, height } = getCanvasSize();
 		if (width === lastCanvasWidth && height === lastCanvasHeight) return;
@@ -798,17 +809,23 @@ export function initUnifiedScene(
 		dirty = true;
 	}
 
+	function scheduleResize(): void {
+		if (resizeFrame) return;
+		resizeFrame = requestAnimationFrame(() => {
+			resizeFrame = 0;
+			if (disposed) return;
+			handleResize();
+		});
+	}
+
 	const resizeObserver =
 		typeof ResizeObserver !== "undefined"
 			? new ResizeObserver(() => {
-					handleResize();
+					scheduleResize();
 				})
 			: null;
-	resizeObserver?.observe(canvas);
 	if (canvas.parentElement) resizeObserver?.observe(canvas.parentElement);
-
-	window.addEventListener("resize", handleResize);
-	window.visualViewport?.addEventListener("resize", handleResize);
+	else resizeObserver?.observe(canvas);
 
 	// ─── Transition ──────────────────────────────────────────────
 	let transitionPromise: Promise<void> | null = null;
@@ -890,6 +907,11 @@ export function initUnifiedScene(
 					: TRANSITION_DURATION;
 
 			function tick(): void {
+				if (disposed) {
+					resolve();
+					return;
+				}
+
 				const now = performance.now();
 				const elapsed = now - transitionStart;
 				const t = Math.min(elapsed / transitionDuration, 1);
@@ -927,13 +949,14 @@ export function initUnifiedScene(
 				dirty = true;
 
 				if (t < 1) {
-					requestAnimationFrame(tick);
+					transitionAnimationId = requestAnimationFrame(tick);
 				} else {
+					transitionAnimationId = 0;
 					resolve();
 				}
 			}
 
-			requestAnimationFrame(tick);
+			transitionAnimationId = requestAnimationFrame(tick);
 		});
 
 		// Settle into target mode
@@ -949,7 +972,9 @@ export function initUnifiedScene(
 			mobileShelfCurrentT = 0.5;
 			mobileShelfTargetT = 0.5;
 			syncMobileShelfCamera(mobileShelfCurrentT);
-			requestAnimationFrame(() => {
+			postTransitionRaf = requestAnimationFrame(() => {
+				postTransitionRaf = 0;
+				if (disposed) return;
 				if (currentMode === "mobile" && !transitioning) {
 					syncMobileShelfCamera(mobileShelfCurrentT);
 					dirty = true;
@@ -970,29 +995,22 @@ export function initUnifiedScene(
 
 	// ─── Cleanup ─────────────────────────────────────────────────
 	function cleanup(): void {
-		window.removeEventListener("resize", handleResize);
-		window.visualViewport?.removeEventListener("resize", handleResize);
+		disposed = true;
 		resizeObserver?.disconnect();
 		cancelAnimationFrame(animationId);
+		if (resizeFrame) cancelAnimationFrame(resizeFrame);
+		if (transitionAnimationId) cancelAnimationFrame(transitionAnimationId);
+		if (postTransitionRaf) cancelAnimationFrame(postTransitionRaf);
+		if (pendingModalTimeout) window.clearTimeout(pendingModalTimeout);
 		if (cleanupInteraction) cleanupInteraction();
 		if (cleanupDrag) cleanupDrag();
 		if (cleanupMobileShelfControls) cleanupMobileShelfControls();
+		cleanupModalClose?.();
 		disposeLabels();
-
-		scene.traverse((child) => {
-			if (child instanceof Mesh) {
-				child.geometry.dispose();
-				if (Array.isArray(child.material)) {
-					for (const m of child.material as Material[]) m.dispose();
-				} else {
-					(child.material as Material).dispose();
-				}
-			}
-		});
+		disposeObjectResources(scene);
 
 		disposeAnimations();
 		disposePhysics();
-		disposeMaterials();
 		renderer.dispose();
 	}
 

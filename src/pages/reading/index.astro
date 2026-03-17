@@ -1,6 +1,7 @@
 ---
 import ContentPage from "../../layouts/ContentPage.astro";
 import BookCard from "../../components/BookCard.astro";
+import PageIntro from "../../components/PageIntro.astro";
 import { getCollection } from "astro:content";
 import { site, navItems } from "../../config";
 
@@ -19,10 +20,7 @@ const sections = [
 ---
 
 <ContentPage title={`Reading | ${site.name}`} description={nav?.description}>
-  <div class="mb-10" data-animate>
-    <h1 class="font-display text-4xl sm:text-5xl font-bold tracking-tight mb-3 text-cream">Reading</h1>
-    {nav?.description && <p class="text-cream-dark text-lg">{nav.description}</p>}
-  </div>
+  <PageIntro title="Reading" description={nav?.description} />
 
   {sections.map((section, si) => (
     <div class={si > 0 ? "mt-10" : ""} data-animate style={`transition-delay: ${si * 0.15}s`}>

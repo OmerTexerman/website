@@ -54,6 +54,8 @@ export function tickAnimations(now: number): boolean {
 
 export function disposeAnimations(): void {
 	active = [];
+	restValues.clear();
+	flyingPhotoData = null;
 }
 
 // ─── Rest-pose storage: one value per animated property ─────────

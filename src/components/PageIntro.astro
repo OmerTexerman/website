@@ -1,0 +1,16 @@
+---
+interface Props {
+	title: string;
+	description?: string;
+	delay?: number;
+}
+
+const { title, description, delay = 0 } = Astro.props;
+---
+
+<div class="mb-10" data-animate style={`transition-delay: ${delay}s`}>
+	<h1 class="font-display text-4xl sm:text-5xl font-bold tracking-tight mb-3 text-cream">
+		{title}
+	</h1>
+	{description && <p class="text-cream-dark text-lg">{description}</p>}
+</div>

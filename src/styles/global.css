@@ -49,15 +49,45 @@ body {
 
 /* Scroll-triggered animations */
 [data-animate] {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+html[data-reveal="ready"] [data-animate] {
   opacity: 0;
   transform: translateY(1.5rem);
   transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
-              transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+    transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 [data-animate].is-visible {
   opacity: 1;
   transform: translateY(0);
+}
+
+:where(a, button, summary, [role="button"], input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
+#scene-fallback {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+html[data-scene-fallback="visible"] #scene-fallback {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+html[data-scene-fallback="visible"] #scene-fallback > * {
+  pointer-events: auto;
+}
+
+html[data-scene-ready="true"] #scene-fallback {
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* Content card surface — dark room panel */
@@ -78,4 +108,25 @@ body {
 
 .no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  html[data-reveal="ready"] [data-animate],
+  [data-animate],
+  [data-animate].is-visible,
+  #scene-fallback {
+    opacity: 1;
+    transform: none;
+  }
 }
