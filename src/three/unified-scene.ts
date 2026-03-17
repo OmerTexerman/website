@@ -229,6 +229,8 @@ export function initUnifiedScene(
 	let cleanupInteraction: (() => void) | null = null;
 	let cleanupDrag: (() => void) | null = null;
 	let cleanupMobileShelfControls: (() => void) | null = null;
+	let lastCanvasWidth = initialSize.width;
+	let lastCanvasHeight = initialSize.height;
 	const microInteractions = new Map<Object3D, () => void>();
 
 	function syncMobileShelfCamera(t: number): void {
@@ -617,8 +619,13 @@ export function initUnifiedScene(
 	animationId = requestAnimationFrame(render);
 
 	// ─── Resize handler ──────────────────────────────────────────
-	function handleResize(): void {
+	function handleResize(force = false): void {
 		const { width, height } = getCanvasSize();
+		if (!force && width === lastCanvasWidth && height === lastCanvasHeight) return;
+
+		lastCanvasWidth = width;
+		lastCanvasHeight = height;
+
 		applyRenderSettings(currentMode);
 		renderer.setSize(width, height, false);
 		composer.setSize(width, height);
@@ -628,6 +635,15 @@ export function initUnifiedScene(
 		if (currentMode === "mobile" && !transitioning) syncMobileShelfCamera(mobileShelfCurrentT);
 		dirty = true;
 	}
+
+	const resizeObserver =
+		typeof ResizeObserver !== "undefined"
+			? new ResizeObserver(() => {
+					handleResize();
+				})
+			: null;
+	resizeObserver?.observe(canvas);
+	if (canvas.parentElement) resizeObserver?.observe(canvas.parentElement);
 
 	window.addEventListener("resize", handleResize);
 	window.visualViewport?.addEventListener("resize", handleResize);
@@ -781,6 +797,7 @@ export function initUnifiedScene(
 
 		// Re-setup interactions for new mode
 		setupModeInteractions();
+		handleResize(true);
 		dirty = true;
 	}
 
@@ -788,6 +805,7 @@ export function initUnifiedScene(
 	function cleanup(): void {
 		window.removeEventListener("resize", handleResize);
 		window.visualViewport?.removeEventListener("resize", handleResize);
+		resizeObserver?.disconnect();
 		cancelAnimationFrame(animationId);
 		if (cleanupInteraction) cleanupInteraction();
 		if (cleanupDrag) cleanupDrag();

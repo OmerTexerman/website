@@ -10,7 +10,7 @@ import { site, navItems } from "../config";
   description={site.description}
   fullscreen
 >
-  <div class="fixed inset-0 w-screen h-dvh min-h-screen overflow-hidden bg-dark">
+  <div class="fixed inset-0 h-dvh min-h-screen overflow-hidden bg-dark">
     <SceneCanvas />
     <ContentModal />
 
@@ -61,9 +61,9 @@ import { site, navItems } from "../config";
       activeMode = mode;
     }
 
-    function queueModeSync(mode: "desktop" | "mobile") {
+    function queueModeSync() {
       transitionQueue = transitionQueue
-        .then(() => applyMode(mode))
+        .then(() => applyMode(modeFromWidth()))
         .catch((error) => {
           console.error("Failed to update scene mode", error);
         });
@@ -76,11 +76,12 @@ import { site, navItems } from "../config";
       }
       activeMode = null;
       window.removeEventListener("resize", onResize);
+      window.visualViewport?.removeEventListener("resize", onResize);
       mql.removeEventListener("change", onMediaChange);
     }
 
     function onMediaChange() {
-      queueModeSync(modeFromWidth());
+      queueModeSync();
     }
 
     let resizeRaf = 0;
@@ -88,7 +89,7 @@ import { site, navItems } from "../config";
       if (resizeRaf) cancelAnimationFrame(resizeRaf);
       resizeRaf = requestAnimationFrame(() => {
         resizeRaf = 0;
-        queueModeSync(modeFromWidth());
+        queueModeSync();
       });
     }
 
@@ -98,6 +99,7 @@ import { site, navItems } from "../config";
     const mql = window.matchMedia("(min-width: 768px)");
     mql.addEventListener("change", onMediaChange);
     window.addEventListener("resize", onResize, { passive: true });
-    queueModeSync(modeFromWidth());
+    window.visualViewport?.addEventListener("resize", onResize, { passive: true });
+    queueModeSync();
   </script>
 </BaseLayout>
