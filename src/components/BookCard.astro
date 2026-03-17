@@ -14,7 +14,7 @@ const { title, author, spineColor, url } = Astro.props;
   <div class="w-3 h-14 rounded-sm shrink-0" style={`background-color: ${spineColor}`}></div>
   <div class="flex-1 min-w-0">
     {url ? (
-      <a href={url} target="_blank" rel="noopener" class="font-display text-lg font-bold text-dark hover:text-accent transition-colors block truncate">
+      <a href={url} target="_blank" rel="noopener noreferrer" class="font-display text-lg font-bold text-dark hover:text-accent transition-colors block truncate">
         {title}
       </a>
     ) : (

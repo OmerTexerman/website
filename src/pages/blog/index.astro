@@ -1,13 +1,11 @@
 ---
 import ContentPage from "../../layouts/ContentPage.astro";
 import BlogCard from "../../components/BlogCard.astro";
-import { getCollection } from "astro:content";
 import { site, navItems } from "../../config";
+import { getPublishedPosts } from "../../utils";
 
 const nav = navItems.find((n) => n.href === "/blog");
-const posts = (await getCollection("blog"))
-  .filter((post) => !post.data.draft)
-  .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
+const posts = await getPublishedPosts();
 ---
 
 <ContentPage title={`Blog | ${site.name}`} description={nav?.description}>

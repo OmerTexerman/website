@@ -22,7 +22,6 @@ const projects = defineCollection({
 		tech: z.array(z.string()),
 		url: z.string().url().optional(),
 		repo: z.string().url().optional(),
-		featured: z.boolean().default(false),
 		order: z.number().default(0),
 	}),
 });
@@ -44,7 +43,6 @@ const photos = defineCollection({
 		src: z.string(),
 		alt: z.string(),
 		caption: z.string().optional(),
-		featured: z.boolean().default(false),
 	}),
 });
 

@@ -1,0 +1,16 @@
+---
+import { getCollection } from "astro:content";
+
+const allBooks = await getCollection("books");
+const recentBooks = allBooks
+  .filter((b) => b.data.status === "reading" || b.data.status === "finished")
+  .slice(0, 3)
+  .map((b) => ({ title: b.data.title, spineColor: b.data.spineColor }));
+---
+
+<div id="vending-scene" class="absolute inset-0" style="display:none"
+  data-books={JSON.stringify(recentBooks)}
+>
+  <canvas id="vending-canvas" class="absolute inset-0 w-full h-full"></canvas>
+  <div id="vending-labels" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
+</div>

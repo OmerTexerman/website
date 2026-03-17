@@ -3,18 +3,24 @@ import {
 	Color,
 	CylinderGeometry,
 	Group,
+	type Light,
 	Mesh,
 	MeshStandardMaterial,
-	PointLight,
+	Object3D,
 	SphereGeometry,
+	SpotLight,
 } from "three";
 import { metalMaterial } from "../materials";
 
 /** Desk lamp — built hierarchically so parts stay connected.
  *  base → armPivot → arm + headPivot → shade (conical) + bulb + light
+ *
+ *  Uses a SpotLight aimed at the desk surface for a realistic cone of light.
+ *  The lamp is clickable — toggling it on/off is a micro-interaction.
  */
 export function createDeskLamp(): Group {
 	const lamp = new Group();
+	lamp.userData = { interactive: true, lampOn: true };
 
 	// ── Base disc ──
 	const baseGeo = new CylinderGeometry(0.18, 0.2, 0.04, 16);
@@ -42,44 +48,38 @@ export function createDeskLamp(): Group {
 	headPivot.rotation.x = 0.6;
 	armPivot.add(headPivot);
 
-	// Shade — clearly conical (wide bottom, narrow top, open bottom)
+	// Shade
 	const shadeMat = new MeshStandardMaterial({
 		color: new Color("#3a3a3a"),
 		roughness: 0.8,
 		metalness: 0.3,
 	});
-	// Top-closed cone: small top radius, larger bottom, reasonable height
 	const shadeGeo = new CylinderGeometry(0.03, 0.16, 0.14, 12);
 	const shade = new Mesh(shadeGeo, shadeMat);
 	shade.position.set(0, -0.04, 0);
 	shade.castShadow = true;
 	headPivot.add(shade);
 
-	// Inner glow disc at the bottom opening (faces down)
-	const innerGlowMat = new MeshStandardMaterial({
+	// Warm glow material for inner surfaces
+	const glowMat = new MeshStandardMaterial({
 		color: new Color("#ffcc88"),
 		emissive: new Color("#ffcc88"),
 		emissiveIntensity: 1.5,
 	});
-	const innerGlowGeo = new CircleGeometry(0.15, 12);
-	const innerGlow = new Mesh(innerGlowGeo, innerGlowMat);
+
+	// Inner glow disc at the bottom opening
+	const innerGlow = new Mesh(new CircleGeometry(0.15, 12), glowMat);
 	innerGlow.position.set(0, -0.11, 0);
 	innerGlow.rotation.x = Math.PI / 2;
 	headPivot.add(innerGlow);
 
-	// Tiny bulb inside
-	const bulbMat = new MeshStandardMaterial({
-		color: new Color("#ffcc88"),
-		emissive: new Color("#ffcc88"),
-		emissiveIntensity: 1.5,
-	});
-	const bulbGeo = new SphereGeometry(0.02, 6, 6);
-	const bulb = new Mesh(bulbGeo, bulbMat);
+	// Tiny bulb
+	const bulb = new Mesh(new SphereGeometry(0.02, 6, 6), glowMat);
 	bulb.position.set(0, -0.06, 0);
 	headPivot.add(bulb);
 
-	// Point light
-	const light = new PointLight(new Color("#ffcc88"), 3.0, 12, 1.5);
+	// SpotLight — wide cone aimed at the desk center
+	const light = new SpotLight(new Color("#ffcc88"), 6.0, 10, Math.PI / 3, 0.6, 1.2);
 	light.position.set(0, -0.12, 0);
 	light.castShadow = true;
 	light.shadow.mapSize.width = 1024;
@@ -87,7 +87,29 @@ export function createDeskLamp(): Group {
 	light.shadow.radius = 4;
 	headPivot.add(light);
 
+	// Target toward desk center (lamp is at x=1.8, so aim left and forward)
+	const lightTarget = new Object3D();
+	lightTarget.position.set(-1.0, 0, 0.8);
+	lamp.add(lightTarget);
+	light.target = lightTarget;
+
+	// Store references for toggling
+	lamp.userData.lightParts = { light, glowMat };
+
 	lamp.position.set(1.8, 0.12, -0.8);
 
 	return lamp;
+}
+
+export function toggleLamp(lamp: Group): boolean {
+	const on = !lamp.userData.lampOn;
+	lamp.userData.lampOn = on;
+	const { light, glowMat } = lamp.userData.lightParts as {
+		light: Light;
+		glowMat: MeshStandardMaterial;
+	};
+	light.intensity = on ? 5.0 : 0;
+	glowMat.emissiveIntensity = on ? 1.5 : 0;
+	glowMat.color.set(on ? "#ffcc88" : "#222222");
+	return on;
 }

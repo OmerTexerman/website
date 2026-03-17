@@ -1,7 +1,9 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import ContentModal from "../components/ContentModal.astro";
 import DeskScene from "../components/DeskScene.astro";
-import { site } from "../config";
+import VendingScene from "../components/VendingScene.astro";
+import { site, navItems } from "../config";
 ---
 
 <BaseLayout
@@ -9,5 +11,81 @@ import { site } from "../config";
   description={site.description}
   fullscreen
 >
-  <DeskScene />
+  <div class="relative w-full h-screen bg-dark">
+    <DeskScene />
+    <VendingScene />
+    <ContentModal />
+
+    <!-- Accessibility: skip to nav + hidden text nav -->
+    <a
+      href="#text-nav"
+      class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-dark-surface focus:text-cream focus:px-4 focus:py-2 focus:rounded-lg focus:border focus:border-white/20 focus:font-mono focus:text-sm"
+    >
+      Skip to navigation
+    </a>
+    <nav id="text-nav" class="sr-only focus-within:not-sr-only focus-within:absolute focus-within:bottom-8 focus-within:left-1/2 focus-within:-translate-x-1/2 focus-within:z-50 focus-within:bg-dark-surface/95 focus-within:backdrop-blur-sm focus-within:rounded-xl focus-within:border focus-within:border-white/10 focus-within:p-4" aria-label="Site navigation">
+      <ul class="flex gap-6 font-mono text-sm">
+        {navItems.map(({ href, label }) => (
+          <li><a href={href} class="text-cream hover:text-accent transition-colors">{label}</a></li>
+        ))}
+      </ul>
+    </nav>
+  </div>
+
+  <!-- Scene switcher -->
+  <script>
+    const SECTIONS = [
+      { label: "Blog", href: "/blog" },
+      { label: "Projects", href: "/projects" },
+      { label: "Reading", href: "/reading" },
+      { label: "Photos", href: "/photos" },
+    ];
+
+    let activeCleanup: (() => void) | null = null;
+    let activeMode: "mobile" | "desktop" | null = null;
+
+    async function boot(mode: "mobile" | "desktop") {
+      if (mode === activeMode) return;
+
+      // Tear down current scene
+      if (activeCleanup) {
+        activeCleanup();
+        activeCleanup = null;
+      }
+      activeMode = mode;
+
+      if (mode === "mobile") {
+        // Hide desk, show vending
+        document.getElementById("desk-scene")!.style.display = "none";
+        const vendingScene = document.getElementById("vending-scene")!;
+        vendingScene.style.display = "block";
+        const canvas = document.getElementById("vending-canvas") as HTMLCanvasElement;
+        const labels = document.getElementById("vending-labels") as HTMLElement;
+        const booksJson = vendingScene.getAttribute("data-books");
+        const books = booksJson ? JSON.parse(booksJson) : undefined;
+        const { initMobileScene } = await import("../three/mobile-scene");
+        activeCleanup = initMobileScene(canvas, SECTIONS, labels, books);
+      } else {
+        // Hide vending, show desk
+        document.getElementById("vending-scene")!.style.display = "none";
+        const deskScene = document.getElementById("desk-scene")!;
+        deskScene.style.display = "block";
+        const canvas = document.getElementById("desk-canvas") as HTMLCanvasElement;
+        const labels = document.getElementById("desk-labels") as HTMLElement;
+        const { initDeskScene } = await import("../three/scene");
+        activeCleanup = initDeskScene(canvas, labels);
+      }
+    }
+
+    function cleanup() {
+      if (activeCleanup) { activeCleanup(); activeCleanup = null; activeMode = null; }
+    }
+
+    document.addEventListener("astro:before-preparation", cleanup, { once: true });
+    window.addEventListener("beforeunload", cleanup, { once: true });
+
+    const mql = window.matchMedia("(min-width: 768px)");
+    mql.addEventListener("change", (e) => boot(e.matches ? "desktop" : "mobile"));
+    boot(mql.matches ? "desktop" : "mobile");
+  </script>
 </BaseLayout>

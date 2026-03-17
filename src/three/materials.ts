@@ -25,11 +25,17 @@ export const metalMaterial = new MeshStandardMaterial({
 });
 
 export const screenMaterial = new MeshStandardMaterial({
-	color: new Color("#3a5a7a"),
-	emissive: new Color("#4a6a8a"),
-	emissiveIntensity: 1.8,
+	color: new Color("#4a7aaa"),
+	emissive: new Color("#5a8aba"),
+	emissiveIntensity: 2.5,
 	roughness: 0.05,
 	metalness: 0.1,
+});
+
+export const darkMetalMaterial = new MeshStandardMaterial({
+	color: new Color("#2a2a2a"),
+	roughness: 0.3,
+	metalness: 0.8,
 });
 
 export const accentMaterial = new MeshStandardMaterial({
@@ -65,16 +71,35 @@ export const pcbMaterial = new MeshStandardMaterial({
 	metalness: 0.1,
 });
 
+// Vending machine materials
+export const glassMaterial = new MeshPhysicalMaterial({
+	color: new Color("#c8dce8"),
+	roughness: 0.05,
+	metalness: 0.1,
+	transparent: true,
+	opacity: 0.25,
+	clearcoat: 1.0,
+});
+
+export const brushedMetalMaterial = new MeshStandardMaterial({
+	color: new Color("#6a6a72"),
+	roughness: 0.45,
+	metalness: 0.7,
+});
+
 const allSharedMaterials = [
 	woodMaterial,
 	darkWoodMaterial,
 	paperMaterial,
 	metalMaterial,
+	darkMetalMaterial,
 	screenMaterial,
 	accentMaterial,
 	corkMaterial,
 	ceramicMaterial,
 	pcbMaterial,
+	glassMaterial,
+	brushedMetalMaterial,
 ];
 
 export function disposeMaterials(): void {

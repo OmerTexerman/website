@@ -27,7 +27,7 @@ const { photos } = Astro.props;
       />
       {photo.caption && (
         <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
-          <p class="text-cream text-sm font-handwritten text-lg">{photo.caption}</p>
+          <p class="text-cream text-sm">{photo.caption}</p>
         </div>
       )}
     </button>
@@ -39,7 +39,7 @@ const { photos } = Astro.props;
   <div class="flex items-center justify-center w-full h-full p-8">
     <button class="absolute top-4 right-4 text-cream/80 hover:text-cream text-3xl font-light z-10" id="lightbox-close" aria-label="Close lightbox">&times;</button>
     <img id="lightbox-img" src="" alt="" class="max-w-full max-h-full object-contain rounded-lg" />
-    <p id="lightbox-caption" class="absolute bottom-8 left-1/2 -translate-x-1/2 text-cream font-handwritten text-xl text-center"></p>
+    <p id="lightbox-caption" class="absolute bottom-8 left-1/2 -translate-x-1/2 text-cream text-base text-center"></p>
   </div>
 </dialog>
 

@@ -3,7 +3,6 @@ title: "Lorem Ipsum Project"
 description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
 tech: ["Astro", "Three.js", "TypeScript", "Tailwind CSS"]
 repo: "https://github.com/OmerTexerman/portfolio"
-featured: true
 order: 1
 ---
 

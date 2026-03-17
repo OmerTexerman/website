@@ -1,14 +1,12 @@
-import { getCollection } from "astro:content";
 import rss from "@astrojs/rss";
 import type { APIContext } from "astro";
 import { navItems, site } from "../config";
+import { getPublishedPosts } from "../utils";
 
 const blogNav = navItems.find((n) => n.href === "/blog");
 
 export async function GET(context: APIContext) {
-	const posts = (await getCollection("blog"))
-		.filter((post) => !post.data.draft)
-		.sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
+	const posts = await getPublishedPosts();
 
 	return rss({
 		title: `${site.name}'s Blog`,

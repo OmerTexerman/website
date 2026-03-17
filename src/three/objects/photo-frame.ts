@@ -7,7 +7,7 @@ import {
 	MeshStandardMaterial,
 	PlaneGeometry,
 } from "three";
-import { corkMaterial } from "../materials";
+import { accentMaterial, corkMaterial } from "../materials";
 
 /** Photo frame / cork board → links to /photos */
 export function createPhotoFrame(): Group {
@@ -48,17 +48,15 @@ export function createPhotoFrame(): Group {
 	flyPhoto.userData = { flyPhoto: true };
 	frame.add(flyPhoto);
 
-	// Push pins (on the background photos only)
+	// Push pins
 	const pinGeo = new BoxGeometry(0.03, 0.03, 0.03);
-	const pinMat = new MeshStandardMaterial({ color: new Color("#c4453a") });
 	for (const p of bgPhotos) {
-		const pin = new Mesh(pinGeo, pinMat);
+		const pin = new Mesh(pinGeo, accentMaterial);
 		pin.position.set(p.x, p.y + 0.1, 0.04);
 		frame.add(pin);
 	}
 
-	// Pin for the fly photo
-	const flyPin = new Mesh(pinGeo, pinMat);
+	const flyPin = new Mesh(pinGeo, accentMaterial);
 	flyPin.position.set(0.12, 0.08, 0.04);
 	frame.add(flyPin);
 
