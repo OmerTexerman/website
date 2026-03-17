@@ -4,13 +4,25 @@
 
 <div id="desk-scene" class="relative w-full h-screen bg-dark">
   <!-- Three.js canvas -->
-  <canvas id="desk-canvas" class="absolute inset-0 w-full h-full"></canvas>
+  <canvas
+    id="desk-canvas"
+    class="absolute inset-0 h-full w-full"
+    tabindex="0"
+    aria-label="Interactive desk scene"
+  ></canvas>
 
   <!-- Label container (HTML overlays positioned over 3D objects) -->
   <div id="desk-labels" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
 
   <!-- Content modal overlay -->
-  <div id="desk-modal" class="fixed inset-0 z-50 pointer-events-none opacity-0 transition-opacity duration-300">
+  <div
+    id="desk-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-hidden="true"
+    aria-labelledby="desk-modal-title"
+    class="fixed inset-0 z-50 pointer-events-none opacity-0 transition-opacity duration-300"
+  >
     <!-- Backdrop -->
     <div id="desk-modal-backdrop" class="absolute inset-0 bg-dark/80 backdrop-blur-sm"></div>
     <!-- Content panel -->
@@ -44,6 +56,16 @@
     </div>
   </div>
 
+  <!-- Minimal scene controls -->
+  <div class="absolute right-4 top-4 z-20 flex items-center gap-2 rounded-xl border border-white/10 bg-dark-surface/80 px-3 py-2 text-cream shadow-lg backdrop-blur-sm">
+    <button id="ambient-cycle" class="rounded-md border border-white/15 px-2 py-1 font-mono text-xs text-cream/90 transition-colors hover:border-accent/70 hover:text-accent" type="button">
+      Ambient: <span id="ambient-label">Night</span>
+    </button>
+    <button id="sound-toggle" class="rounded-md border border-white/15 px-2 py-1 font-mono text-xs text-cream/90 transition-colors hover:border-accent/70 hover:text-accent" aria-pressed="false" type="button">
+      Sound: Off
+    </button>
+  </div>
+
   <!-- Skip to navigation (accessibility) -->
   <a
     href="#text-nav"
@@ -71,21 +93,59 @@
   const link = document.getElementById("desk-modal-link") as HTMLAnchorElement;
   const closeBtn = document.getElementById("desk-modal-close")!;
   const backdrop = document.getElementById("desk-modal-backdrop")!;
+  const ambientButton = document.getElementById("ambient-cycle") as HTMLButtonElement | null;
+  const ambientLabel = document.getElementById("ambient-label") as HTMLSpanElement | null;
+  const soundButton = document.getElementById("sound-toggle") as HTMLButtonElement | null;
+  const focusableSelector =
+    'a[href], button:not([disabled]), textarea, input, select, details, [tabindex]:not([tabindex="-1"])';
+  let lastFocusedElement: HTMLElement | null = null;
+  let inflightRequest: AbortController | null = null;
+
+  function isModalOpen() {
+    return modal.classList.contains("pointer-events-auto");
+  }
+
+  function trapFocus(e: KeyboardEvent) {
+    if (e.key !== "Tab" || !isModalOpen()) return;
+
+    const focusables = Array.from(modal.querySelectorAll<HTMLElement>(focusableSelector)).filter(
+      (el) => !el.hasAttribute("disabled") && el.offsetParent !== null,
+    );
+    if (focusables.length === 0) return;
+
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
 
   function openModal(label: string, href: string) {
+    inflightRequest?.abort();
+    inflightRequest = new AbortController();
+    lastFocusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
     title.textContent = label;
     link.href = href;
     body.innerHTML = `<div class="flex items-center justify-center py-12"><div class="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin"></div></div>`;
+    modal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("overflow-hidden");
 
     modal.classList.remove("pointer-events-none", "opacity-0");
     modal.classList.add("pointer-events-auto", "opacity-100");
     requestAnimationFrame(() => {
       panel.classList.remove("translate-y-full");
       panel.classList.add("translate-y-0");
+      closeBtn.focus();
     });
 
     // Fetch the page content
-    fetch(href)
+    fetch(href, { signal: inflightRequest.signal })
       .then(r => r.text())
       .then(html => {
         const doc = new DOMParser().parseFromString(html, "text/html");
@@ -101,7 +161,8 @@
           body.innerHTML = `<p class="text-muted text-center py-8">No content found. <a href="${href}" class="text-accent underline">Visit the page</a>.</p>`;
         }
       })
-      .catch(() => {
+      .catch((err: Error) => {
+        if (err.name === "AbortError") return;
         body.innerHTML = `<p class="text-muted text-center py-8">Could not load preview. <a href="${href}" class="text-accent underline">Visit the page</a>.</p>`;
       });
   }
@@ -109,12 +170,19 @@
   let closeCallbacks: (() => void)[] = [];
 
   function closeModal() {
+    if (!isModalOpen()) return;
+    inflightRequest?.abort();
+    inflightRequest = null;
     panel.classList.remove("translate-y-0");
     panel.classList.add("translate-y-full");
     for (const cb of closeCallbacks) cb();
+    modal.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("overflow-hidden");
+
     setTimeout(() => {
       modal.classList.remove("pointer-events-auto", "opacity-100");
       modal.classList.add("pointer-events-none", "opacity-0");
+      lastFocusedElement?.focus();
     }, 300);
   }
 
@@ -126,6 +194,28 @@
   backdrop.addEventListener("click", closeModal);
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closeModal();
+    trapFocus(e);
+  });
+
+
+  ambientButton?.addEventListener("click", () => {
+    window.dispatchEvent(new CustomEvent("desk:ambient-cycle"));
+  });
+
+  soundButton?.addEventListener("click", () => {
+    window.dispatchEvent(new CustomEvent("desk:sound-toggle"));
+  });
+
+  window.addEventListener("desk:ambient-changed", (e) => {
+    const custom = e as CustomEvent<{ name: string }>;
+    if (ambientLabel) ambientLabel.textContent = custom.detail.name;
+  });
+
+  window.addEventListener("desk:sound-changed", (e) => {
+    const custom = e as CustomEvent<{ enabled: boolean }>;
+    if (!soundButton) return;
+    soundButton.textContent = `Sound: ${custom.detail.enabled ? "On" : "Off"}`;
+    soundButton.setAttribute("aria-pressed", custom.detail.enabled ? "true" : "false");
   });
 
   // Expose to Three.js scene

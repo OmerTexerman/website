@@ -44,6 +44,12 @@ function collectInteractiveGroups(scene: Scene): Object3D[] {
 	return result;
 }
 
+function isTypingTarget(target: EventTarget | null): boolean {
+	if (!(target instanceof HTMLElement)) return false;
+	const tag = target.tagName;
+	return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable;
+}
+
 export function setupInteraction(
 	canvas: HTMLCanvasElement,
 	camera: Camera,
@@ -126,11 +132,14 @@ export function setupInteraction(
 		}
 	}
 
-	// Keyboard accessibility
+	// Keyboard accessibility, active only when canvas is focused
 	const interactiveList = collectInteractiveGroups(scene);
 	let focusIndex = -1;
 
 	function handleKeydown(e: KeyboardEvent): void {
+		if (document.activeElement !== canvas || isTypingTarget(e.target)) return;
+		if (interactiveList.length === 0) return;
+
 		if (e.key === "Tab") {
 			e.preventDefault();
 			focusIndex =
@@ -143,7 +152,8 @@ export function setupInteraction(
 			};
 			hovered = interaction;
 			onHover(interaction);
-		} else if (e.key === "Enter" && hovered) {
+		} else if ((e.key === "Enter" || e.key === " ") && hovered) {
+			e.preventDefault();
 			onClick(hovered);
 		}
 	}
