@@ -44,6 +44,10 @@ const CLOSE_ANIMATIONS: Record<string, (obj: Object3D) => Promise<void>> = {
 	Photos: animateFrameClose,
 };
 
+const HOVER_SCALE = 1.05;
+const HOVER_LERP = 0.16;
+const CLICK_COOLDOWN_MS = 420;
+
 interface DeskModal {
 	open: (label: string, href: string) => void;
 	close: () => void;
@@ -113,8 +117,11 @@ export function initDeskScene(canvas: HTMLCanvasElement, labelContainer: HTMLEle
 
 	let dirty = true;
 	let isDragging = false;
+	let introComplete = false;
 	let currentHover: DeskInteraction | null = null;
 	let openObject: { label: string; object: Object3D } | null = null;
+	let clickLockedUntil = 0;
+	const interactiveObjects = [notebook, laptop, bookStack, photoFrame];
 
 	const cleanupDrag = setupDrag(canvas, camera, scene, (dragging) => {
 		isDragging = dragging;
@@ -127,22 +134,17 @@ export function initDeskScene(canvas: HTMLCanvasElement, labelContainer: HTMLEle
 		scene,
 		(interaction) => {
 			if (isDragging) return;
-			// Reset previous hover scale
-			if (currentHover && currentHover.object !== interaction?.object) {
-				currentHover.object.scale.set(1, 1, 1);
-			}
-			// Apply hover scale
-			if (interaction) {
-				interaction.object.scale.set(1.05, 1.05, 1.05);
-			}
 			currentHover = interaction;
 			updateLabel(interaction, camera, canvas);
 			dirty = true;
 		},
 		(interaction) => {
-			if (isDragging) return;
+			if (isDragging || !introComplete) return;
+			if (performance.now() < clickLockedUntil) return;
 			// Don't re-trigger if already open
 			if (openObject?.label === interaction.label) return;
+
+			clickLockedUntil = performance.now() + CLICK_COOLDOWN_MS;
 
 			// Close previously open object first
 			if (openObject) {
@@ -193,7 +195,6 @@ export function initDeskScene(canvas: HTMLCanvasElement, labelContainer: HTMLEle
 	}
 
 	const startTime = performance.now();
-	let introComplete = false;
 	let animationId: number;
 	let lastFrame = 0;
 	const targetInterval = mobile ? 1000 / 30 : 0;
@@ -215,6 +216,13 @@ export function initDeskScene(canvas: HTMLCanvasElement, labelContainer: HTMLEle
 		}
 
 		idleFloat(camera, now);
+
+		for (const obj of interactiveObjects) {
+			const target = currentHover?.object === obj ? HOVER_SCALE : 1;
+			const next = obj.scale.x + (target - obj.scale.x) * HOVER_LERP;
+			if (Math.abs(next - obj.scale.x) > 0.0005) dirty = true;
+			obj.scale.setScalar(next);
+		}
 
 		if (dirty || currentHover) {
 			if (currentHover) updateLabel(currentHover, camera, canvas);

@@ -45,7 +45,7 @@ function collectDraggableMeshes(scene: Scene): Object3D[] {
 	const meshes: Object3D[] = [];
 	scene.traverse((child) => {
 		if (child.userData?.draggable) {
-			child.traverse((c) => meshes.push(c));
+			child.traverse((descendant) => meshes.push(descendant));
 		}
 	});
 	return meshes;
@@ -54,15 +54,13 @@ function collectDraggableMeshes(scene: Scene): Object3D[] {
 function collectDraggableGroups(scene: Scene): Object3D[] {
 	const groups: Object3D[] = [];
 	scene.traverse((child) => {
-		if (child.userData?.draggable) {
-			groups.push(child);
-		}
+		if (child.userData?.draggable) groups.push(child);
 	});
 	return groups;
 }
 
 function ensureBody(obj: Object3D, radius = 0.15): PhysicsBody {
-	let body = bodies.find((b) => b.obj === obj);
+	let body = bodies.find((entry) => entry.obj === obj);
 	if (!body) {
 		body = { obj, restY: obj.position.y, velocityY: 0, falling: false, radius };
 		bodies.push(body);
@@ -72,7 +70,6 @@ function ensureBody(obj: Object3D, radius = 0.15): PhysicsBody {
 
 /** Resolve collisions between dragged object and both dynamic bodies + static obstacles */
 function resolveCollisions(dragged: Object3D, dragRadius: number): void {
-	// Against other draggable bodies
 	for (const body of bodies) {
 		if (body.obj === dragged) continue;
 		const dx = body.obj.position.x - dragged.position.x;
@@ -97,12 +94,11 @@ function resolveCollisions(dragged: Object3D, dragRadius: number): void {
 		}
 	}
 
-	// Against static obstacles (interactive objects) — push the dragged object away
-	for (const obs of staticObstacles) {
-		const dx = dragged.position.x - obs.x;
-		const dz = dragged.position.z - obs.z;
+	for (const obstacle of staticObstacles) {
+		const dx = dragged.position.x - obstacle.x;
+		const dz = dragged.position.z - obstacle.z;
 		const dist = Math.sqrt(dx * dx + dz * dz);
-		const minDist = dragRadius + obs.radius;
+		const minDist = dragRadius + obstacle.radius;
 
 		if (dist < minDist && dist > 0.001) {
 			const pushForce = minDist - dist;
@@ -155,114 +151,94 @@ export function setupDrag(
 	let dragBody: PhysicsBody | null = null;
 
 	const dragPlane = new Plane(new Vector3(0, 1, 0), -DESK_Y);
+	const draggableGroups = collectDraggableGroups(scene);
+	const draggableMeshes = collectDraggableMeshes(scene);
 
-	for (const obj of collectDraggableGroups(scene)) {
+	for (const obj of draggableGroups) {
 		ensureBody(obj);
 	}
 
-	function updatePointer(e: MouseEvent | Touch): void {
+	function updatePointer(clientX: number, clientY: number): void {
 		const rect = canvas.getBoundingClientRect();
-		pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-		pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+		pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+		pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
 	}
 
-	function handlePointerDown(e: MouseEvent): void {
-		updatePointer(e);
+	function updateHoverCursor(clientX: number, clientY: number): void {
+		if (dragged) return;
+		updatePointer(clientX, clientY);
 		raycaster.setFromCamera(pointer, camera);
-
-		const meshes = collectDraggableMeshes(scene);
-		const hits = raycaster.intersectObjects(meshes, false);
-
-		if (hits.length > 0) {
-			const ancestor = getDraggableAncestor(hits[0].object);
-			if (ancestor) {
-				dragged = ancestor;
-				dragBody = ensureBody(ancestor);
-				dragBody.falling = false;
-				dragBody.velocityY = 0;
-
-				dragPlane.constant = -dragged.position.y;
-				raycaster.ray.intersectPlane(dragPlane, intersection);
-				offset.copy(dragged.position).sub(intersection);
-
-				canvas.style.cursor = "grabbing";
-				onDragChange(true);
-				e.preventDefault();
-			}
-		}
+		const hits = raycaster.intersectObjects(draggableMeshes, false);
+		const canDrag = hits.length > 0 && Boolean(getDraggableAncestor(hits[0].object));
+		canvas.style.cursor = canDrag ? "grab" : "default";
 	}
 
-	function handlePointerMove(e: MouseEvent): void {
+	function onPointerDown(e: PointerEvent): void {
+		updatePointer(e.clientX, e.clientY);
+		raycaster.setFromCamera(pointer, camera);
+		const hits = raycaster.intersectObjects(draggableMeshes, false);
+		if (hits.length === 0) return;
+
+		const ancestor = getDraggableAncestor(hits[0].object);
+		if (!ancestor) return;
+
+		dragged = ancestor;
+		dragBody = ensureBody(ancestor);
+		dragBody.falling = false;
+		dragBody.velocityY = 0;
+
+		dragPlane.constant = -dragged.position.y;
+		raycaster.ray.intersectPlane(dragPlane, intersection);
+		offset.copy(dragged.position).sub(intersection);
+
+		canvas.style.cursor = "grabbing";
+		onDragChange(true);
+		e.preventDefault();
+	}
+
+	function onPointerMove(e: PointerEvent): void {
 		if (!dragged || !dragBody) {
-			updatePointer(e);
-			raycaster.setFromCamera(pointer, camera);
-			const meshes = collectDraggableMeshes(scene);
-			const hits = raycaster.intersectObjects(meshes, false);
-			if (hits.length > 0 && getDraggableAncestor(hits[0].object)) {
-				canvas.style.cursor = "grab";
-			}
+			updateHoverCursor(e.clientX, e.clientY);
 			return;
 		}
 
-		updatePointer(e);
+		updatePointer(e.clientX, e.clientY);
 		raycaster.setFromCamera(pointer, camera);
 
 		dragPlane.constant = -(dragBody.restY + LIFT_HEIGHT);
 		raycaster.ray.intersectPlane(dragPlane, intersection);
 
-		const newX = Math.max(DESK_BOUNDS.minX, Math.min(DESK_BOUNDS.maxX, intersection.x + offset.x));
-		const newZ = Math.max(DESK_BOUNDS.minZ, Math.min(DESK_BOUNDS.maxZ, intersection.z + offset.z));
-
-		dragged.position.x = newX;
+		dragged.position.x = Math.max(
+			DESK_BOUNDS.minX,
+			Math.min(DESK_BOUNDS.maxX, intersection.x + offset.x),
+		);
 		dragged.position.y = dragBody.restY + LIFT_HEIGHT;
-		dragged.position.z = newZ;
+		dragged.position.z = Math.max(
+			DESK_BOUNDS.minZ,
+			Math.min(DESK_BOUNDS.maxZ, intersection.z + offset.z),
+		);
 
 		resolveCollisions(dragged, dragBody.radius);
 	}
 
-	function handlePointerUp(): void {
-		if (dragged && dragBody) {
-			dragBody.velocityY = 0;
-			dragBody.falling = true;
-
-			dragged = null;
-			dragBody = null;
-			canvas.style.cursor = "default";
-			onDragChange(false);
-		}
+	function releaseDragState(): void {
+		if (!dragged || !dragBody) return;
+		dragBody.velocityY = 0;
+		dragBody.falling = true;
+		dragged = null;
+		dragBody = null;
+		canvas.style.cursor = "default";
+		onDragChange(false);
 	}
 
-	function handleTouchStart(e: TouchEvent): void {
-		if (e.touches.length !== 1) return;
-		handlePointerDown({
-			clientX: e.touches[0].clientX,
-			clientY: e.touches[0].clientY,
-			preventDefault: () => e.preventDefault(),
-		} as MouseEvent);
-	}
-
-	function handleTouchMove(e: TouchEvent): void {
-		if (!dragged || e.touches.length !== 1) return;
-		e.preventDefault();
-		handlePointerMove({
-			clientX: e.touches[0].clientX,
-			clientY: e.touches[0].clientY,
-		} as MouseEvent);
-	}
-
-	canvas.addEventListener("mousedown", handlePointerDown);
-	canvas.addEventListener("mousemove", handlePointerMove);
-	window.addEventListener("mouseup", handlePointerUp);
-	canvas.addEventListener("touchstart", handleTouchStart, { passive: false });
-	canvas.addEventListener("touchmove", handleTouchMove, { passive: false });
-	canvas.addEventListener("touchend", handlePointerUp);
+	canvas.addEventListener("pointerdown", onPointerDown);
+	canvas.addEventListener("pointermove", onPointerMove, { passive: true });
+	window.addEventListener("pointerup", releaseDragState);
 
 	return () => {
-		canvas.removeEventListener("mousedown", handlePointerDown);
-		canvas.removeEventListener("mousemove", handlePointerMove);
-		window.removeEventListener("mouseup", handlePointerUp);
-		canvas.removeEventListener("touchstart", handleTouchStart);
-		canvas.removeEventListener("touchmove", handleTouchMove);
-		canvas.removeEventListener("touchend", handlePointerUp);
+		canvas.removeEventListener("pointerdown", onPointerDown);
+		canvas.removeEventListener("pointermove", onPointerMove);
+		window.removeEventListener("pointerup", releaseDragState);
+		canvas.style.cursor = "default";
 	};
 }
