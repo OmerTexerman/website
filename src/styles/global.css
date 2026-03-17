@@ -88,3 +88,12 @@ body {
   opacity: 1;
   pointer-events: all;
 }
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

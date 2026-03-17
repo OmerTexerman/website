@@ -19,15 +19,12 @@ function getInteractiveAncestor(obj: Object3D): Object3D | null {
 	return null;
 }
 
-/** Collect all Mesh children of interactive groups for raycasting */
 function collectInteractiveMeshes(scene: Scene): Mesh[] {
 	const meshes: Mesh[] = [];
 	scene.traverse((child) => {
 		if (child.userData?.interactive) {
 			child.traverse((desc) => {
-				if (desc instanceof Mesh) {
-					meshes.push(desc);
-				}
+				if (desc instanceof Mesh) meshes.push(desc);
 			});
 		}
 	});
@@ -35,13 +32,11 @@ function collectInteractiveMeshes(scene: Scene): Mesh[] {
 }
 
 function collectInteractiveGroups(scene: Scene): Object3D[] {
-	const result: Object3D[] = [];
+	const groups: Object3D[] = [];
 	scene.traverse((child) => {
-		if (child.userData?.interactive) {
-			result.push(child);
-		}
+		if (child.userData?.interactive) groups.push(child);
 	});
-	return result;
+	return groups;
 }
 
 export function setupInteraction(
@@ -51,114 +46,118 @@ export function setupInteraction(
 	onHover: (interaction: DeskInteraction | null) => void,
 	onClick: (interaction: DeskInteraction) => void,
 ): () => void {
-	let lastHoverEvent = 0;
-	const HOVER_THROTTLE = 50;
+	const interactiveMeshes = collectInteractiveMeshes(scene);
+	const interactiveGroups = collectInteractiveGroups(scene);
+	let focusIndex = -1;
+	let isPointerInside = false;
+	let pendingHoverFrame = 0;
+	let pointerDownX = 0;
+	let pointerDownY = 0;
+	const CLICK_THRESHOLD = 6;
 
-	function updatePointer(e: MouseEvent | Touch): void {
+	canvas.tabIndex = 0;
+
+	function updatePointer(clientX: number, clientY: number): void {
 		const rect = canvas.getBoundingClientRect();
-		pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-		pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+		pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+		pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
 	}
 
 	function raycast(): DeskInteraction | null {
+		if (!isPointerInside || interactiveMeshes.length === 0) return null;
 		raycaster.setFromCamera(pointer, camera);
-		const meshes = collectInteractiveMeshes(scene);
-		const hits = raycaster.intersectObjects(meshes, false);
-		if (hits.length > 0) {
-			const ancestor = getInteractiveAncestor(hits[0].object);
-			if (ancestor) {
-				return {
-					href: ancestor.userData.href,
-					label: ancestor.userData.label,
-					object: ancestor,
-				};
-			}
-		}
-		return null;
+		const hits = raycaster.intersectObjects(interactiveMeshes, false);
+		if (hits.length === 0) return null;
+
+		const ancestor = getInteractiveAncestor(hits[0].object);
+		if (!ancestor) return null;
+		return {
+			href: ancestor.userData.href,
+			label: ancestor.userData.label,
+			object: ancestor,
+		};
 	}
 
-	function handleMove(e: MouseEvent): void {
-		const now = performance.now();
-		if (now - lastHoverEvent < HOVER_THROTTLE) return;
-		lastHoverEvent = now;
-
-		updatePointer(e);
-		const hit = raycast();
-
-		if (hit?.href !== hovered?.href) {
-			hovered = hit;
-			canvas.style.cursor = hit ? "pointer" : "default";
-			onHover(hit);
-		}
+	function setHover(hit: DeskInteraction | null): void {
+		if (hit?.href === hovered?.href) return;
+		hovered = hit;
+		canvas.style.cursor = hit ? "pointer" : "default";
+		onHover(hit);
 	}
 
-	// Track mousedown position to distinguish clicks from drags
-	let mouseDownX = 0;
-	let mouseDownY = 0;
-	const CLICK_THRESHOLD = 5; // pixels
-
-	function handleMouseDown(e: MouseEvent): void {
-		mouseDownX = e.clientX;
-		mouseDownY = e.clientY;
+	function requestHoverUpdate(): void {
+		if (pendingHoverFrame) return;
+		pendingHoverFrame = requestAnimationFrame(() => {
+			pendingHoverFrame = 0;
+			setHover(raycast());
+		});
 	}
 
-	function handleClick(e: MouseEvent): void {
-		// Only fire click if the mouse didn't move much (not a drag)
-		const dx = e.clientX - mouseDownX;
-		const dy = e.clientY - mouseDownY;
+	function onPointerEnter(): void {
+		isPointerInside = true;
+	}
+
+	function onPointerLeave(): void {
+		isPointerInside = false;
+		setHover(null);
+	}
+
+	function onPointerMove(e: PointerEvent): void {
+		updatePointer(e.clientX, e.clientY);
+		requestHoverUpdate();
+	}
+
+	function onPointerDown(e: PointerEvent): void {
+		pointerDownX = e.clientX;
+		pointerDownY = e.clientY;
+		if (document.activeElement !== canvas) canvas.focus({ preventScroll: true });
+	}
+
+	function onPointerUp(e: PointerEvent): void {
+		const dx = e.clientX - pointerDownX;
+		const dy = e.clientY - pointerDownY;
 		if (dx * dx + dy * dy > CLICK_THRESHOLD * CLICK_THRESHOLD) return;
 
-		updatePointer(e);
+		updatePointer(e.clientX, e.clientY);
 		const hit = raycast();
-		if (hit) {
-			onClick(hit);
-		}
+		if (hit) onClick(hit);
 	}
 
-	function handleTouchEnd(e: TouchEvent): void {
-		if (e.changedTouches.length > 0) {
-			updatePointer(e.changedTouches[0]);
-			const hit = raycast();
-			if (hit) {
-				e.preventDefault();
-				onClick(hit);
-			}
-		}
-	}
+	function onKeydown(e: KeyboardEvent): void {
+		if (document.activeElement !== canvas || interactiveGroups.length === 0) return;
 
-	// Keyboard accessibility
-	const interactiveList = collectInteractiveGroups(scene);
-	let focusIndex = -1;
-
-	function handleKeydown(e: KeyboardEvent): void {
 		if (e.key === "Tab") {
 			e.preventDefault();
 			focusIndex =
-				(focusIndex + (e.shiftKey ? -1 : 1) + interactiveList.length) % interactiveList.length;
-			const obj = interactiveList[focusIndex];
-			const interaction: DeskInteraction = {
+				(focusIndex + (e.shiftKey ? -1 : 1) + interactiveGroups.length) % interactiveGroups.length;
+			const obj = interactiveGroups[focusIndex];
+			const next: DeskInteraction = {
 				href: obj.userData.href,
 				label: obj.userData.label,
 				object: obj,
 			};
-			hovered = interaction;
-			onHover(interaction);
-		} else if (e.key === "Enter" && hovered) {
+			setHover(next);
+		} else if ((e.key === "Enter" || e.key === " ") && hovered) {
+			e.preventDefault();
 			onClick(hovered);
 		}
 	}
 
-	canvas.addEventListener("mousedown", handleMouseDown);
-	canvas.addEventListener("mousemove", handleMove);
-	canvas.addEventListener("click", handleClick);
-	canvas.addEventListener("touchend", handleTouchEnd, { passive: false });
-	window.addEventListener("keydown", handleKeydown);
+	canvas.addEventListener("pointerenter", onPointerEnter);
+	canvas.addEventListener("pointerleave", onPointerLeave);
+	canvas.addEventListener("pointermove", onPointerMove, { passive: true });
+	canvas.addEventListener("pointerdown", onPointerDown);
+	canvas.addEventListener("pointerup", onPointerUp);
+	window.addEventListener("keydown", onKeydown);
 
 	return () => {
-		canvas.removeEventListener("mousedown", handleMouseDown);
-		canvas.removeEventListener("mousemove", handleMove);
-		canvas.removeEventListener("click", handleClick);
-		canvas.removeEventListener("touchend", handleTouchEnd);
-		window.removeEventListener("keydown", handleKeydown);
+		if (pendingHoverFrame) cancelAnimationFrame(pendingHoverFrame);
+		canvas.removeEventListener("pointerenter", onPointerEnter);
+		canvas.removeEventListener("pointerleave", onPointerLeave);
+		canvas.removeEventListener("pointermove", onPointerMove);
+		canvas.removeEventListener("pointerdown", onPointerDown);
+		canvas.removeEventListener("pointerup", onPointerUp);
+		window.removeEventListener("keydown", onKeydown);
+		canvas.style.cursor = "default";
 	};
 }
