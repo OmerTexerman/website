@@ -1,11 +1,12 @@
-import { Mesh, type Object3D, Raycaster, type Scene, Vector2 } from "three";
-
-/** Shared raycaster and pointer — reused across modules */
-export const raycaster = new Raycaster();
-export const pointer = new Vector2();
+import { Mesh, type Object3D, type Scene } from "three";
 
 /** Convert client coordinates to normalized device coordinates */
-export function updatePointer(canvas: HTMLCanvasElement, clientX: number, clientY: number): void {
+export function updatePointer(
+	pointer: { x: number; y: number },
+	canvas: HTMLCanvasElement,
+	clientX: number,
+	clientY: number,
+): void {
 	const rect = canvas.getBoundingClientRect();
 	pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
 	pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;

@@ -115,7 +115,8 @@
     }
 
     function syncSiblings(disabled: boolean) {
-      for (const el of [...document.body.children]) {
+      const scope = modal.parentElement ?? document.body;
+      for (const el of [...scope.children]) {
         if (!(el instanceof HTMLElement) || el === modal) continue;
 
         if (disabled) {

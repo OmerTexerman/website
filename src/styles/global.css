@@ -60,6 +60,7 @@ html[data-reveal="ready"] [data-animate] {
     transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+html[data-reveal="ready"] [data-animate].is-visible,
 [data-animate].is-visible {
   opacity: 1;
   transform: translateY(0);

@@ -42,10 +42,10 @@ import {
 } from "./camera";
 import { createDesk } from "./desk";
 import { disposeObjectResources } from "./disposal";
-import { addStaticObstacle, disposePhysics, setupDrag, tickPhysics } from "./drag";
+import { createDeskPhysicsController } from "./drag";
 import { addHitbox } from "./hitbox";
 import { type DeskInteraction, setupInteraction } from "./interaction";
-import { disposeLabels, initLabels, updateLabel } from "./labels";
+import { createLabelController } from "./labels";
 import {
 	setupDeskLighting,
 	setupRoomLighting,
@@ -206,6 +206,8 @@ export function initUnifiedScene(
 	renderer.setSize(initialSize.width, initialSize.height, false);
 
 	const camera = createCamera(initialSize.width / initialSize.height);
+	const labelController = createLabelController(labelContainer);
+	const deskPhysics = createDeskPhysicsController();
 
 	// Post-processing — bloom for screen glow (desktop/transition)
 	const composer = new EffectComposer(renderer);
@@ -481,10 +483,10 @@ export function initUnifiedScene(
 		addHitbox(photoFrame, 0.15);
 		addHitbox(deskLamp, 0.05);
 
-		addStaticObstacle(notebook, 0.5);
-		addStaticObstacle(laptop, 0.6);
-		addStaticObstacle(bookStack, 0.45);
-		addStaticObstacle(deskLamp, 0.2);
+		deskPhysics.addStaticObstacle(notebook, 0.5);
+		deskPhysics.addStaticObstacle(laptop, 0.6);
+		deskPhysics.addStaticObstacle(bookStack, 0.45);
+		deskPhysics.addStaticObstacle(deskLamp, 0.2);
 
 		attachLaptopEffects(laptop);
 
@@ -554,11 +556,10 @@ export function initUnifiedScene(
 		cleanupModalClose = null;
 		currentHover = null;
 		openObject = null;
-
-		initLabels(labelContainer);
+		labelController.update(null, camera, canvas);
 
 		if (currentMode === "desktop" && deskObjects) {
-			cleanupDrag = setupDrag(
+			cleanupDrag = deskPhysics.setupDrag(
 				canvas,
 				camera,
 				scene,
@@ -707,7 +708,7 @@ export function initUnifiedScene(
 		lastFrame = now;
 
 		const animating = tickAnimations(now);
-		const physicsActive = currentMode === "desktop" ? tickPhysics(1 / 60) : false;
+		const physicsActive = currentMode === "desktop" ? deskPhysics.tick(1 / 60) : false;
 		if (animating || physicsActive) dirty = true;
 
 		if (!introComplete) {
@@ -775,7 +776,9 @@ export function initUnifiedScene(
 
 		// Update labels (desktop only, not during transition)
 		if (currentMode === "desktop" && !transitioning) {
-			updateLabel(currentHover, camera, canvas);
+			labelController.update(currentHover, camera, canvas);
+		} else {
+			labelController.update(null, camera, canvas);
 		}
 
 		if (dirty || transitioning) {
@@ -861,7 +864,7 @@ export function initUnifiedScene(
 			cleanupMobileShelfControls();
 			cleanupMobileShelfControls = null;
 		}
-		disposeLabels();
+		labelController.update(null, camera, canvas);
 		currentHover = null;
 
 		// Close any open object
@@ -1006,11 +1009,11 @@ export function initUnifiedScene(
 		if (cleanupDrag) cleanupDrag();
 		if (cleanupMobileShelfControls) cleanupMobileShelfControls();
 		cleanupModalClose?.();
-		disposeLabels();
+		labelController.dispose();
 		disposeObjectResources(scene);
 
 		disposeAnimations();
-		disposePhysics();
+		deskPhysics.dispose();
 		renderer.dispose();
 	}
 

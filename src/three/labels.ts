@@ -1,14 +1,17 @@
 import { type Camera, Vector3 } from "three";
 import type { DeskInteraction } from "./interaction";
 
-let labelEl: HTMLElement | null = null;
-let container: HTMLElement | null = null;
-const _pos = new Vector3();
+export interface LabelController {
+	update: (interaction: DeskInteraction | null, camera: Camera, canvas: HTMLCanvasElement) => void;
+	dispose: () => void;
+}
 
-export function initLabels(containerEl: HTMLElement): void {
-	container = containerEl;
+const labelOffset = new Vector3(0, 0.5, 0);
 
-	labelEl = document.createElement("div");
+export function createLabelController(container: HTMLElement): LabelController {
+	const labelEl = document.createElement("div");
+	const projectedPosition = new Vector3();
+
 	labelEl.className = "desk-label";
 	Object.assign(labelEl.style, {
 		position: "absolute",
@@ -31,36 +34,35 @@ export function initLabels(containerEl: HTMLElement): void {
 		zIndex: "10",
 	});
 	container.appendChild(labelEl);
-}
 
-export function updateLabel(
-	interaction: DeskInteraction | null,
-	camera: Camera,
-	canvas: HTMLCanvasElement,
-): void {
-	if (!labelEl) return;
+	function update(
+		interaction: DeskInteraction | null,
+		camera: Camera,
+		canvas: HTMLCanvasElement,
+	): void {
+		if (!interaction?.label) {
+			labelEl.style.opacity = "0";
+			labelEl.style.transform = "translateY(4px)";
+			return;
+		}
 
-	if (!interaction?.label) {
-		labelEl.style.opacity = "0";
-		labelEl.style.transform = "translateY(4px)";
-		return;
+		interaction.object.getWorldPosition(projectedPosition);
+		projectedPosition.add(labelOffset);
+		projectedPosition.project(camera);
+
+		const x = (projectedPosition.x * 0.5 + 0.5) * canvas.clientWidth;
+		const y = (-projectedPosition.y * 0.5 + 0.5) * canvas.clientHeight;
+
+		if (labelEl.textContent !== interaction.label) labelEl.textContent = interaction.label;
+		labelEl.style.left = `${x}px`;
+		labelEl.style.top = `${y}px`;
+		labelEl.style.transform = "translate(-50%, -100%) translateY(-8px)";
+		labelEl.style.opacity = "1";
 	}
 
-	interaction.object.getWorldPosition(_pos);
-	_pos.y += 0.5;
-	_pos.project(camera);
+	function dispose(): void {
+		labelEl.remove();
+	}
 
-	const x = (_pos.x * 0.5 + 0.5) * canvas.clientWidth;
-	const y = (-_pos.y * 0.5 + 0.5) * canvas.clientHeight;
-
-	if (labelEl.textContent !== interaction.label) labelEl.textContent = interaction.label;
-	labelEl.style.left = `${x}px`;
-	labelEl.style.top = `${y}px`;
-	labelEl.style.transform = "translate(-50%, -100%) translateY(-8px)";
-	labelEl.style.opacity = "1";
-}
-
-export function disposeLabels(): void {
-	labelEl?.remove();
-	labelEl = null;
+	return { update, dispose };
 }

@@ -1,21 +1,11 @@
-import type { Camera, Object3D, Scene } from "three";
-import {
-	collectGroupsBy,
-	collectMeshesBy,
-	getAncestorWith,
-	pointer,
-	raycaster,
-	updatePointer,
-} from "./raycast-utils";
+import { type Camera, type Object3D, Raycaster, type Scene, Vector2 } from "three";
+import { collectGroupsBy, collectMeshesBy, getAncestorWith, updatePointer } from "./raycast-utils";
 
 export interface DeskInteraction {
 	href?: string;
 	label?: string;
 	object: Object3D;
 }
-
-let hovered: DeskInteraction | null = null;
-
 export function setupInteraction(
 	canvas: HTMLCanvasElement,
 	camera: Camera,
@@ -28,7 +18,10 @@ export function setupInteraction(
 	const groups = collectGroupsBy(scene, "interactive");
 	// Only navigable objects (those with href) are keyboard-focusable
 	const navigableGroups = groups.filter((g) => g.userData.href);
+	const pointer = new Vector2();
+	const raycaster = new Raycaster();
 	const enableHover = options?.enableHover ?? true;
+	let hovered: DeskInteraction | null = null;
 	let focusIndex = -1;
 	let pendingHoverFrame = 0;
 	let pointerDownX = 0;
@@ -67,7 +60,7 @@ export function setupInteraction(
 
 	function onPointerMove(e: PointerEvent): void {
 		if (!enableHover) return;
-		updatePointer(canvas, e.clientX, e.clientY);
+		updatePointer(pointer, canvas, e.clientX, e.clientY);
 		requestHoverUpdate();
 	}
 
@@ -81,7 +74,7 @@ export function setupInteraction(
 		const dx = e.clientX - pointerDownX;
 		const dy = e.clientY - pointerDownY;
 		if (dx * dx + dy * dy > CLICK_THRESHOLD * CLICK_THRESHOLD) return;
-		updatePointer(canvas, e.clientX, e.clientY);
+		updatePointer(pointer, canvas, e.clientX, e.clientY);
 		const hit = raycast();
 		if (hit) onClick(hit);
 	}
