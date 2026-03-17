@@ -164,14 +164,33 @@ export function initUnifiedScene(
 	applyRenderSettings(initialMode);
 	renderer.setSize(canvas.clientWidth, canvas.clientHeight);
 
-	const camera = createCamera(canvas.clientWidth / canvas.clientHeight);
+	function applyRenderSettings(mode: "desktop" | "mobile"): void {
+		renderer.setPixelRatio(Math.min(window.devicePixelRatio, mode === "mobile" ? 1.5 : 2));
+		renderer.shadowMap.enabled = mode === "desktop";
+	}
+
+	function getCanvasSize(): { width: number; height: number } {
+		const rect = canvas.getBoundingClientRect();
+		const width = Math.max(1, Math.round(rect.width || canvas.clientWidth || window.innerWidth));
+		const height = Math.max(
+			1,
+			Math.round(rect.height || canvas.clientHeight || window.innerHeight),
+		);
+		return { width, height };
+	}
+
+	const initialSize = getCanvasSize();
+	applyRenderSettings(initialMode);
+	renderer.setSize(initialSize.width, initialSize.height, false);
+
+	const camera = createCamera(initialSize.width / initialSize.height);
 
 	// Post-processing — bloom for screen glow (desktop/transition)
 	const composer = new EffectComposer(renderer);
 	const renderPass = new RenderPass(scene, camera);
 	composer.addPass(renderPass);
 	const bloomPass = new UnrealBloomPass(
-		new Vector2(canvas.clientWidth, canvas.clientHeight),
+		new Vector2(initialSize.width, initialSize.height),
 		0.6,
 		0.8,
 		0.7,
@@ -218,6 +237,8 @@ export function initUnifiedScene(
 	let cleanupInteraction: (() => void) | null = null;
 	let cleanupDrag: (() => void) | null = null;
 	let cleanupMobileShelfControls: (() => void) | null = null;
+	let lastCanvasWidth = initialSize.width;
+	let lastCanvasHeight = initialSize.height;
 	const microInteractions = new Map<Object3D, () => void>();
 
 	function syncMobileShelfCamera(t: number): void {
@@ -617,7 +638,17 @@ export function initUnifiedScene(
 		dirty = true;
 	}
 
+	const resizeObserver =
+		typeof ResizeObserver !== "undefined"
+			? new ResizeObserver(() => {
+					handleResize();
+				})
+			: null;
+	resizeObserver?.observe(canvas);
+	if (canvas.parentElement) resizeObserver?.observe(canvas.parentElement);
+
 	window.addEventListener("resize", handleResize);
+	window.visualViewport?.addEventListener("resize", handleResize);
 
 	// ─── Transition ──────────────────────────────────────────────
 	let transitionPromise: Promise<void> | null = null;
@@ -768,12 +799,15 @@ export function initUnifiedScene(
 
 		// Re-setup interactions for new mode
 		setupModeInteractions();
+		handleResize(true);
 		dirty = true;
 	}
 
 	// ─── Cleanup ─────────────────────────────────────────────────
 	function cleanup(): void {
 		window.removeEventListener("resize", handleResize);
+		window.visualViewport?.removeEventListener("resize", handleResize);
+		resizeObserver?.disconnect();
 		cancelAnimationFrame(animationId);
 		if (cleanupInteraction) cleanupInteraction();
 		if (cleanupDrag) cleanupDrag();
