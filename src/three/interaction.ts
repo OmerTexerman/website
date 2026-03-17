@@ -49,7 +49,6 @@ export function setupInteraction(
 	const interactiveMeshes = collectInteractiveMeshes(scene);
 	const interactiveGroups = collectInteractiveGroups(scene);
 	let focusIndex = -1;
-	let isPointerInside = false;
 	let pendingHoverFrame = 0;
 	let pointerDownX = 0;
 	let pointerDownY = 0;
@@ -64,7 +63,7 @@ export function setupInteraction(
 	}
 
 	function raycast(): DeskInteraction | null {
-		if (!isPointerInside || interactiveMeshes.length === 0) return null;
+		if (interactiveMeshes.length === 0) return null;
 		raycaster.setFromCamera(pointer, camera);
 		const hits = raycaster.intersectObjects(interactiveMeshes, false);
 		if (hits.length === 0) return null;
@@ -93,12 +92,7 @@ export function setupInteraction(
 		});
 	}
 
-	function onPointerEnter(): void {
-		isPointerInside = true;
-	}
-
 	function onPointerLeave(): void {
-		isPointerInside = false;
 		setHover(null);
 	}
 
@@ -143,7 +137,6 @@ export function setupInteraction(
 		}
 	}
 
-	canvas.addEventListener("pointerenter", onPointerEnter);
 	canvas.addEventListener("pointerleave", onPointerLeave);
 	canvas.addEventListener("pointermove", onPointerMove, { passive: true });
 	canvas.addEventListener("pointerdown", onPointerDown);
@@ -152,7 +145,6 @@ export function setupInteraction(
 
 	return () => {
 		if (pendingHoverFrame) cancelAnimationFrame(pendingHoverFrame);
-		canvas.removeEventListener("pointerenter", onPointerEnter);
 		canvas.removeEventListener("pointerleave", onPointerLeave);
 		canvas.removeEventListener("pointermove", onPointerMove);
 		canvas.removeEventListener("pointerdown", onPointerDown);
