@@ -149,16 +149,20 @@ export function initUnifiedScene(
 	scene.fog = new FogExp2(new Color("#1e1e1e"), 0.04);
 
 	const isInitiallyMobile = initialMode === "mobile";
-	const pixelRatio = Math.min(window.devicePixelRatio, isInitiallyMobile ? 1.5 : 2);
 
 	const renderer = new WebGLRenderer({
 		canvas,
 		antialias: !isInitiallyMobile,
 		powerPreference: isInitiallyMobile ? "low-power" : "high-performance",
 	});
-	renderer.setPixelRatio(pixelRatio);
+
+	function applyRenderSettings(mode: "desktop" | "mobile"): void {
+		renderer.setPixelRatio(Math.min(window.devicePixelRatio, mode === "mobile" ? 1.5 : 2));
+		renderer.shadowMap.enabled = mode === "desktop";
+	}
+
+	applyRenderSettings(initialMode);
 	renderer.setSize(canvas.clientWidth, canvas.clientHeight);
-	renderer.shadowMap.enabled = !isInitiallyMobile;
 
 	const camera = createCamera(canvas.clientWidth / canvas.clientHeight);
 
@@ -603,6 +607,7 @@ export function initUnifiedScene(
 
 	// ─── Resize handler ──────────────────────────────────────────
 	function handleResize(): void {
+		applyRenderSettings(currentMode);
 		renderer.setSize(canvas.clientWidth, canvas.clientHeight);
 		composer.setSize(canvas.clientWidth, canvas.clientHeight);
 		bloomPass.resolution.set(canvas.clientWidth, canvas.clientHeight);
@@ -742,7 +747,7 @@ export function initUnifiedScene(
 		// Hide the wall we're not looking at
 		if (target === "desktop") {
 			setShelfVisible(false);
-			renderer.shadowMap.enabled = true;
+			applyRenderSettings("desktop");
 			targetInterval = 0;
 		} else {
 			mobileShelfCurrentT = 0.5;
@@ -755,7 +760,7 @@ export function initUnifiedScene(
 				}
 			});
 			setDeskVisible(false);
-			renderer.shadowMap.enabled = false;
+			applyRenderSettings("mobile");
 			targetInterval = 1000 / 30;
 		}
 
