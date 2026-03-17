@@ -1,7 +1,8 @@
 import type { APIContext } from "astro";
+import { site } from "../config";
 
 export function GET(context: APIContext) {
-	const siteUrl = context.site ?? new URL("https://omer.texerman.com");
+	const siteUrl = context.site ?? new URL(site.url);
 	return new Response(
 		`User-agent: *
 Allow: /

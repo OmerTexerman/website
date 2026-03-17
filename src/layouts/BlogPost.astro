@@ -3,6 +3,7 @@ import BaseLayout from "./BaseLayout.astro";
 import ContentHeader from "../components/ContentHeader.astro";
 import BackToDesk from "../components/BackToDesk.astro";
 import Footer from "../components/Footer.astro";
+import { site } from "../config";
 
 interface Props {
   title: string;
@@ -28,7 +29,7 @@ const formattedUpdatedDate = updatedDate?.toLocaleDateString("en-US", {
 ---
 
 <BaseLayout
-  title={`${title} | Omer Texerman`}
+  title={`${title} | ${site.name}`}
   description={description}
   type="article"
   publishedDate={pubDate}

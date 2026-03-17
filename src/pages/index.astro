@@ -1,11 +1,12 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import DeskScene from "../components/DeskScene.astro";
+import { site } from "../config";
 ---
 
 <BaseLayout
-  title="Omer Texerman | Full Stack Developer"
-  description="Full Stack Developer — explore my interactive 3D desk to discover blog posts, projects, reading list, and photos."
+  title={`${site.name} | ${site.title}`}
+  description={site.description}
   fullscreen
 >
   <DeskScene />
