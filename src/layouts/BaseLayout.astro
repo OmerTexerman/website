@@ -51,7 +51,7 @@ const posthogHost = analytics.posthogHost;
     />
     <title>{title}</title>
   </head>
-  <body class={fullscreen ? "overflow-hidden" : "min-h-screen"}>
+  <body class={fullscreen ? "overflow-hidden h-dvh" : "min-h-screen"}>
     <slot />
 
     {!fullscreen && (
