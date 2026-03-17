@@ -4,7 +4,7 @@ import { ceramicMaterial } from "../materials";
 /** Decorative coffee mug */
 export function createMug(): Group {
 	const mug = new Group();
-	mug.userData = { draggable: true };
+	mug.userData = { draggable: true, interactive: true };
 
 	// Body
 	const bodyGeo = new CylinderGeometry(0.12, 0.1, 0.22, 16);

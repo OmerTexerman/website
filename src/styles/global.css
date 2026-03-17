@@ -2,10 +2,9 @@
 @plugin "@tailwindcss/typography";
 
 @theme {
-  --font-display: "Playfair Display", serif;
-  --font-body: "IBM Plex Sans", sans-serif;
+  --font-display: "Space Grotesk", sans-serif;
+  --font-body: "Inter", sans-serif;
   --font-mono: "JetBrains Mono", monospace;
-  --font-handwritten: "Caveat", cursive;
 
   --color-dark: #1e1e1e;
   --color-dark-surface: #2a2a2a;
@@ -18,7 +17,6 @@
 
   --animate-fade-in: fade-in 0.6s ease both;
   --animate-slide-up: slide-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
-  --animate-camera-in: camera-in 2s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 @keyframes fade-in {
@@ -29,11 +27,6 @@
 @keyframes slide-up {
   from { opacity: 0; transform: translateY(2rem); }
   to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes camera-in {
-  from { opacity: 0; transform: scale(1.1); }
-  to { opacity: 1; transform: scale(1); }
 }
 
 html {
@@ -73,18 +66,11 @@ body {
   border-radius: 1rem;
 }
 
-/* Scene overlay for transitions */
-.scene-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--color-dark);
-  z-index: 100;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.4s ease;
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
-.scene-overlay.active {
-  opacity: 1;
-  pointer-events: all;
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }

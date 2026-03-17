@@ -1,4 +1,4 @@
-import { BoxGeometry, Color, Group, Mesh, MeshStandardMaterial } from "three";
+import { BoxGeometry, Color, Group, Mesh, MeshStandardMaterial, TorusGeometry } from "three";
 import { accentMaterial, paperMaterial } from "../materials";
 
 /** Notebook → links to /blog
@@ -23,8 +23,8 @@ export function createNotebook(): Group {
 	notebook.add(pages);
 
 	// Top cover — wrapped in a pivot group at the spine (back edge, z = -0.45)
-	// Uses a darker material so the inside doesn't look like a red slab
 	const coverPivot = new Group();
+	coverPivot.userData = { coverPivot: true };
 	coverPivot.position.set(0, 0.09, -0.45);
 	notebook.add(coverPivot);
 
@@ -38,6 +38,26 @@ export function createNotebook(): Group {
 	topCover.position.set(0, 0.02, 0.45);
 	topCover.castShadow = true;
 	coverPivot.add(topCover);
+
+	// Spiral rings along the spine
+	const ringMat = new MeshStandardMaterial({
+		color: new Color("#c0c0c0"),
+		roughness: 0.3,
+		metalness: 0.8,
+	});
+	const ringGeo = new TorusGeometry(0.04, 0.006, 6, 12);
+	const ringCount = 9;
+	const spineX = 0.35; // half the cover width
+	const startX = -spineX + 0.06;
+	const endX = spineX - 0.06;
+
+	for (let i = 0; i < ringCount; i++) {
+		const t = ringCount > 1 ? i / (ringCount - 1) : 0.5;
+		const ring = new Mesh(ringGeo, ringMat);
+		ring.position.set(startX + t * (endX - startX), 0.09, -0.45);
+		ring.rotation.y = Math.PI / 2;
+		notebook.add(ring);
+	}
 
 	notebook.position.set(-1.5, 0.12, 0.5);
 	notebook.rotation.y = 0.15;

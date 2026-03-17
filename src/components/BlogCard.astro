@@ -1,4 +1,6 @@
 ---
+import { formatDate } from "../utils";
+
 interface Props {
   title: string;
   description: string;
@@ -8,19 +10,13 @@ interface Props {
 }
 
 const { title, description, pubDate, tags, slug } = Astro.props;
-
-const formattedDate = pubDate.toLocaleDateString("en-US", {
-  year: "numeric",
-  month: "short",
-  day: "numeric",
-});
 ---
 
 <a
   href={`/blog/${slug}`}
-  class="group block bg-cream rounded-xl p-6 transition-all hover:ring-2 hover:ring-accent/40 hover:translate-y-[-2px]"
+  class="group block bg-cream rounded-xl p-4 sm:p-6 transition-all hover:ring-2 hover:ring-accent/40 hover:translate-y-[-2px] focus:outline-none focus:ring-2 focus:ring-accent"
 >
-  <time class="font-mono text-xs text-muted">{formattedDate}</time>
+  <time class="font-mono text-xs text-muted">{formatDate(pubDate)}</time>
   <h3 class="font-display text-xl font-bold mt-2 mb-2 text-dark group-hover:text-accent transition-colors">
     {title}
   </h3>

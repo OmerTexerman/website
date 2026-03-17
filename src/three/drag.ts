@@ -1,268 +1,355 @@
-import { type Camera, type Object3D, Plane, Raycaster, type Scene, Vector2, Vector3 } from "three";
+import { type Camera, type Object3D, Plane, type Scene, Vector3 } from "three";
+import {
+	collectMeshesBy,
+	getAncestorWith,
+	pointer,
+	raycaster,
+	updatePointer,
+} from "./raycast-utils";
 
-const raycaster = new Raycaster();
-const pointer = new Vector2();
-const intersection = new Vector3();
-const offset = new Vector3();
+const _intersection = new Vector3();
+const _offset = new Vector3();
 
+// ─── Tuning constants ───────────────────────────────────────────
 const DESK_Y = 0.12;
-const GRAVITY = 9.8;
-const LIFT_HEIGHT = 0.6;
+const FRICTION = 8.0; // velocity decay per second (higher = stops faster)
+const RESTITUTION = 0.4; // bounciness on collision (0 = dead stop, 1 = elastic)
+const VELOCITY_THRESHOLD = 0.005; // below this, body sleeps
+const VELOCITY_SAMPLES = 5; // frames of drag velocity to average on release
 const DESK_BOUNDS = { minX: -2.3, maxX: 2.3, minZ: -1.3, maxZ: 1.3 };
 
-interface Obstacle {
-	x: number;
-	z: number;
-	radius: number;
-}
-
+// ─── Physics body ───────────────────────────────────────────────
 interface PhysicsBody {
 	obj: Object3D;
-	restY: number;
-	velocityY: number;
-	falling: boolean;
 	radius: number;
+	mass: number;
+	restY: number;
+	vx: number;
+	vz: number;
+	sleeping: boolean;
+	isStatic: boolean;
 }
 
 const bodies: PhysicsBody[] = [];
-const staticObstacles: Obstacle[] = [];
 
-/** Register a static obstacle (interactive objects that don't move) */
 export function addStaticObstacle(obj: Object3D, radius = 0.3): void {
-	staticObstacles.push({ x: obj.position.x, z: obj.position.z, radius });
-}
-
-function getDraggableAncestor(obj: Object3D): Object3D | null {
-	let current: Object3D | null = obj;
-	while (current) {
-		if (current.userData?.draggable) return current;
-		current = current.parent;
-	}
-	return null;
-}
-
-function collectDraggableMeshes(scene: Scene): Object3D[] {
-	const meshes: Object3D[] = [];
-	scene.traverse((child) => {
-		if (child.userData?.draggable) {
-			child.traverse((c) => meshes.push(c));
-		}
+	bodies.push({
+		obj,
+		radius,
+		mass: 0, // infinite mass
+		restY: obj.position.y,
+		vx: 0,
+		vz: 0,
+		sleeping: true,
+		isStatic: true,
 	});
-	return meshes;
 }
 
-function collectDraggableGroups(scene: Scene): Object3D[] {
-	const groups: Object3D[] = [];
-	scene.traverse((child) => {
-		if (child.userData?.draggable) {
-			groups.push(child);
-		}
-	});
-	return groups;
+export function disposePhysics(): void {
+	bodies.length = 0;
 }
 
 function ensureBody(obj: Object3D, radius = 0.15): PhysicsBody {
 	let body = bodies.find((b) => b.obj === obj);
 	if (!body) {
-		body = { obj, restY: obj.position.y, velocityY: 0, falling: false, radius };
+		body = {
+			obj,
+			radius,
+			mass: 1,
+			restY: obj.position.y,
+			vx: 0,
+			vz: 0,
+			sleeping: true,
+			isStatic: false,
+		};
 		bodies.push(body);
 	}
 	return body;
 }
 
-/** Resolve collisions between dragged object and both dynamic bodies + static obstacles */
-function resolveCollisions(dragged: Object3D, dragRadius: number): void {
-	// Against other draggable bodies
-	for (const body of bodies) {
-		if (body.obj === dragged) continue;
-		const dx = body.obj.position.x - dragged.position.x;
-		const dz = body.obj.position.z - dragged.position.z;
-		const dist = Math.sqrt(dx * dx + dz * dz);
-		const minDist = dragRadius + body.radius;
-
-		if (dist < minDist && dist > 0.001) {
-			const pushForce = (minDist - dist) * 0.35;
-			const nx = dx / dist;
-			const nz = dz / dist;
-			body.obj.position.x += nx * pushForce;
-			body.obj.position.z += nz * pushForce;
-			body.obj.position.x = Math.max(
-				DESK_BOUNDS.minX,
-				Math.min(DESK_BOUNDS.maxX, body.obj.position.x),
-			);
-			body.obj.position.z = Math.max(
-				DESK_BOUNDS.minZ,
-				Math.min(DESK_BOUNDS.maxZ, body.obj.position.z),
-			);
-		}
-	}
-
-	// Against static obstacles (interactive objects) — push the dragged object away
-	for (const obs of staticObstacles) {
-		const dx = dragged.position.x - obs.x;
-		const dz = dragged.position.z - obs.z;
-		const dist = Math.sqrt(dx * dx + dz * dz);
-		const minDist = dragRadius + obs.radius;
-
-		if (dist < minDist && dist > 0.001) {
-			const pushForce = minDist - dist;
-			const nx = dx / dist;
-			const nz = dz / dist;
-			dragged.position.x += nx * pushForce;
-			dragged.position.z += nz * pushForce;
-			dragged.position.x = Math.max(
-				DESK_BOUNDS.minX,
-				Math.min(DESK_BOUNDS.maxX, dragged.position.x),
-			);
-			dragged.position.z = Math.max(
-				DESK_BOUNDS.minZ,
-				Math.min(DESK_BOUNDS.maxZ, dragged.position.z),
-			);
-		}
-	}
+function clamp(val: number, min: number, max: number): number {
+	return Math.max(min, Math.min(max, val));
 }
 
-/** Step physics for all bodies — returns true if any body moved */
-export function tickPhysics(dt: number): boolean {
-	let anyMoved = false;
-	for (const body of bodies) {
-		if (!body.falling) continue;
+// ─── Collision detection & response ─────────────────────────────
+function resolveAllCollisions(): void {
+	for (let i = 0; i < bodies.length; i++) {
+		for (let j = i + 1; j < bodies.length; j++) {
+			const a = bodies[i];
+			const b = bodies[j];
+			// Skip if both are static or both are sleeping
+			if (a.isStatic && b.isStatic) continue;
+			if (a.sleeping && b.sleeping) continue;
 
-		body.velocityY -= GRAVITY * dt;
-		body.obj.position.y += body.velocityY * dt;
+			const dx = a.obj.position.x - b.obj.position.x;
+			const dz = a.obj.position.z - b.obj.position.z;
+			const dist = Math.sqrt(dx * dx + dz * dz);
+			const minDist = a.radius + b.radius;
 
-		if (body.obj.position.y <= body.restY) {
-			body.obj.position.y = body.restY;
-			if (Math.abs(body.velocityY) < 0.3) {
-				body.velocityY = 0;
-				body.falling = false;
-			} else {
-				body.velocityY = -body.velocityY * 0.3;
+			if (dist >= minDist || dist < 0.0001) continue;
+
+			const nx = dx / dist;
+			const nz = dz / dist;
+			const overlap = minDist - dist;
+
+			// Separate based on inverse mass
+			const totalInvMass = (a.isStatic ? 0 : 1 / a.mass) + (b.isStatic ? 0 : 1 / b.mass);
+			if (totalInvMass === 0) continue;
+
+			if (!a.isStatic) {
+				const ratio = 1 / a.mass / totalInvMass;
+				a.obj.position.x += nx * overlap * ratio;
+				a.obj.position.z += nz * overlap * ratio;
+			}
+			if (!b.isStatic) {
+				const ratio = 1 / b.mass / totalInvMass;
+				b.obj.position.x -= nx * overlap * ratio;
+				b.obj.position.z -= nz * overlap * ratio;
+			}
+
+			// Velocity response — relative velocity along collision normal
+			const relVx = a.vx - b.vx;
+			const relVz = a.vz - b.vz;
+			const relDotN = relVx * nx + relVz * nz;
+
+			// Only resolve if bodies are approaching
+			if (relDotN > 0) continue;
+
+			const impulse = (-(1 + RESTITUTION) * relDotN) / totalInvMass;
+
+			if (!a.isStatic) {
+				a.vx += (impulse * nx) / a.mass;
+				a.vz += (impulse * nz) / a.mass;
+				a.sleeping = false;
+			}
+			if (!b.isStatic) {
+				b.vx -= (impulse * nx) / b.mass;
+				b.vz -= (impulse * nz) / b.mass;
+				b.sleeping = false;
 			}
 		}
-		anyMoved = true;
 	}
-	return anyMoved;
 }
 
+/** Step physics. Returns true if any body moved. */
+export function tickPhysics(dt: number): boolean {
+	let anyActive = false;
+
+	for (const body of bodies) {
+		if (body.isStatic || body.sleeping) continue;
+
+		// Apply friction (exponential decay)
+		const frictionFactor = Math.exp(-FRICTION * dt);
+		body.vx *= frictionFactor;
+		body.vz *= frictionFactor;
+
+		// Integrate position
+		body.obj.position.x += body.vx * dt;
+		body.obj.position.z += body.vz * dt;
+
+		// Clamp to desk — bounce off edges
+		if (body.obj.position.x < DESK_BOUNDS.minX) {
+			body.obj.position.x = DESK_BOUNDS.minX;
+			body.vx = Math.abs(body.vx) * RESTITUTION;
+		} else if (body.obj.position.x > DESK_BOUNDS.maxX) {
+			body.obj.position.x = DESK_BOUNDS.maxX;
+			body.vx = -Math.abs(body.vx) * RESTITUTION;
+		}
+		if (body.obj.position.z < DESK_BOUNDS.minZ) {
+			body.obj.position.z = DESK_BOUNDS.minZ;
+			body.vz = Math.abs(body.vz) * RESTITUTION;
+		} else if (body.obj.position.z > DESK_BOUNDS.maxZ) {
+			body.obj.position.z = DESK_BOUNDS.maxZ;
+			body.vz = -Math.abs(body.vz) * RESTITUTION;
+		}
+
+		// Sleep check
+		const speed = body.vx * body.vx + body.vz * body.vz;
+		if (speed < VELOCITY_THRESHOLD * VELOCITY_THRESHOLD) {
+			body.vx = 0;
+			body.vz = 0;
+			body.sleeping = true;
+		} else {
+			anyActive = true;
+		}
+	}
+
+	resolveAllCollisions();
+
+	return anyActive;
+}
+
+// ─── Drag interaction ───────────────────────────────────────────
 export function setupDrag(
 	canvas: HTMLCanvasElement,
 	camera: Camera,
 	scene: Scene,
 	onDragChange: (isDragging: boolean) => void,
+	onDirty: () => void,
 ): () => void {
 	let dragged: Object3D | null = null;
 	let dragBody: PhysicsBody | null = null;
-
 	const dragPlane = new Plane(new Vector3(0, 1, 0), -DESK_Y);
 
-	for (const obj of collectDraggableGroups(scene)) {
-		ensureBody(obj);
+	// Pending drag: recorded on pointerdown, only committed once pointer moves enough
+	let pendingTarget: Object3D | null = null;
+	let pendingDownX = 0;
+	let pendingDownY = 0;
+	let dragStarted = false;
+	const DRAG_THRESHOLD = 4; // pixels before pointerdown becomes a drag
+
+	// Velocity tracking: store recent positions to compute release velocity
+	const posSamples: { x: number; z: number; t: number }[] = [];
+
+	const meshes = collectMeshesBy(scene, "draggable");
+	for (const obj of scene.children) {
+		if (obj.userData?.draggable) ensureBody(obj);
 	}
 
-	function updatePointer(e: MouseEvent | Touch): void {
-		const rect = canvas.getBoundingClientRect();
-		pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-		pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+	function beginDrag(): void {
+		if (!pendingTarget) return;
+		dragged = pendingTarget;
+		dragBody = ensureBody(dragged);
+		dragBody.vx = 0;
+		dragBody.vz = 0;
+		dragBody.sleeping = true;
+
+		dragPlane.constant = -dragBody.restY;
+		raycaster.ray.intersectPlane(dragPlane, _intersection);
+		_offset.copy(dragged.position).sub(_intersection);
+
+		posSamples.length = 0;
+		posSamples.push({ x: dragged.position.x, z: dragged.position.z, t: performance.now() });
+
+		dragStarted = true;
+		canvas.style.cursor = "grabbing";
+		onDragChange(true);
 	}
 
-	function handlePointerDown(e: MouseEvent): void {
-		updatePointer(e);
+	function onPointerDown(e: PointerEvent): void {
+		updatePointer(canvas, e.clientX, e.clientY);
 		raycaster.setFromCamera(pointer, camera);
-
-		const meshes = collectDraggableMeshes(scene);
 		const hits = raycaster.intersectObjects(meshes, false);
+		if (hits.length === 0) return;
 
-		if (hits.length > 0) {
-			const ancestor = getDraggableAncestor(hits[0].object);
-			if (ancestor) {
-				dragged = ancestor;
-				dragBody = ensureBody(ancestor);
-				dragBody.falling = false;
-				dragBody.velocityY = 0;
+		const ancestor = getAncestorWith(hits[0].object, "draggable");
+		if (!ancestor) return;
 
-				dragPlane.constant = -dragged.position.y;
-				raycaster.ray.intersectPlane(dragPlane, intersection);
-				offset.copy(dragged.position).sub(intersection);
-
-				canvas.style.cursor = "grabbing";
-				onDragChange(true);
-				e.preventDefault();
-			}
-		}
+		// Record as pending — don't start drag until pointer moves
+		pendingTarget = ancestor;
+		pendingDownX = e.clientX;
+		pendingDownY = e.clientY;
+		dragStarted = false;
 	}
 
-	function handlePointerMove(e: MouseEvent): void {
+	function onPointerMove(e: PointerEvent): void {
+		// Check if pending drag should start
+		if (pendingTarget && !dragStarted) {
+			const dx = e.clientX - pendingDownX;
+			const dy = e.clientY - pendingDownY;
+			if (dx * dx + dy * dy > DRAG_THRESHOLD * DRAG_THRESHOLD) {
+				updatePointer(canvas, e.clientX, e.clientY);
+				raycaster.setFromCamera(pointer, camera);
+				beginDrag();
+			}
+			return;
+		}
+
 		if (!dragged || !dragBody) {
-			updatePointer(e);
+			// Hover cursor for draggables
+			updatePointer(canvas, e.clientX, e.clientY);
 			raycaster.setFromCamera(pointer, camera);
-			const meshes = collectDraggableMeshes(scene);
 			const hits = raycaster.intersectObjects(meshes, false);
-			if (hits.length > 0 && getDraggableAncestor(hits[0].object)) {
+			if (hits.length > 0 && getAncestorWith(hits[0].object, "draggable")) {
 				canvas.style.cursor = "grab";
 			}
 			return;
 		}
 
-		updatePointer(e);
+		updatePointer(canvas, e.clientX, e.clientY);
 		raycaster.setFromCamera(pointer, camera);
+		dragPlane.constant = -dragBody.restY;
+		raycaster.ray.intersectPlane(dragPlane, _intersection);
 
-		dragPlane.constant = -(dragBody.restY + LIFT_HEIGHT);
-		raycaster.ray.intersectPlane(dragPlane, intersection);
+		dragged.position.x = clamp(_intersection.x + _offset.x, DESK_BOUNDS.minX, DESK_BOUNDS.maxX);
+		dragged.position.z = clamp(_intersection.z + _offset.z, DESK_BOUNDS.minZ, DESK_BOUNDS.maxZ);
 
-		const newX = Math.max(DESK_BOUNDS.minX, Math.min(DESK_BOUNDS.maxX, intersection.x + offset.x));
-		const newZ = Math.max(DESK_BOUNDS.minZ, Math.min(DESK_BOUNDS.maxZ, intersection.z + offset.z));
+		// Track position samples for release velocity
+		const now = performance.now();
+		posSamples.push({ x: dragged.position.x, z: dragged.position.z, t: now });
+		if (posSamples.length > VELOCITY_SAMPLES) posSamples.shift();
 
-		dragged.position.x = newX;
-		dragged.position.y = dragBody.restY + LIFT_HEIGHT;
-		dragged.position.z = newZ;
-
-		resolveCollisions(dragged, dragBody.radius);
-	}
-
-	function handlePointerUp(): void {
-		if (dragged && dragBody) {
-			dragBody.velocityY = 0;
-			dragBody.falling = true;
-
-			dragged = null;
-			dragBody = null;
-			canvas.style.cursor = "default";
-			onDragChange(false);
+		// Resolve collisions during drag
+		for (const body of bodies) {
+			if (body.obj === dragged) continue;
+			const dx = body.obj.position.x - dragged.position.x;
+			const dz = body.obj.position.z - dragged.position.z;
+			const dist = Math.sqrt(dx * dx + dz * dz);
+			const minDist = dragBody.radius + body.radius;
+			if (dist < minDist && dist > 0.0001) {
+				const nx = dx / dist;
+				const nz = dz / dist;
+				const push = minDist - dist;
+				if (body.isStatic) {
+					// Static obstacle: push the dragged object away
+					dragged.position.x -= nx * push;
+					dragged.position.z -= nz * push;
+				} else {
+					// Dynamic body: push it out of the way and give it velocity
+					body.obj.position.x += nx * push;
+					body.obj.position.z += nz * push;
+					body.obj.position.x = clamp(body.obj.position.x, DESK_BOUNDS.minX, DESK_BOUNDS.maxX);
+					body.obj.position.z = clamp(body.obj.position.z, DESK_BOUNDS.minZ, DESK_BOUNDS.maxZ);
+					body.vx += nx * push * 8;
+					body.vz += nz * push * 8;
+					body.sleeping = false;
+				}
+			}
 		}
+
+		onDirty();
 	}
 
-	function handleTouchStart(e: TouchEvent): void {
-		if (e.touches.length !== 1) return;
-		handlePointerDown({
-			clientX: e.touches[0].clientX,
-			clientY: e.touches[0].clientY,
-			preventDefault: () => e.preventDefault(),
-		} as MouseEvent);
+	function onPointerUp(): void {
+		// Clear pending drag (was just a click, not a drag)
+		pendingTarget = null;
+
+		if (!dragged || !dragBody) return;
+
+		// Compute release velocity from position samples
+		if (posSamples.length >= 2) {
+			const oldest = posSamples[0];
+			const newest = posSamples[posSamples.length - 1];
+			const dt = (newest.t - oldest.t) / 1000;
+			if (dt > 0.005) {
+				dragBody.vx = (newest.x - oldest.x) / dt;
+				dragBody.vz = (newest.z - oldest.z) / dt;
+				// Cap release velocity so objects don't fly off
+				const maxV = 5;
+				const speed = Math.sqrt(dragBody.vx * dragBody.vx + dragBody.vz * dragBody.vz);
+				if (speed > maxV) {
+					dragBody.vx = (dragBody.vx / speed) * maxV;
+					dragBody.vz = (dragBody.vz / speed) * maxV;
+				}
+				dragBody.sleeping = false;
+			}
+		}
+
+		dragged = null;
+		dragBody = null;
+		posSamples.length = 0;
+		canvas.style.cursor = "default";
+		onDragChange(false);
 	}
 
-	function handleTouchMove(e: TouchEvent): void {
-		if (!dragged || e.touches.length !== 1) return;
-		e.preventDefault();
-		handlePointerMove({
-			clientX: e.touches[0].clientX,
-			clientY: e.touches[0].clientY,
-		} as MouseEvent);
-	}
-
-	canvas.addEventListener("mousedown", handlePointerDown);
-	canvas.addEventListener("mousemove", handlePointerMove);
-	window.addEventListener("mouseup", handlePointerUp);
-	canvas.addEventListener("touchstart", handleTouchStart, { passive: false });
-	canvas.addEventListener("touchmove", handleTouchMove, { passive: false });
-	canvas.addEventListener("touchend", handlePointerUp);
+	canvas.addEventListener("pointerdown", onPointerDown);
+	canvas.addEventListener("pointermove", onPointerMove);
+	window.addEventListener("pointerup", onPointerUp);
 
 	return () => {
-		canvas.removeEventListener("mousedown", handlePointerDown);
-		canvas.removeEventListener("mousemove", handlePointerMove);
-		window.removeEventListener("mouseup", handlePointerUp);
-		canvas.removeEventListener("touchstart", handleTouchStart);
-		canvas.removeEventListener("touchmove", handleTouchMove);
-		canvas.removeEventListener("touchend", handlePointerUp);
+		canvas.removeEventListener("pointerdown", onPointerDown);
+		canvas.removeEventListener("pointermove", onPointerMove);
+		window.removeEventListener("pointerup", onPointerUp);
+		canvas.style.cursor = "default";
 	};
 }

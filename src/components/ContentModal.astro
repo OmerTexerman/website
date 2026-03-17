@@ -1,0 +1,157 @@
+---
+/**
+ * Shared content preview modal — used by both DeskScene and VendingScene.
+ * Exposes window.__contentModal = { open, close, onClose } for Three.js scenes.
+ */
+---
+
+<div
+  id="content-modal"
+  class="fixed inset-0 z-50 pointer-events-none opacity-0 transition-opacity duration-300"
+  aria-hidden="true"
+>
+  <div id="content-modal-backdrop" class="absolute inset-0 bg-dark/80 backdrop-blur-sm"></div>
+  <div
+    id="content-modal-panel"
+    class="absolute inset-x-4 bottom-0 top-16 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:max-w-3xl sm:w-full translate-y-full transition-transform duration-500 ease-out"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="content-modal-title"
+    tabindex="-1"
+  >
+    <div class="h-full bg-white rounded-t-2xl shadow-2xl overflow-hidden flex flex-col">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-dark/10">
+        <h2 id="content-modal-title" class="font-display text-xl font-bold text-dark"></h2>
+        <button id="content-modal-close" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-dark/10 transition-colors text-dark/60 hover:text-dark" aria-label="Close">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div id="content-modal-body" class="flex-1 overflow-y-auto p-6 text-dark" aria-live="polite">
+        <div class="flex items-center justify-center py-12">
+          <div class="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      </div>
+      <div class="px-6 py-4 border-t border-dark/10">
+        <a id="content-modal-link" href="/" class="inline-flex items-center gap-2 font-mono text-sm text-accent hover:text-accent-hover transition-colors">
+          View full page
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const modal = document.getElementById("content-modal")!;
+  const panel = document.getElementById("content-modal-panel")!;
+  const title = document.getElementById("content-modal-title")!;
+  const body = document.getElementById("content-modal-body")!;
+  const link = document.getElementById("content-modal-link") as HTMLAnchorElement;
+  const closeBtn = document.getElementById("content-modal-close")!;
+  const backdrop = document.getElementById("content-modal-backdrop")!;
+
+  const FOCUSABLE = 'a[href],button:not([disabled]),textarea:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])';
+
+  let closeCallbacks: (() => void)[] = [];
+  let previousActiveElement: HTMLElement | null = null;
+  let isOpen = false;
+  let activeRequest: AbortController | null = null;
+
+  function sanitizeNode(root: Element) {
+    root.querySelectorAll("script,style,iframe,object,embed,form,link,meta,noscript").forEach((el) => el.remove());
+    root.querySelectorAll("*").forEach((el) => {
+      for (const attr of [...el.attributes]) {
+        const name = attr.name.toLowerCase();
+        const value = attr.value.trim().toLowerCase();
+        if (name.startsWith("on")) el.removeAttribute(attr.name);
+        else if ((name === "href" || name === "src") && value.startsWith("javascript:")) el.removeAttribute(attr.name);
+      }
+    });
+  }
+
+  function trapFocus(e: KeyboardEvent) {
+    if (e.key !== "Tab" || !isOpen) return;
+    const focusable = [...panel.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
+      (el) => !el.hasAttribute("disabled") && el.offsetParent !== null,
+    );
+    if (focusable.length === 0) { e.preventDefault(); panel.focus(); return; }
+    const first = focusable[0], last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+
+  function openModal(label: string, href: string) {
+    previousActiveElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    title.textContent = label;
+    link.href = href;
+    body.innerHTML = `<div class="flex items-center justify-center py-12"><div class="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin"></div></div>`;
+
+    modal.classList.remove("pointer-events-none", "opacity-0");
+    modal.classList.add("pointer-events-auto", "opacity-100");
+    modal.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+    isOpen = true;
+
+    requestAnimationFrame(() => {
+      panel.classList.remove("translate-y-full");
+      panel.classList.add("translate-y-0");
+      closeBtn.focus();
+    });
+
+    if (activeRequest) activeRequest.abort();
+    activeRequest = new AbortController();
+
+    const url = new URL(href, window.location.origin);
+    if (url.origin !== window.location.origin) {
+      body.innerHTML = `<p class="text-muted text-center py-8">External preview is blocked. <a href="${href}" class="text-accent underline">Visit the page</a>.</p>`;
+      return;
+    }
+
+    fetch(url.toString(), { signal: activeRequest.signal })
+      .then((r) => { if (!r.ok) throw new Error(); return r.text(); })
+      .then((html) => {
+        const doc = new DOMParser().parseFromString(html, "text/html");
+        const content = doc.querySelector(".content-surface") || doc.querySelector("main");
+        if (!content) { body.innerHTML = `<p class="text-muted text-center py-8">No content found. <a href="${href}" class="text-accent underline">Visit the page</a>.</p>`; return; }
+        const sanitized = content.cloneNode(true) as Element;
+        sanitizeNode(sanitized);
+        body.replaceChildren(...Array.from(sanitized.childNodes));
+        body.querySelectorAll("[data-animate]").forEach((el) => el.classList.add("is-visible"));
+      })
+      .catch((err: unknown) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        body.innerHTML = `<p class="text-muted text-center py-8">Could not load preview. <a href="${href}" class="text-accent underline">Visit the page</a>.</p>`;
+      });
+  }
+
+  function closeModal() {
+    if (!isOpen) return;
+    if (activeRequest) { activeRequest.abort(); activeRequest = null; }
+    panel.classList.remove("translate-y-0");
+    panel.classList.add("translate-y-full");
+    isOpen = false;
+    document.body.style.overflow = "";
+    for (const cb of closeCallbacks) cb();
+    setTimeout(() => {
+      modal.classList.remove("pointer-events-auto", "opacity-100");
+      modal.classList.add("pointer-events-none", "opacity-0");
+      modal.setAttribute("aria-hidden", "true");
+      previousActiveElement?.focus();
+      previousActiveElement = null;
+    }, 300);
+  }
+
+  function onClose(cb: () => void) { closeCallbacks.push(cb); }
+
+  closeBtn.addEventListener("click", closeModal);
+  backdrop.addEventListener("click", closeModal);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); trapFocus(e); });
+
+  (window as any).__contentModal = { open: openModal, close: closeModal, onClose };
+  // Backwards compat alias
+  (window as any).__deskModal = (window as any).__contentModal;
+</script>

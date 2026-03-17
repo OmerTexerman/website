@@ -25,11 +25,17 @@ export const metalMaterial = new MeshStandardMaterial({
 });
 
 export const screenMaterial = new MeshStandardMaterial({
-	color: new Color("#3a5a7a"),
-	emissive: new Color("#4a6a8a"),
-	emissiveIntensity: 1.8,
+	color: new Color("#4a7aaa"),
+	emissive: new Color("#5a8aba"),
+	emissiveIntensity: 2.5,
 	roughness: 0.05,
 	metalness: 0.1,
+});
+
+export const darkMetalMaterial = new MeshStandardMaterial({
+	color: new Color("#2a2a2a"),
+	roughness: 0.3,
+	metalness: 0.8,
 });
 
 export const accentMaterial = new MeshStandardMaterial({
@@ -65,16 +71,32 @@ export const pcbMaterial = new MeshStandardMaterial({
 	metalness: 0.1,
 });
 
+// Shelf wall materials
+export const plasterMaterial = new MeshStandardMaterial({
+	color: new Color("#2a2520"),
+	roughness: 0.95,
+	metalness: 0.0,
+});
+
+export const shelfWoodMaterial = new MeshStandardMaterial({
+	color: new Color("#4a3520"),
+	roughness: 0.85,
+	metalness: 0.0,
+});
+
 const allSharedMaterials = [
 	woodMaterial,
 	darkWoodMaterial,
 	paperMaterial,
 	metalMaterial,
+	darkMetalMaterial,
 	screenMaterial,
 	accentMaterial,
 	corkMaterial,
 	ceramicMaterial,
 	pcbMaterial,
+	plasterMaterial,
+	shelfWoodMaterial,
 ];
 
 export function disposeMaterials(): void {

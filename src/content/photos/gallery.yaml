@@ -2,16 +2,13 @@
   src: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800"
   alt: "Lorem ipsum dolor sit amet"
   caption: "Lorem ipsum dolor"
-  featured: true
 
 - id: sample-2
   src: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800"
   alt: "Consectetur adipiscing elit"
   caption: "Sed do eiusmod"
-  featured: false
 
 - id: sample-3
   src: "https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=800"
   alt: "Tempor incididunt ut labore"
   caption: "Ut enim ad minim"
-  featured: true

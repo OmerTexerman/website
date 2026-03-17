@@ -4,7 +4,7 @@ import { accentMaterial, metalMaterial } from "../materials";
 /** Decorative pen */
 export function createPen(): Group {
 	const pen = new Group();
-	pen.userData = { draggable: true };
+	pen.userData = { draggable: true, interactive: true };
 
 	// Body
 	const bodyGeo = new CylinderGeometry(0.02, 0.02, 0.5, 8);

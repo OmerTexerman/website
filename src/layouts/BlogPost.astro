@@ -4,6 +4,7 @@ import ContentHeader from "../components/ContentHeader.astro";
 import BackToDesk from "../components/BackToDesk.astro";
 import Footer from "../components/Footer.astro";
 import { site } from "../config";
+import { formatDate } from "../utils";
 
 interface Props {
   title: string;
@@ -14,18 +15,6 @@ interface Props {
 }
 
 const { title, description, pubDate, updatedDate, tags } = Astro.props;
-
-const formattedDate = pubDate.toLocaleDateString("en-US", {
-  year: "numeric",
-  month: "long",
-  day: "numeric",
-});
-
-const formattedUpdatedDate = updatedDate?.toLocaleDateString("en-US", {
-  year: "numeric",
-  month: "long",
-  day: "numeric",
-});
 ---
 
 <BaseLayout
@@ -36,8 +25,8 @@ const formattedUpdatedDate = updatedDate?.toLocaleDateString("en-US", {
 >
   <ContentHeader />
   <main class="pt-14 min-h-screen">
-    <article class="max-w-3xl mx-auto px-6 py-16">
-      <div class="content-surface p-8 sm:p-12">
+    <article class="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-16">
+      <div class="content-surface p-5 sm:p-8 md:p-12">
         <a
           href="/blog"
           class="inline-flex items-center gap-1.5 font-mono text-sm text-muted hover:text-dark transition-colors mb-10"
@@ -49,10 +38,10 @@ const formattedUpdatedDate = updatedDate?.toLocaleDateString("en-US", {
         </a>
 
         <header class="mb-10">
-          <time class="font-mono text-sm text-muted">{formattedDate}</time>
-          {formattedUpdatedDate && (
+          <time class="font-mono text-sm text-muted">{formatDate(pubDate, "long")}</time>
+          {updatedDate && (
             <span class="font-mono text-sm text-muted ml-3">
-              (Updated {formattedUpdatedDate})
+              (Updated {formatDate(updatedDate, "long")})
             </span>
           )}
           <h1 class="font-display text-4xl sm:text-5xl font-bold mt-3 mb-4 tracking-tight text-dark">
