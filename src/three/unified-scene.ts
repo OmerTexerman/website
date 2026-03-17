@@ -161,6 +161,14 @@ export function initUnifiedScene(
 		renderer.shadowMap.enabled = mode === "desktop";
 	}
 
+	applyRenderSettings(initialMode);
+	renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+
+	function applyRenderSettings(mode: "desktop" | "mobile"): void {
+		renderer.setPixelRatio(Math.min(window.devicePixelRatio, mode === "mobile" ? 1.5 : 2));
+		renderer.shadowMap.enabled = mode === "desktop";
+	}
+
 	function getCanvasSize(): { width: number; height: number } {
 		const rect = canvas.getBoundingClientRect();
 		const width = Math.max(1, Math.round(rect.width || canvas.clientWidth || window.innerWidth));
@@ -619,18 +627,12 @@ export function initUnifiedScene(
 	animationId = requestAnimationFrame(render);
 
 	// ─── Resize handler ──────────────────────────────────────────
-	function handleResize(force = false): void {
-		const { width, height } = getCanvasSize();
-		if (!force && width === lastCanvasWidth && height === lastCanvasHeight) return;
-
-		lastCanvasWidth = width;
-		lastCanvasHeight = height;
-
+	function handleResize(): void {
 		applyRenderSettings(currentMode);
-		renderer.setSize(width, height, false);
-		composer.setSize(width, height);
-		bloomPass.resolution.set(width, height);
-		camera.aspect = width / height;
+		renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+		composer.setSize(canvas.clientWidth, canvas.clientHeight);
+		bloomPass.resolution.set(canvas.clientWidth, canvas.clientHeight);
+		camera.aspect = canvas.clientWidth / canvas.clientHeight;
 		camera.updateProjectionMatrix();
 		if (currentMode === "mobile" && !transitioning) syncMobileShelfCamera(mobileShelfCurrentT);
 		dirty = true;
