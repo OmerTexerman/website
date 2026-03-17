@@ -4,17 +4,77 @@ import { navItems } from "../config";
 
 <div id="desk-scene" class="relative w-full h-screen bg-dark">
   <!-- Three.js canvas -->
-  <canvas id="desk-canvas" class="absolute inset-0 w-full h-full"></canvas>
+  <canvas id="desk-canvas" class="absolute inset-0 w-full h-full hidden md:block"></canvas>
 
   <!-- Label container (HTML overlays positioned over 3D objects) -->
-  <div id="desk-labels" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
+  <div id="desk-labels" class="absolute inset-0 pointer-events-none overflow-hidden hidden md:block"></div>
+
+  <!-- Mobile-first fallback UI -->
+  <div class="md:hidden relative z-10 min-h-screen pt-16 pb-28 px-4 overflow-y-auto">
+    <div class="max-w-md mx-auto">
+      <div class="rounded-2xl border border-white/10 bg-dark-surface/90 backdrop-blur-sm p-5 mb-5">
+        <h1 class="font-display text-3xl text-cream mb-2">Interactive Desk</h1>
+        <p class="text-sm text-muted">Mobile mode is optimized for touch. Tap a section to open it, or preview it instantly.</p>
+      </div>
+
+      <div class="space-y-3">
+        {navItems.map(({ href, label }) => (
+          <article class="rounded-xl border border-white/10 bg-dark-surface/80 p-4">
+            <div class="flex items-center justify-between gap-3">
+              <h2 class="font-display text-xl text-cream">{label}</h2>
+              <span class="w-2.5 h-2.5 rounded-full bg-accent animate-pulse" aria-hidden="true"></span>
+            </div>
+            <div class="mt-3 flex items-center gap-2">
+              <a
+                href={href}
+                class="inline-flex items-center justify-center px-3.5 py-2 rounded-lg bg-accent text-white text-sm font-mono"
+              >
+                Open
+              </a>
+              <button
+                type="button"
+                class="inline-flex items-center justify-center px-3.5 py-2 rounded-lg border border-white/20 text-cream text-sm font-mono hover:border-accent/70 transition-colors"
+                data-mobile-preview-label={label}
+                data-mobile-preview-href={href}
+              >
+                Preview
+              </button>
+            </div>
+          </article>
+        ))}
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick actions -->
+  <div class="absolute right-4 top-4 z-40 flex items-center gap-2">
+    <button
+      id="desk-surprise"
+      type="button"
+      class="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-dark-surface/85 px-3 py-2 text-cream font-mono text-xs sm:text-sm hover:border-accent/70 transition-colors"
+    >
+      <span aria-hidden="true">✨</span>
+      Surprise me
+    </button>
+  </div>
 
   <!-- Content modal overlay -->
-  <div id="desk-modal" class="fixed inset-0 z-50 pointer-events-none opacity-0 transition-opacity duration-300">
+  <div
+    id="desk-modal"
+    class="fixed inset-0 z-50 pointer-events-none opacity-0 transition-opacity duration-300"
+    aria-hidden="true"
+  >
     <!-- Backdrop -->
     <div id="desk-modal-backdrop" class="absolute inset-0 bg-dark/80 backdrop-blur-sm"></div>
     <!-- Content panel -->
-    <div id="desk-modal-panel" class="absolute inset-x-4 bottom-0 top-16 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:max-w-3xl sm:w-full translate-y-full transition-transform duration-500 ease-out">
+    <div
+      id="desk-modal-panel"
+      class="absolute inset-x-4 bottom-0 top-16 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:max-w-3xl sm:w-full translate-y-full transition-transform duration-500 ease-out"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="desk-modal-title"
+      tabindex="-1"
+    >
       <div class="h-full bg-white rounded-t-2xl shadow-2xl overflow-hidden flex flex-col">
         <!-- Modal header -->
         <div class="flex items-center justify-between px-6 py-4 border-b border-dark/10">
@@ -26,7 +86,7 @@ import { navItems } from "../config";
           </button>
         </div>
         <!-- Modal body -->
-        <div id="desk-modal-body" class="flex-1 overflow-y-auto p-6 text-dark">
+        <div id="desk-modal-body" class="flex-1 overflow-y-auto p-6 text-dark" aria-live="polite">
           <div class="flex items-center justify-center py-12">
             <div class="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
           </div>
@@ -70,50 +130,160 @@ import { navItems } from "../config";
   const link = document.getElementById("desk-modal-link") as HTMLAnchorElement;
   const closeBtn = document.getElementById("desk-modal-close")!;
   const backdrop = document.getElementById("desk-modal-backdrop")!;
+  const surpriseBtn = document.getElementById("desk-surprise") as HTMLButtonElement | null;
+
+  const sections = [
+    ...document.querySelectorAll("[data-mobile-preview-href]"),
+  ].map((el) => ({
+    label: el.getAttribute("data-mobile-preview-label") || "Section",
+    href: el.getAttribute("data-mobile-preview-href") || "/",
+  }));
+
+  const FOCUSABLE_SELECTOR = [
+    'a[href]',
+    'button:not([disabled])',
+    'textarea:not([disabled])',
+    'input:not([disabled])',
+    'select:not([disabled])',
+    '[tabindex]:not([tabindex="-1"])',
+  ].join(",");
+
+  let closeCallbacks: (() => void)[] = [];
+  let previousActiveElement: HTMLElement | null = null;
+  let isModalOpen = false;
+  let activeRequest: AbortController | null = null;
+
+  function setLoadingState() {
+    body.innerHTML = `<div class="flex items-center justify-center py-12"><div class="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin"></div></div>`;
+  }
+
+  function renderFallbackMessage(href: string, message: string) {
+    body.innerHTML = `<p class="text-muted text-center py-8">${message} <a href="${href}" class="text-accent underline">Visit the page</a>.</p>`;
+  }
+
+  function sanitizeNode(root: Element) {
+    root.querySelectorAll("script,style,iframe,object,embed,form,link,meta,noscript").forEach((el) => {
+      el.remove();
+    });
+
+    root.querySelectorAll("*").forEach((el) => {
+      for (const attr of [...el.attributes]) {
+        const name = attr.name.toLowerCase();
+        const value = attr.value.trim().toLowerCase();
+        if (name.startsWith("on")) {
+          el.removeAttribute(attr.name);
+          continue;
+        }
+        if ((name === "href" || name === "src") && value.startsWith("javascript:")) {
+          el.removeAttribute(attr.name);
+        }
+      }
+    });
+  }
+
+  function getFocusableElements() {
+    return [...panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)].filter((el) => {
+      return !el.hasAttribute("disabled") && el.offsetParent !== null;
+    });
+  }
+
+  function trapFocus(event: KeyboardEvent) {
+    if (event.key !== "Tab" || !isModalOpen) return;
+    const focusable = getFocusableElements();
+    if (focusable.length === 0) {
+      event.preventDefault();
+      panel.focus();
+      return;
+    }
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = document.activeElement;
+
+    if (event.shiftKey && active === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
 
   function openModal(label: string, href: string) {
+    previousActiveElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     title.textContent = label;
     link.href = href;
-    body.innerHTML = `<div class="flex items-center justify-center py-12"><div class="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin"></div></div>`;
+    setLoadingState();
 
     modal.classList.remove("pointer-events-none", "opacity-0");
     modal.classList.add("pointer-events-auto", "opacity-100");
+    modal.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+    isModalOpen = true;
+
     requestAnimationFrame(() => {
       panel.classList.remove("translate-y-full");
       panel.classList.add("translate-y-0");
+      closeBtn.focus();
     });
 
-    // Fetch the page content
-    fetch(href)
-      .then(r => r.text())
-      .then(html => {
-        const doc = new DOMParser().parseFromString(html, "text/html");
-        // Extract the content-surface div, fall back to main
-        const content = doc.querySelector(".content-surface") || doc.querySelector("main");
-        if (content) {
-          body.innerHTML = content.innerHTML;
-          // Fix: data-animate elements start at opacity:0, force them visible
-          body.querySelectorAll("[data-animate]").forEach(el => {
-            el.classList.add("is-visible");
-          });
-        } else {
-          body.innerHTML = `<p class="text-muted text-center py-8">No content found. <a href="${href}" class="text-accent underline">Visit the page</a>.</p>`;
-        }
+    if (activeRequest) activeRequest.abort();
+    activeRequest = new AbortController();
+
+    const normalizedHref = new URL(href, window.location.origin);
+    if (normalizedHref.origin !== window.location.origin) {
+      renderFallbackMessage(href, "External preview is blocked.");
+      return;
+    }
+
+    fetch(normalizedHref.toString(), { signal: activeRequest.signal })
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed to fetch preview");
+        return r.text();
       })
-      .catch(() => {
-        body.innerHTML = `<p class="text-muted text-center py-8">Could not load preview. <a href="${href}" class="text-accent underline">Visit the page</a>.</p>`;
+      .then((html) => {
+        const doc = new DOMParser().parseFromString(html, "text/html");
+        const content = doc.querySelector(".content-surface") || doc.querySelector("main");
+        if (!content) {
+          renderFallbackMessage(href, "No content found.");
+          return;
+        }
+
+        const sanitized = content.cloneNode(true) as Element;
+        sanitizeNode(sanitized);
+        body.replaceChildren(...Array.from(sanitized.childNodes));
+
+        body.querySelectorAll("[data-animate]").forEach((el) => {
+          el.classList.add("is-visible");
+        });
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        renderFallbackMessage(href, "Could not load preview.");
       });
   }
 
-  let closeCallbacks: (() => void)[] = [];
-
   function closeModal() {
+    if (!isModalOpen) return;
+
+    if (activeRequest) {
+      activeRequest.abort();
+      activeRequest = null;
+    }
+
     panel.classList.remove("translate-y-0");
     panel.classList.add("translate-y-full");
+    isModalOpen = false;
+    document.body.style.overflow = "";
+
     for (const cb of closeCallbacks) cb();
+
     setTimeout(() => {
       modal.classList.remove("pointer-events-auto", "opacity-100");
       modal.classList.add("pointer-events-none", "opacity-0");
+      modal.setAttribute("aria-hidden", "true");
+      previousActiveElement?.focus();
+      previousActiveElement = null;
     }, 300);
   }
 
@@ -121,10 +291,27 @@ import { navItems } from "../config";
     closeCallbacks.push(cb);
   }
 
+  function surpriseMe() {
+    if (sections.length === 0) return;
+    const random = sections[Math.floor(Math.random() * sections.length)];
+    openModal(random.label, random.href);
+  }
+
   closeBtn.addEventListener("click", closeModal);
   backdrop.addEventListener("click", closeModal);
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closeModal();
+    trapFocus(e);
+  });
+
+  surpriseBtn?.addEventListener("click", surpriseMe);
+
+  document.querySelectorAll("[data-mobile-preview-href]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const label = btn.getAttribute("data-mobile-preview-label") || "Section";
+      const href = btn.getAttribute("data-mobile-preview-href") || "/";
+      openModal(label, href);
+    });
   });
 
   // Expose to Three.js scene
@@ -135,6 +322,7 @@ import { navItems } from "../config";
     const labels = document.getElementById("desk-labels") as HTMLElement;
 
     if (!canvas || !labels) return;
+    if (window.innerWidth < 768) return;
 
     const { initDeskScene } = await import("../three/scene");
 
