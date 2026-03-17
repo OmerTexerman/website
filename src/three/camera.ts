@@ -1,6 +1,7 @@
 import { PerspectiveCamera, Vector3 } from "three";
 import { easeInOutCubic } from "./animations";
 
+// ─── Desktop (desk) camera poses ────────────────────────────────
 const INTRO_DURATION = 2800;
 const IDLE_AMPLITUDE = 0.03;
 const IDLE_SPEED = 0.0005;
@@ -9,6 +10,15 @@ const START_POS = new Vector3(4, 12, 10);
 const END_POS = new Vector3(0, 5, 7);
 const START_LOOK = new Vector3(0, 2, 0);
 const END_LOOK = new Vector3(0, 0.5, 0);
+
+export const DESKTOP_POS = END_POS;
+export const DESKTOP_LOOK = END_LOOK;
+
+// ─── Mobile (shelf) camera poses ────────────────────────────────
+export const MOBILE_POS = new Vector3(0.0, 2.7, 6.8);
+export const MOBILE_LOOK = new Vector3(5.25, 2.35, 4.4);
+export const MOBILE_INTRO_START_POS = new Vector3(0.7, 4.0, 9.0);
+export const MOBILE_INTRO_DURATION = 2000;
 
 const _lookTarget = new Vector3();
 let lastIdleY = END_POS.y;
@@ -31,6 +41,22 @@ export function animateIntro(camera: PerspectiveCamera, startTime: number, now: 
 	return progress >= 1;
 }
 
+/** Mobile intro: camera swoops in to shelf wall */
+export function animateMobileIntro(
+	camera: PerspectiveCamera,
+	startTime: number,
+	now: number,
+): boolean {
+	const progress = Math.min((now - startTime) / MOBILE_INTRO_DURATION, 1);
+	const eased = easeInOutCubic(progress);
+
+	camera.position.lerpVectors(MOBILE_INTRO_START_POS, MOBILE_POS, eased);
+	_lookTarget.lerpVectors(MOBILE_LOOK, MOBILE_LOOK, eased);
+	camera.lookAt(_lookTarget);
+
+	return progress >= 1;
+}
+
 /** Returns true if the camera actually moved enough to warrant a re-render */
 export function idleFloat(camera: PerspectiveCamera, time: number): boolean {
 	const newY = END_POS.y + Math.sin(time * IDLE_SPEED) * IDLE_AMPLITUDE;
@@ -39,4 +65,18 @@ export function idleFloat(camera: PerspectiveCamera, time: number): boolean {
 	camera.position.y = newY;
 	camera.lookAt(END_LOOK);
 	return true;
+}
+
+/** Interpolate camera between two poses at factor t (0..1) */
+export function lerpCameraPose(
+	camera: PerspectiveCamera,
+	fromPos: Vector3,
+	toPos: Vector3,
+	fromLook: Vector3,
+	toLook: Vector3,
+	t: number,
+): void {
+	camera.position.lerpVectors(fromPos, toPos, t);
+	_lookTarget.lerpVectors(fromLook, toLook, t);
+	camera.lookAt(_lookTarget);
 }

@@ -280,3 +280,23 @@ export function animateSpin(obj: Object3D): Promise<void> {
 		obj.rotation.y = baseY + p * Math.PI * 2;
 	});
 }
+
+// ─── SHELF WALL ANIMATIONS ─────────────────────────────────────
+
+/** Slide shelf items forward toward camera with accent highlight */
+export function animateShelfPresent(items: Object3D): Promise<void> {
+	saveRest(items, "z", items.position.z);
+	const restZ = getRest(items, "z");
+	return animate(`shelf-present-${items.uuid}`, 400, (p) => {
+		items.position.z = lerp(restZ, restZ + 0.15, p);
+	});
+}
+
+/** Return shelf items to rest position */
+export function animateShelfReset(items: Object3D): Promise<void> {
+	const curZ = items.position.z;
+	const restZ = getRest(items, "z");
+	return animate(`shelf-present-${items.uuid}`, 300, (p) => {
+		items.position.z = lerp(curZ, restZ, p);
+	});
+}

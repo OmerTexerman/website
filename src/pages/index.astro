@@ -1,8 +1,7 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import ContentModal from "../components/ContentModal.astro";
-import DeskScene from "../components/DeskScene.astro";
-import VendingScene from "../components/VendingScene.astro";
+import SceneCanvas from "../components/SceneCanvas.astro";
 import { site, navItems } from "../config";
 ---
 
@@ -12,8 +11,7 @@ import { site, navItems } from "../config";
   fullscreen
 >
   <div class="relative w-full h-screen bg-dark">
-    <DeskScene />
-    <VendingScene />
+    <SceneCanvas />
     <ContentModal />
 
     <!-- Accessibility: skip to nav + hidden text nav -->
@@ -32,55 +30,37 @@ import { site, navItems } from "../config";
     </nav>
   </div>
 
-  <!-- Scene switcher -->
+  <!-- Unified scene boot -->
   <script>
-    const SECTIONS = [
-      { label: "Blog", href: "/blog" },
-      { label: "Projects", href: "/projects" },
-      { label: "Reading", href: "/reading" },
-      { label: "Photos", href: "/photos" },
-    ];
+    let sceneHandle: { cleanup: () => void; transition: (target: "desktop" | "mobile") => Promise<void> } | null = null;
+    let activeMode: "desktop" | "mobile" | null = null;
 
-    let activeCleanup: (() => void) | null = null;
-    let activeMode: "mobile" | "desktop" | null = null;
-
-    async function boot(mode: "mobile" | "desktop") {
-      if (mode === activeMode) return;
-
-      // Tear down current scene
-      if (activeCleanup) {
-        activeCleanup();
-        activeCleanup = null;
-      }
-      activeMode = mode;
-
-      if (mode === "mobile") {
-        // Hide desk, show vending
-        document.getElementById("desk-scene")!.style.display = "none";
-        const vendingScene = document.getElementById("vending-scene")!;
-        vendingScene.style.display = "block";
-        const canvas = document.getElementById("vending-canvas") as HTMLCanvasElement;
-        const labels = document.getElementById("vending-labels") as HTMLElement;
-        const booksJson = vendingScene.getAttribute("data-books");
+    async function boot(mode: "desktop" | "mobile") {
+      if (!sceneHandle) {
+        // First boot — create the unified scene
+        const root = document.getElementById("scene-root")!;
+        const canvas = document.getElementById("scene-canvas") as HTMLCanvasElement;
+        const labels = document.getElementById("scene-labels") as HTMLElement;
+        const booksJson = root.getAttribute("data-books");
         const books = booksJson ? JSON.parse(booksJson) : undefined;
-        const { initMobileScene } = await import("../three/mobile-scene");
-        activeCleanup = initMobileScene(canvas, SECTIONS, labels, books);
-      } else {
-        // Hide vending, show desk
-        document.getElementById("vending-scene")!.style.display = "none";
-        const deskScene = document.getElementById("desk-scene")!;
-        deskScene.style.display = "block";
-        const canvas = document.getElementById("desk-canvas") as HTMLCanvasElement;
-        const labels = document.getElementById("desk-labels") as HTMLElement;
-        const booksJson = deskScene.getAttribute("data-books");
-        const books = booksJson ? JSON.parse(booksJson) : undefined;
-        const { initDeskScene } = await import("../three/scene");
-        activeCleanup = initDeskScene(canvas, labels, books);
+
+        const { initUnifiedScene } = await import("../three/unified-scene");
+        sceneHandle = initUnifiedScene(canvas, labels, mode, books);
+        (window as any).__sceneHandle = sceneHandle;
+        activeMode = mode;
+      } else if (mode !== activeMode) {
+        // Subsequent calls — transition between modes
+        activeMode = mode;
+        await sceneHandle.transition(mode);
       }
     }
 
     function cleanup() {
-      if (activeCleanup) { activeCleanup(); activeCleanup = null; activeMode = null; }
+      if (sceneHandle) {
+        sceneHandle.cleanup();
+        sceneHandle = null;
+        activeMode = null;
+      }
     }
 
     document.addEventListener("astro:before-preparation", cleanup, { once: true });

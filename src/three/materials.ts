@@ -71,20 +71,17 @@ export const pcbMaterial = new MeshStandardMaterial({
 	metalness: 0.1,
 });
 
-// Vending machine materials
-export const glassMaterial = new MeshPhysicalMaterial({
-	color: new Color("#c8dce8"),
-	roughness: 0.05,
-	metalness: 0.1,
-	transparent: true,
-	opacity: 0.25,
-	clearcoat: 1.0,
+// Shelf wall materials
+export const plasterMaterial = new MeshStandardMaterial({
+	color: new Color("#2a2520"),
+	roughness: 0.95,
+	metalness: 0.0,
 });
 
-export const brushedMetalMaterial = new MeshStandardMaterial({
-	color: new Color("#6a6a72"),
-	roughness: 0.45,
-	metalness: 0.7,
+export const shelfWoodMaterial = new MeshStandardMaterial({
+	color: new Color("#4a3520"),
+	roughness: 0.85,
+	metalness: 0.0,
 });
 
 const allSharedMaterials = [
@@ -98,8 +95,8 @@ const allSharedMaterials = [
 	corkMaterial,
 	ceramicMaterial,
 	pcbMaterial,
-	glassMaterial,
-	brushedMetalMaterial,
+	plasterMaterial,
+	shelfWoodMaterial,
 ];
 
 export function disposeMaterials(): void {
