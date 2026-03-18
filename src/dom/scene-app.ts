@@ -18,7 +18,16 @@ function parseBooks(sceneRoot: HTMLElement): ShelfBook[] | undefined {
 	}
 }
 
+/** Tracks the active mount's cleanup so HMR re-execution tears down the old instance first. */
+let activeCleanup: (() => void) | null = null;
+
 export function mountSceneApp(): () => void {
+	// Tear down any previous mount (HMR re-execution or accidental double-call)
+	if (activeCleanup) {
+		activeCleanup();
+		activeCleanup = null;
+	}
+
 	const fallback = document.getElementById("scene-fallback");
 	const sceneRoot = document.getElementById("scene-root");
 
@@ -30,6 +39,7 @@ export function mountSceneApp(): () => void {
 	let transitionQueue: Promise<void> = Promise.resolve();
 	let modeSyncFrame = 0;
 	let fallbackTimer = 0;
+	let generation = 0;
 
 	function setFallbackVisible(visible: boolean): void {
 		if (!(fallback instanceof HTMLElement)) return;
@@ -44,12 +54,15 @@ export function mountSceneApp(): () => void {
 	}
 
 	async function applyMode(mode: "desktop" | "mobile"): Promise<void> {
+		const gen = generation;
 		if (!sceneHandle) {
 			const canvas = document.getElementById("scene-canvas");
 			const labels = document.getElementById("scene-labels");
 			if (!(canvas instanceof HTMLCanvasElement) || !(labels instanceof HTMLElement)) return;
 
 			const { initUnifiedScene } = await import("../three/unified-scene");
+			// If cleanup ran while the import was in flight, abandon this mount
+			if (gen !== generation) return;
 			sceneHandle = initUnifiedScene(canvas, labels, mode, parseBooks(root));
 			(window as Window & { __sceneHandle?: SceneHandle }).__sceneHandle = sceneHandle;
 			window.clearTimeout(fallbackTimer);
@@ -100,6 +113,7 @@ export function mountSceneApp(): () => void {
 	resizeObserver?.observe(root);
 
 	function cleanup(): void {
+		generation++; // Invalidate any in-flight async work (e.g. dynamic import)
 		sceneHandle?.cleanup();
 		sceneHandle = null;
 		activeMode = null;
@@ -111,7 +125,10 @@ export function mountSceneApp(): () => void {
 		delete document.documentElement.dataset.sceneFallback;
 		delete document.documentElement.dataset.sceneReady;
 		setFallbackVisible(false);
+		if (activeCleanup === cleanup) activeCleanup = null;
 	}
+
+	activeCleanup = cleanup;
 
 	document.addEventListener("astro:before-preparation", cleanup, { once: true });
 	window.addEventListener("beforeunload", cleanup, { once: true });

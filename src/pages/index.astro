@@ -57,6 +57,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
   <script>
     import { mountSceneApp } from "../dom/scene-app";
 
-    mountSceneApp();
+    const cleanup = mountSceneApp();
+    if (import.meta.hot) {
+      import.meta.hot.dispose(cleanup);
+    }
   </script>
 </BaseLayout>

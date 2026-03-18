@@ -48,6 +48,21 @@ export async function getOrderedProjects() {
 	return (await getCollection("projects")).sort((a, b) => a.data.order - b.data.order);
 }
 
-export async function getPhotos() {
-	return (await getCollection("photos")).map((photo) => photo.data);
+export interface PhotoCollection {
+	id: string;
+	title: string;
+	location?: string;
+	date?: string;
+	description?: string;
+	cover: string;
+	post?: string;
+	photos: { src: string; alt: string; caption?: string }[];
+}
+
+export async function getPhotoCollections(): Promise<PhotoCollection[]> {
+	const entries = await getCollection("photos");
+	return entries.map((entry) => ({
+		id: entry.id,
+		...entry.data,
+	}));
 }

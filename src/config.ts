@@ -40,11 +40,11 @@ export function getRootThemeStyle(): string {
  */
 export const site = {
 	name: "Omer Texerman",
-	title: "Full Stack Developer",
+	title: "Developer, Student, Man of your dreams",
 	initials: "OT",
 	description:
-		"Full Stack Developer — explore my interactive 3D desk to discover blog posts, projects, reading list, and photos.",
-	shortDescription: "Full Stack Developer portfolio",
+		"Student at Northeastern University studying Computer Engineering and Computer Science :)",
+	shortDescription: "This is my site lol",
 	origin: siteOrigin,
 } as const;
 
@@ -71,28 +71,28 @@ export const sections: Record<SectionId, SiteSection> = {
 		id: "blog",
 		label: "Blog",
 		href: "/blog",
-		description: "Notes on building software, shipping products, and learning in public.",
+		description: "Writings",
 		backLabel: "Back to blog",
 	},
 	projects: {
 		id: "projects",
 		label: "Projects",
 		href: "/projects",
-		description: "Selected work spanning web apps, experiments, and production systems.",
+		description: "Shit I do",
 		backLabel: "Back to projects",
 	},
 	reading: {
 		id: "reading",
 		label: "Reading",
 		href: "/reading",
-		description: "Books I am reading, finished recently, or want to pick up next.",
+		description: "Shit I read",
 		backLabel: "Back to reading",
 	},
 	photos: {
 		id: "photos",
 		label: "Photos",
 		href: "/photos",
-		description: "A small photo journal of places, light, and moments worth keeping.",
+		description: "Shit I take pictures of",
 		backLabel: "Back to photos",
 	},
 };

@@ -1,0 +1,56 @@
+---
+import PhotoGallery from "../../components/PhotoGallery.astro";
+import RelatedPost from "../../components/RelatedPost.astro";
+import { getPhotoCollections } from "../../content/selectors";
+import ContentShell from "../../layouts/ContentShell.astro";
+
+export async function getStaticPaths() {
+	const collections = await getPhotoCollections();
+	return collections.map((collection) => ({
+		params: { slug: collection.id },
+		props: { collection },
+	}));
+}
+
+const { collection } = Astro.props;
+---
+
+<ContentShell
+  title={`${collection.title} | Photos`}
+  description={collection.description}
+  containerWidthClass="max-w-6xl"
+>
+  <div class="mb-10" data-animate>
+    <a
+      href="/photos"
+      class="inline-flex items-center gap-1.5 font-mono text-sm text-muted transition-colors hover:text-cream mb-5"
+    >
+      <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+      </svg>
+      All photos
+    </a>
+
+    <h1 class="font-display text-4xl sm:text-5xl font-bold tracking-tight text-cream">
+      {collection.title}
+    </h1>
+
+    <div class="mt-3 flex items-center gap-2 font-mono text-sm text-muted">
+      {collection.location && <span>{collection.location}</span>}
+      {collection.location && collection.date && <span class="text-muted/40">/</span>}
+      {collection.date && <span>{collection.date}</span>}
+      <span class="text-muted/40">/</span>
+      <span>{collection.photos.length} photos</span>
+    </div>
+
+    {collection.description && (
+      <p class="mt-4 text-cream-dark text-lg max-w-2xl">{collection.description}</p>
+    )}
+
+    {collection.post && <RelatedPost slug={collection.post} class="mt-4" />}
+  </div>
+
+  <div data-animate style="transition-delay: 0.15s">
+    <PhotoGallery photos={collection.photos} />
+  </div>
+</ContentShell>

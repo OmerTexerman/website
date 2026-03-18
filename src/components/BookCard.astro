@@ -1,12 +1,15 @@
 ---
+import RelatedPost from "./RelatedPost.astro";
+
 interface Props {
 	title: string;
 	author: string;
 	spineColor: string;
 	url?: string;
+	post?: string;
 }
 
-const { title, author, spineColor, url } = Astro.props;
+const { title, author, spineColor, url, post } = Astro.props;
 ---
 
 <div class="flex items-center gap-4 card-base card-hover-subtle">
@@ -20,6 +23,9 @@ const { title, author, spineColor, url } = Astro.props;
     ) : (
       <p class="font-display text-lg font-bold text-cream truncate">{title}</p>
     )}
-    <p class="text-cream-dark text-sm">{author}</p>
+    <div class="flex items-center gap-3">
+      <p class="text-cream-dark text-sm truncate">{author}</p>
+      {post && <RelatedPost slug={post} />}
+    </div>
   </div>
 </div>

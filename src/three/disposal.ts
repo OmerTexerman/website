@@ -15,6 +15,21 @@ function collectMaterialResources(
 	}
 }
 
+/**
+ * Release the pixel buffer backing a canvas-sourced texture.
+ * `texture.dispose()` frees the GPU-side resource, but the source
+ * HTMLCanvasElement's bitmap stays allocated. Shrinking it to 1×1
+ * releases that memory. (Assumes HTMLCanvasElement — does not apply
+ * to OffscreenCanvas.)
+ */
+function releaseTextureSource(texture: Texture): void {
+	const source = texture.image;
+	if (source instanceof HTMLCanvasElement) {
+		source.width = 1;
+		source.height = 1;
+	}
+}
+
 export function disposeObjectResources(root: Object3D): void {
 	const geometries = new Set<{ dispose: () => void }>();
 	const materials = new Set<Material>();
@@ -35,7 +50,10 @@ export function disposeObjectResources(root: Object3D): void {
 		collectMaterialResources(child.material, materials, textures);
 	});
 
-	for (const texture of textures) texture.dispose();
+	for (const texture of textures) {
+		releaseTextureSource(texture);
+		texture.dispose();
+	}
 	for (const material of materials) material.dispose();
 	for (const geometry of geometries) geometry.dispose();
 }

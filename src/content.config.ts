@@ -26,6 +26,7 @@ const projects = defineCollection({
 		url: z.url().optional(),
 		repo: z.url().optional(),
 		order: z.number().default(0),
+		post: z.string().optional(),
 	}),
 });
 
@@ -37,15 +38,26 @@ const books = defineCollection({
 		spineColor: z.string().regex(hexColor).default("#2a4a6a"),
 		status: z.enum(["reading", "finished", "want-to-read"]),
 		url: z.url().optional(),
+		post: z.string().optional(),
 	}),
 });
 
 const photos = defineCollection({
-	loader: file("./src/content/photos/gallery.yaml"),
+	loader: glob({ pattern: "**/*.yaml", base: "./src/content/photos" }),
 	schema: z.object({
-		src: z.string().regex(photoSource, "Photo src must be an absolute path or URL."),
-		alt: z.string(),
-		caption: z.string().optional(),
+		title: z.string(),
+		location: z.string().optional(),
+		date: z.string().optional(),
+		description: z.string().optional(),
+		cover: z.string().regex(photoSource, "Cover must be an absolute path or URL."),
+		post: z.string().optional(),
+		photos: z.array(
+			z.object({
+				src: z.string().regex(photoSource, "Photo src must be an absolute path or URL."),
+				alt: z.string(),
+				caption: z.string().optional(),
+			}),
+		),
 	}),
 });
 

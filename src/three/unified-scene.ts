@@ -264,6 +264,7 @@ export function initUnifiedScene(
 	let scrollController: MobileScrollController | null = null;
 	let cleanupModalClose: (() => void) | null = null;
 	let disposed = false;
+	let contextLost = false;
 	let pendingModalTimeout = 0;
 	let transitionAnimationId = 0;
 	let postTransitionRaf = 0;
@@ -738,6 +739,7 @@ export function initUnifiedScene(
 	let targetInterval = isInitiallyMobile ? 1000 / 60 : 0;
 
 	function render(now: number): void {
+		if (disposed || contextLost) return;
 		animationId = requestAnimationFrame(render);
 
 		if (!transitioning && targetInterval > 0 && now - lastFrame < targetInterval) return;
@@ -813,6 +815,7 @@ export function initUnifiedScene(
 	let resizeFrame = 0;
 
 	function handleResize(): void {
+		if (disposed || contextLost) return;
 		const { width, height } = getCanvasSize();
 		if (width === lastCanvasWidth && height === lastCanvasHeight) return;
 		lastCanvasWidth = width;
@@ -854,6 +857,27 @@ export function initUnifiedScene(
 			: null;
 	if (canvas.parentElement) resizeObserver?.observe(canvas.parentElement);
 	else resizeObserver?.observe(canvas);
+
+	// ─── WebGL context loss safety net ───────────────────────────
+	// Prevents a GPU hang from escalating to a frozen compositor.
+	function onContextLost(event: Event): void {
+		event.preventDefault(); // Signal the browser to attempt restoration
+		contextLost = true;
+		cancelAnimationFrame(animationId);
+		if (resizeFrame) {
+			cancelAnimationFrame(resizeFrame);
+			resizeFrame = 0;
+		}
+	}
+
+	function onContextRestored(): void {
+		contextLost = false;
+		dirty = true;
+		animationId = requestAnimationFrame(render);
+	}
+
+	canvas.addEventListener("webglcontextlost", onContextLost);
+	canvas.addEventListener("webglcontextrestored", onContextRestored);
 
 	// ─── Transition ──────────────────────────────────────────────
 	let transitionPromise: Promise<void> | null = null;
@@ -1020,7 +1044,11 @@ export function initUnifiedScene(
 
 	// ─── Cleanup ─────────────────────────────────────────────────
 	function cleanup(): void {
+		if (disposed) return;
 		disposed = true;
+
+		canvas.removeEventListener("webglcontextlost", onContextLost);
+		canvas.removeEventListener("webglcontextrestored", onContextRestored);
 		resizeObserver?.disconnect();
 		cancelAnimationFrame(animationId);
 		if (resizeFrame) cancelAnimationFrame(resizeFrame);
@@ -1038,6 +1066,12 @@ export function initUnifiedScene(
 		deskPhysics.dispose();
 		bloomPass.dispose();
 		composer.dispose();
+
+		// Force the browser to drop the GL context immediately rather than
+		// waiting for GC — critical on Linux/Mesa where lingering contexts
+		// can exhaust GPU memory and hang the compositor.
+		const gl = renderer.getContext();
+		gl.getExtension("WEBGL_lose_context")?.loseContext();
 		renderer.dispose();
 	}
 

@@ -9,13 +9,14 @@ const { photos } = Astro.props;
 ---
 
 <div data-photo-gallery>
-  <template data-photo-gallery-data>{JSON.stringify(photos)}</template>
+  <script type="application/json" data-photo-gallery-data set:html={JSON.stringify(photos)} />
 
-  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+  <!-- Masonry Grid -->
+  <div class="photo-masonry">
     {photos.map((photo, i) => (
       <button
         type="button"
-        class="group relative aspect-[4/3] cursor-pointer overflow-hidden rounded-xl border border-white/8 bg-dark-surface-elevated focus:outline-none focus:ring-2 focus:ring-accent"
+        class="photo-masonry-item group"
         data-photo-index={i}
         aria-label={`View photo: ${photo.alt}`}
       >
@@ -23,40 +24,69 @@ const { photos } = Astro.props;
           src={photo.src}
           alt={photo.alt}
           loading="lazy"
-          class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          class="photo-masonry-img"
         />
         {photo.caption && (
-          <div class="absolute inset-x-0 bottom-0 translate-y-full bg-gradient-to-t from-black/70 to-transparent p-3 transition-transform duration-300 group-hover:translate-y-0 group-focus-visible:translate-y-0">
-            <p class="text-sm text-cream">{photo.caption}</p>
+          <div class="photo-masonry-overlay">
+            <p class="photo-masonry-caption">{photo.caption}</p>
           </div>
         )}
       </button>
     ))}
   </div>
 
+  <!-- Lightbox -->
   <dialog
     data-photo-lightbox
-    class="fixed inset-0 z-50 m-0 h-full max-h-none w-full max-w-none bg-dark/95 p-0 backdrop-blur-sm"
+    class="photo-lightbox"
   >
-    <div class="flex h-full w-full items-center justify-center p-8">
-      <button
-        data-photo-lightbox-close
-        class="absolute right-4 top-4 z-10 text-3xl font-light text-cream/80 hover:text-cream"
-        aria-label="Close lightbox"
-      >
-        &times;
-      </button>
+    <!-- Close -->
+    <button
+      data-photo-lightbox-close
+      class="photo-lightbox-close"
+      aria-label="Close lightbox"
+    >
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+
+    <!-- Previous -->
+    <button
+      data-photo-lightbox-prev
+      class="photo-lightbox-nav photo-lightbox-prev"
+      aria-label="Previous photo"
+    >
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+      </svg>
+    </button>
+
+    <!-- Next -->
+    <button
+      data-photo-lightbox-next
+      class="photo-lightbox-nav photo-lightbox-next"
+      aria-label="Next photo"
+    >
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+      </svg>
+    </button>
+
+    <!-- Image -->
+    <div class="photo-lightbox-content">
       <img
         data-photo-lightbox-img
         src=""
         alt=""
-        class="max-h-full max-w-full rounded-lg object-contain"
+        class="photo-lightbox-image"
       />
-      <p
-        data-photo-lightbox-caption
-        class="absolute bottom-8 left-1/2 -translate-x-1/2 text-center text-base text-cream"
-      >
-      </p>
+    </div>
+
+    <!-- Info -->
+    <div class="photo-lightbox-info">
+      <p data-photo-lightbox-caption class="photo-lightbox-info-caption"></p>
+      <span data-photo-lightbox-counter class="photo-lightbox-info-counter font-mono"></span>
     </div>
   </dialog>
 </div>

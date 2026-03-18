@@ -1,4 +1,5 @@
 ---
+import RelatedPost from "./RelatedPost.astro";
 import Tag from "./Tag.astro";
 
 interface Props {
@@ -7,9 +8,10 @@ interface Props {
 	tech: string[];
 	url?: string;
 	repo?: string;
+	post?: string;
 }
 
-const { title, description, tech, url, repo } = Astro.props;
+const { title, description, tech, url, repo, post } = Astro.props;
 ---
 
 <div class="card-base card-base-lg card-hover">
@@ -20,7 +22,7 @@ const { title, description, tech, url, repo } = Astro.props;
       <Tag label={t} />
     ))}
   </div>
-  <div class="flex gap-4">
+  <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
     {url && (
       <a href={url} target="_blank" rel="noopener noreferrer" class="font-mono text-sm text-accent hover:text-accent-hover transition-colors">
         Live site &rarr;
@@ -31,5 +33,6 @@ const { title, description, tech, url, repo } = Astro.props;
         Source code
       </a>
     )}
+    {post && <RelatedPost slug={post} />}
   </div>
 </div>
