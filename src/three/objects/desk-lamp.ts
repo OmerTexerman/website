@@ -11,6 +11,9 @@ import {
 	SpotLight,
 } from "three";
 import { metalMaterial } from "../materials";
+import { DESK_SURFACE_Y } from "../math-utils";
+
+const LAMP_ON_INTENSITY = 5.0;
 
 /** Desk lamp — built hierarchically so parts stay connected.
  *  base → armPivot → arm + headPivot → shade (conical) + bulb + light
@@ -79,7 +82,7 @@ export function createDeskLamp(): Group {
 	headPivot.add(bulb);
 
 	// SpotLight — wide cone aimed at the desk center
-	const light = new SpotLight(new Color("#ffcc88"), 6.0, 10, Math.PI / 3, 0.6, 1.2);
+	const light = new SpotLight(new Color("#ffcc88"), LAMP_ON_INTENSITY, 10, Math.PI / 3, 0.6, 1.2);
 	light.position.set(0, -0.12, 0);
 	light.castShadow = true;
 	light.shadow.mapSize.width = 1024;
@@ -96,7 +99,7 @@ export function createDeskLamp(): Group {
 	// Store references for toggling
 	lamp.userData.lightParts = { light, glowMat };
 
-	lamp.position.set(1.8, 0.12, -0.8);
+	lamp.position.set(1.8, DESK_SURFACE_Y, -0.8);
 
 	return lamp;
 }
@@ -108,7 +111,7 @@ export function toggleLamp(lamp: Group): boolean {
 		light: Light;
 		glowMat: MeshStandardMaterial;
 	};
-	light.intensity = on ? 5.0 : 0;
+	light.intensity = on ? LAMP_ON_INTENSITY : 0;
 	glowMat.emissiveIntensity = on ? 1.5 : 0;
 	glowMat.color.set(on ? "#ffcc88" : "#222222");
 	return on;

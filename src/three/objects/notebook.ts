@@ -1,5 +1,6 @@
 import { BoxGeometry, Color, Group, Mesh, MeshStandardMaterial, TorusGeometry } from "three";
 import { accentMaterial, paperMaterial } from "../materials";
+import { DESK_SURFACE_Y } from "../math-utils";
 
 /** Notebook → links to /blog
  *  The top cover is inside a pivot group positioned at the spine (back edge)
@@ -59,7 +60,7 @@ export function createNotebook(): Group {
 		notebook.add(ring);
 	}
 
-	notebook.position.set(-1.5, 0.12, 0.5);
+	notebook.position.set(-1.5, DESK_SURFACE_Y, 0.5);
 	notebook.rotation.y = 0.15;
 
 	return notebook;

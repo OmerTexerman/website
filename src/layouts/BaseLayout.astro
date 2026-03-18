@@ -1,25 +1,25 @@
 ---
 import "../styles/global.css";
 import SEOHead from "../components/SEOHead.astro";
-import { site, analytics } from "../config";
+import { analytics, site } from "../config";
 
 interface Props {
-  title: string;
-  description?: string;
-  image?: string;
-  type?: "website" | "article";
-  publishedDate?: Date;
-  /** When true, hides header/footer (used for homepage 3D scene) */
-  fullscreen?: boolean;
+	title: string;
+	description?: string;
+	image?: string;
+	type?: "website" | "article";
+	publishedDate?: Date;
+	/** When true, hides header/footer (used for homepage 3D scene) */
+	fullscreen?: boolean;
 }
 
 const {
-  title,
-  description = site.title,
-  image,
-  type = "website",
-  publishedDate,
-  fullscreen = false,
+	title,
+	description = site.title,
+	image,
+	type = "website",
+	publishedDate,
+	fullscreen = false,
 } = Astro.props;
 
 const posthogKey = analytics.posthogKey;
@@ -51,41 +51,78 @@ const posthogHost = analytics.posthogHost;
     />
     <title>{title}</title>
   </head>
-  <body class={fullscreen ? "overflow-hidden h-dvh" : "min-h-screen"}>
+  <body
+    class={fullscreen ? "overflow-hidden h-dvh" : "min-h-screen"}
+    data-posthog-key={posthogKey || undefined}
+    data-posthog-host={posthogHost || undefined}
+  >
+    {!fullscreen && (
+      <a
+        href="#page-content"
+        class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:border focus:border-white/20 focus:bg-dark-surface focus:px-4 focus:py-2 focus:font-mono focus:text-sm focus:text-cream"
+      >
+        Skip to content
+      </a>
+    )}
+
     <slot />
 
     {!fullscreen && (
       <script>
         const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-        const animatedNodes = document.querySelectorAll("[data-animate]");
+        const animatedNodes = [...document.querySelectorAll<HTMLElement>("[data-animate]")];
 
-        if (reduceMotion) {
+        function reveal(el: HTMLElement) {
+          el.classList.remove("reveal-pending");
+          el.classList.add("is-visible");
+        }
+
+        function isInitiallyVisible(el: HTMLElement) {
+          const rect = el.getBoundingClientRect();
+          return rect.bottom > 0 && rect.top < window.innerHeight - 40;
+        }
+
+        if (reduceMotion || animatedNodes.length === 0) {
           animatedNodes.forEach((el) => {
             el.classList.add("is-visible");
           });
         } else {
-          document.documentElement.dataset.reveal = "ready";
           const observer = new IntersectionObserver(
             (entries) => {
               entries.forEach((entry) => {
                 if (entry.isIntersecting) {
-                  entry.target.classList.add("is-visible");
+                  const target =
+                    entry.target instanceof HTMLElement ? entry.target : null;
+                  if (!target) return;
+                  reveal(target);
                   observer.unobserve(entry.target);
                 }
               });
             },
             { threshold: 0.1, rootMargin: "0px 0px -40px 0px" }
           );
+
           animatedNodes.forEach((el) => {
+            if (isInitiallyVisible(el)) {
+              reveal(el);
+              return;
+            }
+            el.classList.add("reveal-pending");
             observer.observe(el);
           });
+
+          const cleanupReveal = () => observer.disconnect();
+          document.addEventListener("astro:before-preparation", cleanupReveal, { once: true });
         }
       </script>
     )}
 
     {posthogKey && (
-      <script define:vars={{ posthogKey, posthogHost }}>
-        if (typeof window !== "undefined" && import.meta.env.PROD) {
+      <script>
+        const posthogKey = document.body.dataset.posthogKey;
+        const posthogHost = document.body.dataset.posthogHost;
+
+        if (posthogKey && import.meta.env.PROD) {
           import("posthog-js").then(({ default: posthog }) => {
             posthog.init(posthogKey, {
               api_host: posthogHost,

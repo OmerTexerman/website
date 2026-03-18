@@ -1,9 +1,9 @@
 ---
-import ContentPage from "../../layouts/ContentPage.astro";
+import { getCollection } from "astro:content";
 import BookCard from "../../components/BookCard.astro";
 import PageIntro from "../../components/PageIntro.astro";
-import { getCollection } from "astro:content";
-import { site, navItems } from "../../config";
+import { navItems, site } from "../../config";
+import ContentPage from "../../layouts/ContentPage.astro";
 
 const nav = navItems.find((n) => n.href === "/reading");
 const allBooks = await getCollection("books");
@@ -13,9 +13,9 @@ const finished = allBooks.filter((b) => b.data.status === "finished");
 const wantToRead = allBooks.filter((b) => b.data.status === "want-to-read");
 
 const sections = [
-  { title: "Currently Reading", books: reading },
-  { title: "Finished", books: finished },
-  { title: "Want to Read", books: wantToRead },
+	{ title: "Currently Reading", books: reading },
+	{ title: "Finished", books: finished },
+	{ title: "Want to Read", books: wantToRead },
 ].filter((s) => s.books.length > 0);
 ---
 

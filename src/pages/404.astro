@@ -1,12 +1,12 @@
 ---
-import BaseLayout from "../layouts/BaseLayout.astro";
 import ContentHeader from "../components/ContentHeader.astro";
 import { site } from "../config";
+import BaseLayout from "../layouts/BaseLayout.astro";
 ---
 
 <BaseLayout title={`404 — Not Found | ${site.name}`}>
   <ContentHeader />
-  <main class="pt-14 min-h-screen flex items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(196,69,58,0.12),_transparent_28%),linear-gradient(180deg,_#201f1e_0%,_#171716_100%)] px-4 sm:px-6">
+  <main id="page-content" class="pt-14 min-h-screen flex items-center justify-center content-page-bg px-4 sm:px-6">
     <div class="content-surface text-center px-6 py-10 sm:px-10 sm:py-12 max-w-xl w-full">
       <h1 class="font-display text-6xl sm:text-8xl font-bold text-accent mb-4">404</h1>
       <p class="text-cream-dark text-lg mb-8">This page doesn't exist. Maybe it fell off the desk.</p>

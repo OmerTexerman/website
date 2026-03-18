@@ -11,7 +11,13 @@ const activeSocials = socials.filter((s) => s.url);
     {activeSocials.length > 0 && (
       <div class="flex items-center gap-5">
         {activeSocials.map((social) => (
-          <a href={social.url} target="_blank" rel="noopener noreferrer" class="text-muted hover:text-cream transition-colors" aria-label={social.label}>
+          <a
+            href={social.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="text-muted hover:text-cream transition-colors"
+            aria-label={`${social.label} (opens in a new window)`}
+          >
             <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" set:html={social.icon} />
           </a>
         ))}

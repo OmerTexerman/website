@@ -1,5 +1,6 @@
 import { ExtrudeGeometry, Group, Mesh, Shape } from "three";
 import { accentMaterial } from "../materials";
+import { DESK_SURFACE_Y } from "../math-utils";
 
 /** Decorative guitar pick — rounded triangle */
 export function createGuitarPick(): Group {
@@ -26,7 +27,7 @@ export function createGuitarPick(): Group {
 	mesh.castShadow = true;
 	pick.add(mesh);
 
-	pick.position.set(0.8, 0.12, 0.9);
+	pick.position.set(0.8, DESK_SURFACE_Y, 0.9);
 	pick.rotation.y = 0.8;
 
 	return pick;

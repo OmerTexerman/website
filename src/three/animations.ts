@@ -1,4 +1,5 @@
 import { type Mesh, MeshStandardMaterial, type Object3D, type SpotLight, Vector3 } from "three";
+import { lerp } from "./math-utils";
 
 type AnimationCallback = (progress: number) => void;
 
@@ -14,10 +15,6 @@ let active: ActiveAnimation[] = [];
 
 export function easeInOutCubic(t: number): number {
 	return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
-}
-
-function lerp(a: number, b: number, t: number): number {
-	return a + (b - a) * t;
 }
 
 function cancelById(id: string): void {

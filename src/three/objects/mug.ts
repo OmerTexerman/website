@@ -1,5 +1,6 @@
 import { CylinderGeometry, Group, Mesh, TorusGeometry } from "three";
 import { ceramicMaterial } from "../materials";
+import { DESK_SURFACE_Y } from "../math-utils";
 
 /** Decorative coffee mug */
 export function createMug(): Group {
@@ -21,7 +22,7 @@ export function createMug(): Group {
 	handle.rotation.y = Math.PI / 2;
 	mug.add(handle);
 
-	mug.position.set(-0.6, 0.12, 0.9);
+	mug.position.set(-0.6, DESK_SURFACE_Y, 0.9);
 
 	return mug;
 }

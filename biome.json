@@ -26,7 +26,30 @@
 			"semicolons": "always"
 		}
 	},
+	"css": {
+		"parser": {
+			"tailwindDirectives": true
+		}
+	},
+	"overrides": [
+		{
+			"includes": ["src/**/*.astro", "src/**/*.css", "src/**/*.md", "src/**/*.yaml", "*.yml"],
+			"linter": {
+				"enabled": false
+			}
+		}
+	],
 	"files": {
-		"includes": ["src/**/*.ts", "src/**/*.js", "*.json", "*.mjs"]
+		"includes": [
+			"src/**/*.astro",
+			"src/**/*.css",
+			"src/**/*.js",
+			"src/**/*.ts",
+			"src/content/**/*.md",
+			"src/content/**/*.yaml",
+			"*.json",
+			"*.mjs",
+			"*.yml"
+		]
 	}
 }

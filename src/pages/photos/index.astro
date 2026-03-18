@@ -1,9 +1,9 @@
 ---
-import ContentPage from "../../layouts/ContentPage.astro";
+import { getCollection } from "astro:content";
 import PageIntro from "../../components/PageIntro.astro";
 import PhotoGallery from "../../components/PhotoGallery.astro";
-import { getCollection } from "astro:content";
-import { site, navItems } from "../../config";
+import { navItems, site } from "../../config";
+import ContentPage from "../../layouts/ContentPage.astro";
 
 const nav = navItems.find((n) => n.href === "/photos");
 const photos = (await getCollection("photos")).map((p) => p.data);

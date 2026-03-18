@@ -1,65 +1,114 @@
 ---
 interface Photo {
-  src: string;
-  alt: string;
-  caption?: string;
+	src: string;
+	alt: string;
+	caption?: string;
 }
 
 interface Props {
-  photos: Photo[];
+	photos: Photo[];
 }
 
 const { photos } = Astro.props;
-const galleryId = `photo-gallery-${crypto.randomUUID()}`;
 ---
 
-<div id={galleryId} class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-  {photos.map((photo, i) => (
-    <button
-      type="button"
-      class="group relative overflow-hidden rounded-xl border border-white/8 bg-dark-surface-elevated aspect-[4/3] cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent"
-      data-photo-index={i}
-      aria-label={`View photo: ${photo.alt}`}
-    >
+<div data-photo-gallery>
+  <template data-photo-gallery-data>{JSON.stringify(photos)}</template>
+
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    {photos.map((photo, i) => (
+      <button
+        type="button"
+        class="group relative aspect-[4/3] cursor-pointer overflow-hidden rounded-xl border border-white/8 bg-dark-surface-elevated focus:outline-none focus:ring-2 focus:ring-accent"
+        data-photo-index={i}
+        aria-label={`View photo: ${photo.alt}`}
+      >
+        <img
+          src={photo.src}
+          alt={photo.alt}
+          loading="lazy"
+          class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+        />
+        {photo.caption && (
+          <div class="absolute inset-x-0 bottom-0 translate-y-full bg-gradient-to-t from-black/70 to-transparent p-3 transition-transform duration-300 group-hover:translate-y-0 group-focus-visible:translate-y-0">
+            <p class="text-sm text-cream">{photo.caption}</p>
+          </div>
+        )}
+      </button>
+    ))}
+  </div>
+
+  <dialog
+    data-photo-lightbox
+    class="fixed inset-0 z-50 m-0 h-full max-h-none w-full max-w-none bg-dark/95 p-0 backdrop-blur-sm"
+  >
+    <div class="flex h-full w-full items-center justify-center p-8">
+      <button
+        data-photo-lightbox-close
+        class="absolute right-4 top-4 z-10 text-3xl font-light text-cream/80 hover:text-cream"
+        aria-label="Close lightbox"
+      >
+        &times;
+      </button>
       <img
-        src={photo.src}
-        alt={photo.alt}
-        loading="lazy"
-        class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+        data-photo-lightbox-img
+        src=""
+        alt=""
+        class="max-h-full max-w-full rounded-lg object-contain"
       />
-      {photo.caption && (
-        <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3 translate-y-full transition-transform duration-300 group-hover:translate-y-0 group-focus-visible:translate-y-0">
-          <p class="text-cream text-sm">{photo.caption}</p>
-        </div>
-      )}
-    </button>
-  ))}
+      <p
+        data-photo-lightbox-caption
+        class="absolute bottom-8 left-1/2 -translate-x-1/2 text-center text-base text-cream"
+      >
+      </p>
+    </div>
+  </dialog>
 </div>
 
-<!-- Lightbox dialog -->
-<dialog id="lightbox" class="fixed inset-0 w-full h-full max-w-none max-h-none m-0 p-0 bg-dark/95 backdrop-blur-sm z-50">
-  <div class="flex items-center justify-center w-full h-full p-8">
-    <button class="absolute top-4 right-4 text-cream/80 hover:text-cream text-3xl font-light z-10" id="lightbox-close" aria-label="Close lightbox">&times;</button>
-    <img id="lightbox-img" src="" alt="" class="max-w-full max-h-full object-contain rounded-lg" />
-    <p id="lightbox-caption" class="absolute bottom-8 left-1/2 -translate-x-1/2 text-cream text-base text-center"></p>
-  </div>
-</dialog>
+<script>
+  interface Photo {
+    src: string;
+    alt: string;
+    caption?: string;
+  }
 
-<script define:vars={{ galleryId, photos: JSON.stringify(photos) }}>
-  const parsedPhotos = JSON.parse(photos);
-  const root = document.getElementById(galleryId);
-  const dialog = root?.nextElementSibling instanceof HTMLDialogElement ? root.nextElementSibling : null;
-  const img = dialog?.querySelector("#lightbox-img");
-  const caption = dialog?.querySelector("#lightbox-caption");
-  const closeBtn = dialog?.querySelector("#lightbox-close");
-  let lastTrigger = null;
+  const cleanups: Array<() => void> = [];
 
-  if (root && dialog && img instanceof HTMLImageElement && caption instanceof HTMLElement) {
-    const buttons = [...root.querySelectorAll("[data-photo-index]")];
+  const galleries = [...document.querySelectorAll<HTMLElement>("[data-photo-gallery]")];
+  for (const root of galleries) {
+    if (root.dataset.photoGalleryMounted === "true") continue;
 
-    const openPhoto = (btn) => {
-      const idx = parseInt(btn.getAttribute("data-photo-index") || "0", 10);
-      const photo = parsedPhotos[idx];
+    const dataEl = root.querySelector("template[data-photo-gallery-data]");
+    const dialog = root.querySelector("[data-photo-lightbox]");
+    const img = root.querySelector("[data-photo-lightbox-img]");
+    const caption = root.querySelector("[data-photo-lightbox-caption]");
+    const closeBtn = root.querySelector("[data-photo-lightbox-close]");
+
+    if (
+      !(dataEl instanceof HTMLTemplateElement) ||
+      !(dialog instanceof HTMLDialogElement) ||
+      !(img instanceof HTMLImageElement) ||
+      !(caption instanceof HTMLElement) ||
+      !(closeBtn instanceof HTMLButtonElement)
+    ) {
+      continue;
+    }
+
+    let photos: Photo[] = [];
+    try {
+      const raw = dataEl.innerHTML.trim();
+      photos = raw ? (JSON.parse(raw) as Photo[]) : [];
+    } catch {
+      continue;
+    }
+
+    root.dataset.photoGalleryMounted = "true";
+    let lastTrigger: HTMLButtonElement | null = null;
+    const buttons = [...root.querySelectorAll<HTMLButtonElement>("[data-photo-index]")];
+
+    const openPhoto = (btn: HTMLButtonElement) => {
+      const idx = Number.parseInt(btn.getAttribute("data-photo-index") || "0", 10);
+      const photo = photos[idx];
       if (!photo) return;
       img.src = photo.src;
       img.alt = photo.alt;
@@ -75,26 +124,36 @@ const galleryId = `photo-gallery-${crypto.randomUUID()}`;
     });
 
     const onCloseClick = () => dialog.close();
-    const onBackdropClick = (e) => {
+    const onBackdropClick = (e: MouseEvent) => {
       if (e.target === dialog) dialog.close();
     };
     const onClose = () => {
       lastTrigger?.focus();
       lastTrigger = null;
     };
-    const cleanup = () => {
+
+    closeBtn.addEventListener("click", onCloseClick);
+    dialog.addEventListener("click", onBackdropClick);
+    dialog.addEventListener("close", onClose);
+
+    cleanups.push(() => {
       for (const { btn, handler } of buttonHandlers) {
         btn.removeEventListener("click", handler);
       }
-      closeBtn?.removeEventListener("click", onCloseClick);
+      if (dialog.open) dialog.close();
+      closeBtn.removeEventListener("click", onCloseClick);
       dialog.removeEventListener("click", onBackdropClick);
       dialog.removeEventListener("close", onClose);
+      delete root.dataset.photoGalleryMounted;
+    });
+  }
+
+  if (cleanups.length > 0) {
+    const cleanup = () => {
+      for (const dispose of cleanups) dispose();
       document.removeEventListener("astro:before-preparation", cleanup);
     };
 
-    closeBtn?.addEventListener("click", onCloseClick);
-    dialog.addEventListener("click", onBackdropClick);
-    dialog.addEventListener("close", onClose);
     document.addEventListener("astro:before-preparation", cleanup, { once: true });
   }
 </script>

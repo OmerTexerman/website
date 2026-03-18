@@ -1,8 +1,8 @@
 ---
-import ContentPage from "../../layouts/ContentPage.astro";
 import BlogCard from "../../components/BlogCard.astro";
 import PageIntro from "../../components/PageIntro.astro";
-import { site, navItems } from "../../config";
+import { navItems, site } from "../../config";
+import ContentPage from "../../layouts/ContentPage.astro";
 import { getPublishedPosts } from "../../utils";
 
 const nav = navItems.find((n) => n.href === "/blog");

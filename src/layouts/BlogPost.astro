@@ -1,17 +1,18 @@
 ---
-import BaseLayout from "./BaseLayout.astro";
-import ContentHeader from "../components/ContentHeader.astro";
 import BackToDesk from "../components/BackToDesk.astro";
+import ContentHeader from "../components/ContentHeader.astro";
 import Footer from "../components/Footer.astro";
+import Tag from "../components/Tag.astro";
 import { site } from "../config";
 import { formatDate } from "../utils";
+import BaseLayout from "./BaseLayout.astro";
 
 interface Props {
-  title: string;
-  description: string;
-  pubDate: Date;
-  updatedDate?: Date;
-  tags?: string[];
+	title: string;
+	description: string;
+	pubDate: Date;
+	updatedDate?: Date;
+	tags?: string[];
 }
 
 const { title, description, pubDate, updatedDate, tags } = Astro.props;
@@ -24,7 +25,7 @@ const { title, description, pubDate, updatedDate, tags } = Astro.props;
   publishedDate={pubDate}
 >
   <ContentHeader />
-  <main class="pt-14 min-h-screen bg-[radial-gradient(circle_at_top,_rgba(196,69,58,0.12),_transparent_28%),linear-gradient(180deg,_#201f1e_0%,_#171716_100%)]">
+  <main id="page-content" class="pt-14 min-h-screen content-page-bg">
     <article class="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-16">
       <div class="content-surface p-5 sm:p-8 md:p-12" data-preview-content>
         <a
@@ -38,7 +39,9 @@ const { title, description, pubDate, updatedDate, tags } = Astro.props;
         </a>
 
         <header class="mb-10">
-          <time class="font-mono text-sm text-muted">{formatDate(pubDate, "long")}</time>
+          <time datetime={pubDate.toISOString()} class="font-mono text-sm text-muted">
+            {formatDate(pubDate, "long")}
+          </time>
           {updatedDate && (
             <span class="font-mono text-sm text-muted ml-3">
               (Updated {formatDate(updatedDate, "long")})
@@ -51,9 +54,7 @@ const { title, description, pubDate, updatedDate, tags } = Astro.props;
           {tags && tags.length > 0 && (
             <div class="flex flex-wrap gap-2 mt-4">
               {tags.map((tag) => (
-                <span class="font-mono text-xs px-2.5 py-1 rounded-full bg-accent/10 text-accent border border-accent/20">
-                  {tag}
-                </span>
+                <Tag label={tag} />
               ))}
             </div>
           )}

@@ -1,10 +1,10 @@
 import { type Camera, type Object3D, Plane, Raycaster, type Scene, Vector2, Vector3 } from "three";
+import { clamp, DESK_SURFACE_Y } from "./math-utils";
 import { collectMeshesBy, getAncestorWith, updatePointer } from "./raycast-utils";
 
 const intersectionPoint = new Vector3();
 const dragOffset = new Vector3();
 
-const DESK_Y = 0.12;
 const FRICTION = 8.0;
 const RESTITUTION = 0.4;
 const VELOCITY_THRESHOLD = 0.005;
@@ -33,10 +33,6 @@ export interface DeskPhysicsController {
 		onDirty: () => void,
 	) => () => void;
 	dispose: () => void;
-}
-
-function clamp(val: number, min: number, max: number): number {
-	return Math.max(min, Math.min(max, val));
 }
 
 export function createDeskPhysicsController(): DeskPhysicsController {
@@ -178,8 +174,10 @@ export function createDeskPhysicsController(): DeskPhysicsController {
 		const raycaster = new Raycaster();
 		let dragged: Object3D | null = null;
 		let dragBody: PhysicsBody | null = null;
-		const dragPlane = new Plane(new Vector3(0, 1, 0), -DESK_Y);
+		const dragPlane = new Plane(new Vector3(0, 1, 0), -DESK_SURFACE_Y);
 		let pendingTarget: Object3D | null = null;
+		let pendingPointerId: number | null = null;
+		let activePointerId: number | null = null;
 		let pendingDownX = 0;
 		let pendingDownY = 0;
 		let dragStarted = false;
@@ -187,8 +185,57 @@ export function createDeskPhysicsController(): DeskPhysicsController {
 		const posSamples: { x: number; z: number; t: number }[] = [];
 
 		const meshes = collectMeshesBy(scene, "draggable");
-		for (const obj of scene.children) {
+		scene.traverse((obj) => {
 			if (obj.userData?.draggable) ensureBody(obj);
+		});
+
+		function releasePointerCapture(pointerId: number | null): void {
+			if (pointerId === null) return;
+			if (canvas.hasPointerCapture(pointerId)) {
+				canvas.releasePointerCapture(pointerId);
+			}
+		}
+
+		function clearPending(): void {
+			pendingTarget = null;
+			pendingPointerId = null;
+			pendingDownX = 0;
+			pendingDownY = 0;
+			dragStarted = false;
+		}
+
+		function finishInteraction(commitVelocity: boolean): void {
+			const wasDragging = dragged !== null && dragBody !== null;
+			const pointerId = activePointerId ?? pendingPointerId;
+
+			if (commitVelocity && wasDragging && dragBody && posSamples.length >= 2) {
+				const body = dragBody;
+				const oldest = posSamples[0];
+				const newest = posSamples[posSamples.length - 1];
+				const dt = (newest.t - oldest.t) / 1000;
+				if (dt > 0.005) {
+					body.vx = (newest.x - oldest.x) / dt;
+					body.vz = (newest.z - oldest.z) / dt;
+					const maxV = 5;
+					const speed = Math.sqrt(body.vx * body.vx + body.vz * body.vz);
+					if (speed > maxV) {
+						body.vx = (body.vx / speed) * maxV;
+						body.vz = (body.vz / speed) * maxV;
+					}
+					body.sleeping = false;
+				}
+			}
+
+			releasePointerCapture(pointerId);
+
+			dragged = null;
+			dragBody = null;
+			posSamples.length = 0;
+			activePointerId = null;
+			clearPending();
+			canvas.style.cursor = "default";
+
+			if (wasDragging) onDragChange(false);
 		}
 
 		function beginDrag(): void {
@@ -206,12 +253,17 @@ export function createDeskPhysicsController(): DeskPhysicsController {
 			posSamples.length = 0;
 			posSamples.push({ x: dragged.position.x, z: dragged.position.z, t: performance.now() });
 
+			activePointerId = pendingPointerId;
 			dragStarted = true;
+			pendingTarget = null;
+			pendingPointerId = null;
 			canvas.style.cursor = "grabbing";
 			onDragChange(true);
 		}
 
 		function onPointerDown(e: PointerEvent): void {
+			if (activePointerId !== null || pendingPointerId !== null) return;
+
 			updatePointer(pointer, canvas, e.clientX, e.clientY);
 			raycaster.setFromCamera(pointer, camera);
 			const hits = raycaster.intersectObjects(meshes, false);
@@ -221,12 +273,17 @@ export function createDeskPhysicsController(): DeskPhysicsController {
 			if (!ancestor) return;
 
 			pendingTarget = ancestor;
+			pendingPointerId = e.pointerId;
 			pendingDownX = e.clientX;
 			pendingDownY = e.clientY;
 			dragStarted = false;
+			canvas.setPointerCapture?.(e.pointerId);
 		}
 
 		function onPointerMove(e: PointerEvent): void {
+			if (pendingPointerId !== null && e.pointerId !== pendingPointerId) return;
+			if (activePointerId !== null && e.pointerId !== activePointerId) return;
+
 			if (pendingTarget && !dragStarted) {
 				const dx = e.clientX - pendingDownX;
 				const dy = e.clientY - pendingDownY;
@@ -298,42 +355,66 @@ export function createDeskPhysicsController(): DeskPhysicsController {
 			onDirty();
 		}
 
-		function onPointerUp(): void {
-			pendingTarget = null;
-			if (!dragged || !dragBody) return;
-
-			if (posSamples.length >= 2) {
-				const oldest = posSamples[0];
-				const newest = posSamples[posSamples.length - 1];
-				const dt = (newest.t - oldest.t) / 1000;
-				if (dt > 0.005) {
-					dragBody.vx = (newest.x - oldest.x) / dt;
-					dragBody.vz = (newest.z - oldest.z) / dt;
-					const maxV = 5;
-					const speed = Math.sqrt(dragBody.vx * dragBody.vx + dragBody.vz * dragBody.vz);
-					if (speed > maxV) {
-						dragBody.vx = (dragBody.vx / speed) * maxV;
-						dragBody.vz = (dragBody.vz / speed) * maxV;
-					}
-					dragBody.sleeping = false;
-				}
+		function onPointerUp(e: PointerEvent): void {
+			if (activePointerId !== null && e.pointerId === activePointerId) {
+				finishInteraction(true);
+				return;
 			}
 
-			dragged = null;
-			dragBody = null;
-			posSamples.length = 0;
-			canvas.style.cursor = "default";
-			onDragChange(false);
+			if (pendingPointerId !== null && e.pointerId === pendingPointerId) {
+				finishInteraction(false);
+			}
+		}
+
+		function onPointerCancel(e: PointerEvent): void {
+			if (activePointerId !== null && e.pointerId === activePointerId) {
+				finishInteraction(false);
+				return;
+			}
+
+			if (pendingPointerId !== null && e.pointerId === pendingPointerId) {
+				finishInteraction(false);
+			}
+		}
+
+		function onLostPointerCapture(e: PointerEvent): void {
+			if (activePointerId !== null && e.pointerId === activePointerId) {
+				finishInteraction(false);
+				return;
+			}
+
+			if (pendingPointerId !== null && e.pointerId === pendingPointerId) {
+				finishInteraction(false);
+			}
+		}
+
+		function onWindowBlur(): void {
+			finishInteraction(false);
+		}
+
+		function onVisibilityChange(): void {
+			if (document.visibilityState === "hidden") {
+				finishInteraction(false);
+			}
 		}
 
 		canvas.addEventListener("pointerdown", onPointerDown);
 		canvas.addEventListener("pointermove", onPointerMove);
+		canvas.addEventListener("pointercancel", onPointerCancel);
+		canvas.addEventListener("lostpointercapture", onLostPointerCapture);
 		window.addEventListener("pointerup", onPointerUp);
+		window.addEventListener("blur", onWindowBlur);
+		document.addEventListener("visibilitychange", onVisibilityChange);
 
 		return () => {
 			canvas.removeEventListener("pointerdown", onPointerDown);
 			canvas.removeEventListener("pointermove", onPointerMove);
+			canvas.removeEventListener("pointercancel", onPointerCancel);
+			canvas.removeEventListener("lostpointercapture", onLostPointerCapture);
 			window.removeEventListener("pointerup", onPointerUp);
+			window.removeEventListener("blur", onWindowBlur);
+			document.removeEventListener("visibilitychange", onVisibilityChange);
+			finishInteraction(false);
 			canvas.style.cursor = "default";
 		};
 	}

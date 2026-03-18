@@ -1,6 +1,5 @@
 import {
 	BoxGeometry,
-	CanvasTexture,
 	Color,
 	CylinderGeometry,
 	DoubleSide,
@@ -21,6 +20,7 @@ import {
 	paperMaterial,
 	shelfWoodMaterial,
 } from "../materials";
+import { createSpineTexture } from "../spine-texture";
 
 export interface BookData {
 	title: string;
@@ -65,45 +65,6 @@ function enableShadows(obj: Object3D): void {
 		child.castShadow = true;
 		child.receiveShadow = true;
 	});
-}
-
-// ─── Spine texture (adapted from book-stack.ts) ──────────────────
-function createSpineTexture(
-	title: string,
-	spineColor: string,
-	width: number,
-	height: number,
-): MeshStandardMaterial {
-	const canvas = document.createElement("canvas");
-	const scale = 4;
-	canvas.width = Math.round(width * 512 * scale);
-	canvas.height = Math.round(height * 512 * scale);
-	const ctx = canvas.getContext("2d");
-	if (!ctx) return createBookMaterial(spineColor);
-
-	ctx.fillStyle = spineColor;
-	ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-	ctx.fillStyle = "#ffffff";
-	ctx.globalAlpha = 0.85;
-	const fontSize = Math.round(canvas.width * 0.72);
-	ctx.font = `500 ${fontSize}px 'Space Grotesk', sans-serif`;
-	ctx.textAlign = "center";
-	ctx.textBaseline = "middle";
-
-	let displayTitle = title;
-	while (ctx.measureText(displayTitle).width > canvas.height * 0.82 && displayTitle.length > 3) {
-		displayTitle = `${displayTitle.slice(0, -4)}...`;
-	}
-
-	ctx.save();
-	ctx.translate(canvas.width / 2, canvas.height / 2);
-	ctx.rotate(-Math.PI / 2);
-	ctx.fillText(displayTitle, 0, 0);
-	ctx.restore();
-
-	const texture = new CanvasTexture(canvas);
-	return new MeshStandardMaterial({ map: texture, roughness: 0.7, metalness: 0.0 });
 }
 
 // ─── Shelf plank with L-bracket supports ─────────────────────────
@@ -163,7 +124,11 @@ function createShelfBooks(books?: BookData[]): Group {
 
 		// Spine label on front face
 		if (title) {
-			const spineMat = createSpineTexture(title, color, bookW, bookH);
+			const spineMat = createSpineTexture(title, color, bookW, bookH, {
+				fontSize: (canvasWidth) => Math.round(canvasWidth * 0.72),
+				maxTextWidth: (_canvasWidth, canvasHeight) => canvasHeight * 0.82,
+				textRotation: -Math.PI / 2,
+			});
 			const spineGeo = new PlaneGeometry(bookW * 0.8, bookH * 0.78);
 			const spine = new Mesh(spineGeo, spineMat);
 			spine.position.set(xPos, bookH / 2, bookD / 2 + 0.001);

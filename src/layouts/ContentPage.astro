@@ -1,15 +1,15 @@
 ---
-import BaseLayout from "./BaseLayout.astro";
-import ContentHeader from "../components/ContentHeader.astro";
 import BackToDesk from "../components/BackToDesk.astro";
+import ContentHeader from "../components/ContentHeader.astro";
 import Footer from "../components/Footer.astro";
+import BaseLayout from "./BaseLayout.astro";
 
 interface Props {
-  title: string;
-  description?: string;
-  image?: string;
-  type?: "website" | "article";
-  publishedDate?: Date;
+	title: string;
+	description?: string;
+	image?: string;
+	type?: "website" | "article";
+	publishedDate?: Date;
 }
 
 const { title, description, image, type, publishedDate } = Astro.props;
@@ -23,7 +23,7 @@ const { title, description, image, type, publishedDate } = Astro.props;
   publishedDate={publishedDate}
 >
   <ContentHeader />
-  <main class="pt-14 min-h-screen bg-[radial-gradient(circle_at_top,_rgba(196,69,58,0.12),_transparent_28%),linear-gradient(180deg,_#201f1e_0%,_#171716_100%)]">
+  <main id="page-content" class="pt-14 min-h-screen content-page-bg">
     <div class="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-16">
       <div class="content-surface p-5 sm:p-8 md:p-12" data-preview-content>
         <slot />

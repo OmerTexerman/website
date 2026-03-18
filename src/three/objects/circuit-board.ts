@@ -1,5 +1,6 @@
 import { BoxGeometry, Color, Group, Mesh, MeshStandardMaterial } from "three";
 import { pcbMaterial } from "../materials";
+import { DESK_SURFACE_Y } from "../math-utils";
 
 /** Decorative circuit board */
 export function createCircuitBoard(): Group {
@@ -59,7 +60,7 @@ export function createCircuitBoard(): Group {
 		board.add(trace);
 	}
 
-	board.position.set(1.5, 0.12, -0.5);
+	board.position.set(1.5, DESK_SURFACE_Y, -0.5);
 	board.rotation.y = -0.3;
 
 	return board;

@@ -11,6 +11,7 @@ import {
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { getContentModal } from "../modal/api";
 import {
 	animateBookClose,
 	animateBookLift,
@@ -52,6 +53,7 @@ import {
 	setupSceneLighting,
 	setupShelfLighting,
 } from "./lighting";
+import { clamp, lerp } from "./math-utils";
 import { createBookStack } from "./objects/book-stack";
 import { createCircuitBoard } from "./objects/circuit-board";
 import { createDeskLamp, toggleLamp } from "./objects/desk-lamp";
@@ -106,33 +108,11 @@ const CLOSE_ANIMATIONS: Record<string, (obj: Object3D) => Promise<void>> = {
 	Photos: animateFrameClose,
 };
 
-// ─── Modal access ────────────────────────────────────────────────
-interface DeskModal {
-	open: (label: string, href: string) => void;
-	close: () => void;
-	onClose: (cb: () => void) => () => void;
-}
-
-function getModal(): DeskModal | null {
-	if (typeof window !== "undefined" && "__contentModal" in window) {
-		return (window as Window & { __contentModal: DeskModal }).__contentModal;
-	}
-	return null;
-}
-
 function trackEvent(event: string, props: Record<string, string>): void {
 	const w = window as Window & {
 		posthog?: { capture: (e: string, p: Record<string, string>) => void };
 	};
 	w.posthog?.capture(event, props);
-}
-
-function clamp(value: number, min: number, max: number): number {
-	return Math.max(min, Math.min(max, value));
-}
-
-function lerp(a: number, b: number, t: number): number {
-	return a + (b - a) * t;
 }
 
 function easeInOutSine(t: number): number {
@@ -272,6 +252,8 @@ export function initUnifiedScene(
 	let cleanupMobileShelfControls: (() => void) | null = null;
 	let lastCanvasWidth = initialSize.width;
 	let lastCanvasHeight = initialSize.height;
+	const mobilePosePos = new Vector3();
+	const mobilePoseLook = new Vector3();
 	const microInteractions = new Map<Object3D, () => void>();
 
 	function getMobileShelfResponsiveLayout(): {
@@ -321,7 +303,7 @@ export function initUnifiedScene(
 			if (rowDistance > MOBILE_SHELF_VISIBLE_ROW_RANGE) continue;
 
 			const snapPoints = MOBILE_SHELF_PAN_SNAP_POINTS[i];
-			let nearestSnap = snapPoints[0];
+			let nearestSnap: number = snapPoints[0] ?? 0;
 			let nearestSnapDistance = Math.abs(mobileShelfTargetPanByStop[i] - nearestSnap);
 
 			for (let j = 1; j < snapPoints.length; j++) {
@@ -364,22 +346,20 @@ export function initUnifiedScene(
 		);
 	}
 
-	function getMobilePose(t: number): { pos: Vector3; look: Vector3 } {
+	function writeMobilePose(t: number, pos: Vector3, look: Vector3): void {
 		const sample = sampleMobileShelfTrack(t);
 		const pan = sampleMobileShelfPan(t, mobileShelfCurrentPanByStop);
 		const responsive = getMobileShelfResponsiveLayout();
-		return {
-			pos: new Vector3(
-				MOBILE_POS.x + responsive.cameraX,
-				sample.cameraY,
-				MOBILE_POS.z + pan * responsive.cameraZRange,
-			),
-			look: new Vector3(
-				MOBILE_LOOK.x + responsive.lookX,
-				sample.lookY,
-				MOBILE_LOOK.z + pan * responsive.lookZRange,
-			),
-		};
+		pos.set(
+			MOBILE_POS.x + responsive.cameraX,
+			sample.cameraY,
+			MOBILE_POS.z + pan * responsive.cameraZRange,
+		);
+		look.set(
+			MOBILE_LOOK.x + responsive.lookX,
+			sample.lookY,
+			MOBILE_LOOK.z + pan * responsive.lookZRange,
+		);
 	}
 
 	function setupMobileShelfControls(): () => void {
@@ -613,7 +593,7 @@ export function initUnifiedScene(
 					pendingModalTimeout = window.setTimeout(() => {
 						pendingModalTimeout = 0;
 						if (disposed) return;
-						const modal = getModal();
+						const modal = getContentModal();
 						if (modal) modal.open(label, href);
 						else window.location.href = href;
 					}, 350);
@@ -650,12 +630,14 @@ export function initUnifiedScene(
 
 					openObject = { label: interaction.label, object: interaction.object };
 					const activeSelection = openObject;
-					void animateShelfPresent(shelf.shelfItems[idx]).then(() => {
-						if (openObject !== activeSelection) return;
-						const modal = getModal();
-						if (modal) modal.open(label, href);
-						else window.location.href = href;
-					});
+					void animateShelfPresent(shelf.shelfItems[idx])
+						.then(() => {
+							if (disposed || openObject !== activeSelection) return;
+							const modal = getContentModal();
+							if (modal) modal.open(label, href);
+							else window.location.href = href;
+						})
+						.catch(() => {});
 
 					dirty = true;
 
@@ -666,7 +648,7 @@ export function initUnifiedScene(
 		}
 
 		// Modal close handler
-		const modal = getModal();
+		const modal = getContentModal();
 		cleanupModalClose =
 			modal?.onClose(() => {
 				if (!openObject) return;
@@ -809,7 +791,14 @@ export function initUnifiedScene(
 		camera.aspect = width / height;
 		camera.updateProjectionMatrix();
 		if (currentMode === "mobile" && !transitioning) syncMobileShelfCamera(mobileShelfCurrentT);
-		dirty = true;
+
+		// Render immediately so the resized canvas doesn't flash black
+		if (currentMode === "desktop" || transitioning) {
+			composer.render();
+		} else {
+			renderer.render(scene, camera);
+		}
+		dirty = false;
 	}
 
 	function scheduleResize(): void {
@@ -893,13 +882,12 @@ export function initUnifiedScene(
 		// Determine rotation and camera poses
 		const fromRotY = room.rotation.y;
 		const toRotY = 0;
-		const fromMobilePose = getMobilePose(mobileShelfCurrentT);
-		const toMobilePose = getMobilePose(0.5);
-		const fromPos =
-			currentMode === "desktop" ? camera.position.clone() : fromMobilePose.pos.clone();
-		const toPos = target === "desktop" ? DESKTOP_POS.clone() : toMobilePose.pos.clone();
-		const fromLook = currentMode === "desktop" ? DESKTOP_LOOK.clone() : fromMobilePose.look.clone();
-		const toLook = target === "desktop" ? DESKTOP_LOOK.clone() : toMobilePose.look.clone();
+		writeMobilePose(mobileShelfCurrentT, mobilePosePos, mobilePoseLook);
+		const fromPos = currentMode === "desktop" ? camera.position.clone() : mobilePosePos.clone();
+		const fromLook = currentMode === "desktop" ? DESKTOP_LOOK.clone() : mobilePoseLook.clone();
+		writeMobilePose(0.5, mobilePosePos, mobilePoseLook);
+		const toPos = target === "desktop" ? DESKTOP_POS.clone() : mobilePosePos.clone();
+		const toLook = target === "desktop" ? DESKTOP_LOOK.clone() : mobilePoseLook.clone();
 
 		// Animate transition
 		await new Promise<void>((resolve) => {
@@ -1014,6 +1002,8 @@ export function initUnifiedScene(
 
 		disposeAnimations();
 		deskPhysics.dispose();
+		bloomPass.dispose();
+		composer.dispose();
 		renderer.dispose();
 	}
 

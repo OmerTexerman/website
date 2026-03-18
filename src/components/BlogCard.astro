@@ -1,12 +1,13 @@
 ---
 import { formatDate } from "../utils";
+import Tag from "./Tag.astro";
 
 interface Props {
-  title: string;
-  description: string;
-  pubDate: Date;
-  tags?: string[];
-  slug: string;
+	title: string;
+	description: string;
+	pubDate: Date;
+	tags?: string[];
+	slug: string;
 }
 
 const { title, description, pubDate, tags, slug } = Astro.props;
@@ -14,7 +15,7 @@ const { title, description, pubDate, tags, slug } = Astro.props;
 
 <a
   href={`/blog/${slug}`}
-  class="group block rounded-xl border border-white/8 bg-dark-surface-elevated p-4 sm:p-6 transition-all hover:ring-2 hover:ring-accent/40 hover:translate-y-[-2px] focus:outline-none focus:ring-2 focus:ring-accent"
+  class="group block rounded-xl border border-white/8 bg-dark-surface-elevated p-4 sm:p-6 transition-[transform,box-shadow] duration-200 hover:ring-2 hover:ring-accent/40 hover:translate-y-[-2px] focus:outline-none focus:ring-2 focus:ring-accent"
 >
   <time class="font-mono text-xs text-muted">{formatDate(pubDate)}</time>
   <h3 class="font-display text-xl font-bold mt-2 mb-2 text-cream group-hover:text-accent transition-colors">
@@ -24,9 +25,7 @@ const { title, description, pubDate, tags, slug } = Astro.props;
   {tags && tags.length > 0 && (
     <div class="flex flex-wrap gap-2">
       {tags.map((tag) => (
-        <span class="font-mono text-xs px-2 py-0.5 rounded-full bg-accent/10 text-accent border border-accent/20">
-          {tag}
-        </span>
+        <Tag label={tag} />
       ))}
     </div>
   )}

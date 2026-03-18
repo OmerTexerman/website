@@ -23,8 +23,8 @@ const projects = defineCollection({
 		title: z.string(),
 		description: z.string(),
 		tech: z.array(z.string()),
-		url: z.string().url().optional(),
-		repo: z.string().url().optional(),
+		url: z.url().optional(),
+		repo: z.url().optional(),
 		order: z.number().default(0),
 	}),
 });
@@ -36,7 +36,7 @@ const books = defineCollection({
 		author: z.string(),
 		spineColor: z.string().regex(hexColor).default("#2a4a6a"),
 		status: z.enum(["reading", "finished", "want-to-read"]),
-		url: z.string().url().optional(),
+		url: z.url().optional(),
 	}),
 });
 

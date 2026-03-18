@@ -1,8 +1,8 @@
 ---
-import BaseLayout from "../layouts/BaseLayout.astro";
 import ContentModal from "../components/ContentModal.astro";
 import SceneCanvas from "../components/SceneCanvas.astro";
-import { site, navItems } from "../config";
+import { navItems, site } from "../config";
+import BaseLayout from "../layouts/BaseLayout.astro";
 ---
 
 <BaseLayout
@@ -11,7 +11,7 @@ import { site, navItems } from "../config";
   fullscreen
 >
   <div class="fixed inset-0 h-dvh min-h-screen overflow-hidden bg-dark">
-    <div id="scene-fallback" aria-hidden="true" class="absolute inset-0 z-10 flex items-end sm:items-center justify-center px-4 py-8 sm:px-6 pointer-events-none">
+    <div id="scene-fallback" class="absolute inset-0 z-10 flex items-end sm:items-center justify-center px-4 py-8 sm:px-6 pointer-events-none">
       <div class="max-w-xl rounded-2xl border border-white/10 bg-dark-surface/90 p-6 sm:p-8 shadow-2xl backdrop-blur-md">
         <p class="font-mono text-xs uppercase tracking-[0.3em] text-accent mb-3">Portfolio</p>
         <h1 class="font-display text-4xl sm:text-5xl font-bold tracking-tight text-cream mb-4">
@@ -22,8 +22,6 @@ import { site, navItems } from "../config";
           {navItems.map(({ href, label }) => (
             <a
               href={href}
-              data-fallback-link
-              tabindex="-1"
               class="inline-flex items-center rounded-full border border-white/10 px-4 py-2 font-mono text-sm text-cream transition-colors hover:border-accent/50 hover:text-accent"
             >
               {label}
@@ -66,34 +64,38 @@ import { site, navItems } from "../config";
     let activeMode: "desktop" | "mobile" | null = null;
     let transitionQueue: Promise<void> = Promise.resolve();
     const fallback = document.getElementById("scene-fallback");
-    const fallbackLinks = [...document.querySelectorAll<HTMLAnchorElement>("[data-fallback-link]")];
+    const sceneRoot = document.getElementById("scene-root");
+    let modeSyncFrame = 0;
 
-    function setFallbackInteractive(visible: boolean) {
-      if (!fallback) return;
+    function setFallbackVisible(visible: boolean) {
+      if (!(fallback instanceof HTMLElement)) return;
       fallback.setAttribute("aria-hidden", visible ? "false" : "true");
-      for (const link of fallbackLinks) {
-        if (visible) link.removeAttribute("tabindex");
-        else link.setAttribute("tabindex", "-1");
-      }
+      fallback.inert = !visible;
     }
+
+    setFallbackVisible(false);
 
     let fallbackTimer = window.setTimeout(() => {
       if (!sceneHandle) {
         document.documentElement.dataset.sceneFallback = "visible";
-        setFallbackInteractive(true);
+        setFallbackVisible(true);
       }
     }, 900);
 
-    function modeFromWidth(): "desktop" | "mobile" {
-      return window.innerWidth >= 768 ? "desktop" : "mobile";
+    function modeFromSceneWidth(): "desktop" | "mobile" {
+      if (!(sceneRoot instanceof HTMLElement)) {
+        return window.innerWidth >= 768 ? "desktop" : "mobile";
+      }
+      const rect = sceneRoot.getBoundingClientRect();
+      const width = Math.max(1, Math.round(rect.width || sceneRoot.clientWidth || window.innerWidth));
+      return width >= 768 ? "desktop" : "mobile";
     }
 
     async function applyMode(mode: "desktop" | "mobile") {
       if (!sceneHandle) {
-        const root = document.getElementById("scene-root")!;
         const canvas = document.getElementById("scene-canvas") as HTMLCanvasElement;
         const labels = document.getElementById("scene-labels") as HTMLElement;
-        const booksJson = root.getAttribute("data-books");
+        const booksJson = sceneRoot?.getAttribute("data-books");
         const books = booksJson ? JSON.parse(booksJson) : undefined;
 
         const { initUnifiedScene } = await import("../three/unified-scene");
@@ -101,7 +103,7 @@ import { site, navItems } from "../config";
         (window as any).__sceneHandle = sceneHandle;
         window.clearTimeout(fallbackTimer);
         delete document.documentElement.dataset.sceneFallback;
-        setFallbackInteractive(false);
+        setFallbackVisible(false);
         document.documentElement.dataset.sceneReady = "true";
         activeMode = mode;
         return;
@@ -115,11 +117,27 @@ import { site, navItems } from "../config";
 
     function queueModeSync() {
       transitionQueue = transitionQueue
-        .then(() => applyMode(modeFromWidth()))
+        .then(() => applyMode(modeFromSceneWidth()))
         .catch((error) => {
           console.error("Failed to update scene mode", error);
         });
     }
+
+    function scheduleModeSync() {
+      if (modeSyncFrame) return;
+      modeSyncFrame = requestAnimationFrame(() => {
+        modeSyncFrame = 0;
+        queueModeSync();
+      });
+    }
+
+    const resizeObserver =
+      sceneRoot && typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => {
+            scheduleModeSync();
+          })
+        : null;
+    if (sceneRoot instanceof HTMLElement) resizeObserver?.observe(sceneRoot);
 
     function cleanup() {
       if (sceneHandle) {
@@ -128,23 +146,17 @@ import { site, navItems } from "../config";
       }
       activeMode = null;
       delete (window as any).__sceneHandle;
+      resizeObserver?.disconnect();
+      if (modeSyncFrame) cancelAnimationFrame(modeSyncFrame);
       window.clearTimeout(fallbackTimer);
       fallbackTimer = 0;
       delete document.documentElement.dataset.sceneFallback;
-      setFallbackInteractive(false);
+      setFallbackVisible(false);
       delete document.documentElement.dataset.sceneReady;
-      mql.removeEventListener("change", onMediaChange);
-    }
-
-    function onMediaChange() {
-      queueModeSync();
     }
 
     document.addEventListener("astro:before-preparation", cleanup, { once: true });
     window.addEventListener("beforeunload", cleanup, { once: true });
-
-    const mql = window.matchMedia("(min-width: 768px)");
-    mql.addEventListener("change", onMediaChange);
-    queueModeSync();
+    scheduleModeSync();
   </script>
 </BaseLayout>

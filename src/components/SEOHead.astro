@@ -2,20 +2,14 @@
 import { site } from "../config";
 
 interface Props {
-  title: string;
-  description: string;
-  image?: string;
-  type?: "website" | "article";
-  publishedDate?: Date;
+	title: string;
+	description: string;
+	image?: string;
+	type?: "website" | "article";
+	publishedDate?: Date;
 }
 
-const {
-  title,
-  description,
-  image,
-  type = "website",
-  publishedDate,
-} = Astro.props;
+const { title, description, image, type = "website", publishedDate } = Astro.props;
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 const ogImageURL = image ? new URL(image, Astro.site) : null;
@@ -42,7 +36,7 @@ const ogImageURL = image ? new URL(image, Astro.site) : null;
 )}
 
 <!-- JSON-LD -->
-<script type="application/ld+json" set:html={JSON.stringify({
+<script is:inline type="application/ld+json" set:html={JSON.stringify({
   "@context": "https://schema.org",
   "@type": type === "article" ? "BlogPosting" : "WebSite",
   name: title,

@@ -3,12 +3,18 @@ import { getCollection } from "astro:content";
 
 const allBooks = await getCollection("books");
 const recentBooks = allBooks
-  .filter((b) => b.data.status === "reading" || b.data.status === "finished")
-  .slice(0, 5)
-  .map((b) => ({ title: b.data.title, spineColor: b.data.spineColor }));
+	.filter((b) => b.data.status === "reading" || b.data.status === "finished")
+	.slice(0, 5)
+	.map((b) => ({ title: b.data.title, spineColor: b.data.spineColor }));
 ---
 
 <div id="scene-root" class="absolute inset-0" data-books={JSON.stringify(recentBooks)}>
-  <canvas id="scene-canvas" class="absolute inset-0 w-full h-full"></canvas>
+  <canvas
+    id="scene-canvas"
+    class="absolute inset-0 w-full h-full"
+    aria-label="Interactive 3D portfolio scene. Use Tab to move between interactive objects or the skip link for text navigation."
+  >
+    Your browser does not support the interactive portfolio scene. Use the page navigation links instead.
+  </canvas>
   <div id="scene-labels" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
 </div>
