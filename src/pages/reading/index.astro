@@ -175,12 +175,25 @@ const previewBooks = sections.flatMap((section) =>
         }
       };
 
+      let activeBookEl: HTMLElement | null = null;
+
       const openBook = (bookId: string, trigger: HTMLElement) => {
         const book = books.find((entry) => entry.id === bookId);
         if (!book) return;
         setPreview(book);
         lastTrigger = trigger;
-        dialog.showModal();
+
+        const shelfBook = trigger.matches("[data-book-id]")
+          ? trigger
+          : root.querySelector<HTMLElement>(`[data-book-id="${bookId}"]`);
+
+        activeBookEl?.removeAttribute("data-active");
+        activeBookEl = shelfBook ?? null;
+        activeBookEl?.setAttribute("data-active", "true");
+
+        window.setTimeout(() => {
+          dialog.showModal();
+        }, 160);
       };
 
       const handlers = shelfButtons.map((trigger) => {
@@ -195,6 +208,8 @@ const previewBooks = sections.flatMap((section) =>
         if (event.target === dialog) dialog.close();
       };
       const onClose = () => {
+        activeBookEl?.removeAttribute("data-active");
+        activeBookEl = null;
         lastTrigger?.focus();
         lastTrigger = null;
       };
