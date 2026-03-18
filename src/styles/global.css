@@ -354,22 +354,22 @@ html[data-scene-ready="true"] #scene-fallback {
 	align-items: flex-end;
 	gap: 0.85rem;
 	overflow-x: auto;
-	perspective: 1600px;
-	perspective-origin: center 35%;
-	padding: 1rem 0.35rem 1.6rem;
+	perspective: 1400px;
+	perspective-origin: center 40%;
+	padding: 0.85rem 0.35rem 1.5rem;
 }
 
 .shelf-book {
 	position: relative;
 	display: block;
-	height: 11.5rem;
+	height: 11.25rem;
 	width: 4.8rem;
 	flex: 0 0 auto;
 	border: 0;
 	background: transparent;
 	padding: 0;
 	transform-style: preserve-3d;
-	transition: transform 260ms ease;
+	transition: transform 220ms ease;
 }
 
 .shelf-book__object {
@@ -378,17 +378,16 @@ html[data-scene-ready="true"] #scene-fallback {
 	height: 100%;
 	width: 100%;
 	transform-style: preserve-3d;
-	transform-origin: left center;
-	transform: rotateY(-78deg) translateZ(0);
+	transform-origin: center center;
+	transform: translateZ(0);
 	transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .shelf-book__spine,
-.shelf-book__front,
-.shelf-book__pages {
+.shelf-book__front {
 	position: absolute;
 	inset: 0;
-	border-radius: 0.7rem 0.7rem 0.25rem 0.25rem;
+	border-radius: 0.7rem 0.7rem 0.22rem 0.22rem;
 }
 
 .shelf-book__spine {
@@ -396,73 +395,58 @@ html[data-scene-ready="true"] #scene-fallback {
 	align-items: flex-end;
 	justify-content: center;
 	overflow: hidden;
-	padding: 0.8rem 0.5rem;
+	padding: 0.8rem 0.55rem;
 	background: linear-gradient(
 		180deg,
-		color-mix(in srgb, var(--book-spine) 84%, white 16%),
-		color-mix(in srgb, var(--book-spine) 88%, black 12%)
+		color-mix(in srgb, var(--book-spine) 88%, white 12%),
+		color-mix(in srgb, var(--book-spine) 84%, black 16%)
 	);
 	box-shadow:
-		inset -4px 0 0 rgba(0, 0, 0, 0.18),
-		inset 0 1px 0 rgba(255, 255, 255, 0.18),
-		0 14px 22px rgba(0, 0, 0, 0.22);
-	transform: translateZ(0.85rem);
+		0 16px 24px rgba(0, 0, 0, 0.18),
+		inset -4px 0 0 rgba(0, 0, 0, 0.16),
+		inset 0 1px 0 rgba(255, 255, 255, 0.16);
+	transform: translateZ(0.4rem);
 }
 
 .shelf-book__front {
-	display: flex;
-	flex-direction: column;
-	justify-content: space-between;
-	padding: 0.9rem 0.85rem;
 	background: linear-gradient(
 		160deg,
 		color-mix(in srgb, var(--book-cover) 92%, white 8%),
 		color-mix(in srgb, var(--book-cover) 82%, black 18%)
 	);
 	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
-	transform: rotateY(90deg) translateZ(3.95rem);
-}
-
-.shelf-book__front-title {
-	font-family: var(--font-display);
-	font-size: 0.88rem;
-	line-height: 0.95;
-	text-wrap: balance;
-	color: rgba(255, 255, 255, 0.95);
-}
-
-.shelf-book__front-author {
-	font-family: var(--font-mono);
-	font-size: 0.56rem;
-	letter-spacing: 0.14em;
-	text-transform: uppercase;
-	color: rgba(255, 255, 255, 0.78);
+	transform: rotateY(82deg) translateZ(4rem);
+	opacity: 0.92;
 }
 
 .shelf-book__pages {
-	width: 0.85rem;
-	left: auto;
-	right: -0.1rem;
-	background: linear-gradient(180deg, rgba(247, 241, 229, 0.98), rgba(221, 214, 198, 0.92));
-	border-radius: 0.15rem 0.55rem 0.2rem 0.1rem;
-	transform: rotateY(90deg) translateZ(4.38rem);
-	box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+	position: absolute;
+	top: 0.2rem;
+	bottom: 0.2rem;
+	right: -0.4rem;
+	width: 0.42rem;
+	background: linear-gradient(180deg, rgba(247, 241, 229, 0.98), rgba(223, 215, 198, 0.92));
+	border-radius: 0 0.28rem 0.28rem 0;
+	transform: translateZ(0.1rem);
+	box-shadow:
+		inset 0 0 0 1px rgba(0, 0, 0, 0.05),
+		0 0 0.5rem rgba(0, 0, 0, 0.08);
 }
 
 .shelf-book:hover .shelf-book__object,
 .shelf-book:focus-visible .shelf-book__object,
 .shelf-book[data-active="true"] .shelf-book__object {
-	transform: rotateY(-28deg) translate3d(0.35rem, -0.2rem, 1rem);
+	transform: rotateY(-18deg) translate3d(0.15rem, -0.25rem, 0.35rem);
 }
 
 .shelf-book[data-pulled="true"] .shelf-book__object {
-	transform: rotateY(-52deg) translate3d(0.2rem, -0.55rem, 0.6rem);
+	transform: translate3d(0, -0.45rem, 0.15rem);
 }
 
 .shelf-book:hover,
 .shelf-book:focus-visible,
 .shelf-book[data-active="true"] {
-	transform: translateY(-0.35rem);
+	transform: translateY(-0.2rem);
 }
 
 .shelf-book__label {
@@ -531,9 +515,9 @@ html[data-scene-ready="true"] #scene-fallback {
 	border: 1px solid rgba(0, 0, 0, 0.18);
 	padding: 1.35rem;
 	transform-style: preserve-3d;
-	transform: rotateY(-18deg);
+	transform: rotateY(-10deg);
 	box-shadow:
-		28px 20px 32px rgba(0, 0, 0, 0.24),
+		18px 18px 28px rgba(0, 0, 0, 0.2),
 		inset -6px 0 0 rgba(0, 0, 0, 0.12),
 		inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
@@ -718,16 +702,8 @@ html[data-scene-ready="true"] #scene-fallback {
 		width: 4rem;
 	}
 
-	.shelf-book__object {
-		transform: rotateY(-80deg);
-	}
-
 	.shelf-book__front {
-		transform: rotateY(90deg) translateZ(3.15rem);
-	}
-
-	.shelf-book__pages {
-		transform: rotateY(90deg) translateZ(3.58rem);
+		transform: rotateY(82deg) translateZ(3.18rem);
 	}
 }
 
