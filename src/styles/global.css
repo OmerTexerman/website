@@ -615,16 +615,9 @@ html[data-scene-ready="true"] #scene-fallback {
 	padding: 2rem 0;
 }
 
-/* Red margin line */
+/* Red margin line — only on wider screens where there's room */
 .notebook-paper::before {
-	content: "";
-	position: absolute;
-	top: 0;
-	bottom: 0;
-	left: 3.25rem;
-	width: 1px;
-	background: rgba(196, 69, 58, 0.18);
-	pointer-events: none;
+	display: none;
 }
 
 @media (min-width: 48rem) {
@@ -633,7 +626,15 @@ html[data-scene-ready="true"] #scene-fallback {
 	}
 
 	.notebook-paper::before {
+		content: "";
+		display: block;
+		position: absolute;
+		top: 0;
+		bottom: 0;
 		left: 3.75rem;
+		width: 1px;
+		background: rgba(196, 69, 58, 0.18);
+		pointer-events: none;
 	}
 }
 
