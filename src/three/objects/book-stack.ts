@@ -18,16 +18,19 @@ export function createBookStack(books?: { title: string; spineColor: string }[])
 		const color = books?.[i]?.spineColor ?? BOOK_COLORS[i] ?? BOOK_COLORS[0];
 		const title = books?.[i]?.title ?? "";
 		const width = 0.6 + ((i * 7 + 3) % 5) * 0.05; // deterministic variation
+		const xOffset = (((i * 3 + 1) % 3) - 1) * 0.02; // deterministic slight offset
+		const yRot = (((i * 7 + 2) % 5) - 2) * 0.012; // deterministic slight rotation
+		const bookGroup = new Group();
+		bookGroup.userData = { bookItem: true, bookIndex: i, title };
+		bookGroup.position.set(xOffset, i * (bookHeight + 0.005), 0);
+		bookGroup.rotation.y = yRot;
+
 		const geo = new BoxGeometry(width, bookHeight, bookDepth);
 		const mat = createBookMaterial(color);
 		const book = new Mesh(geo, mat);
-		const xOffset = (((i * 3 + 1) % 3) - 1) * 0.02; // deterministic slight offset
-		const yRot = (((i * 7 + 2) % 5) - 2) * 0.012; // deterministic slight rotation
-		book.position.set(xOffset, bookHeight / 2 + i * (bookHeight + 0.005), 0);
-		book.rotation.y = yRot;
+		book.position.y = bookHeight / 2;
 		book.castShadow = true;
-		book.userData = { title };
-		stack.add(book);
+		bookGroup.add(book);
 
 		// Spine label with title text on the front face (+z)
 		if (title) {
@@ -37,10 +40,11 @@ export function createBookStack(books?: { title: string; spineColor: string }[])
 			});
 			const spineGeo = new PlaneGeometry(width * 0.95, bookHeight * 0.85);
 			const spine = new Mesh(spineGeo, spineMat);
-			spine.position.set(xOffset, bookHeight / 2 + i * (bookHeight + 0.005), bookDepth / 2 + 0.001);
-			spine.rotation.y = yRot;
-			stack.add(spine);
+			spine.position.set(0, bookHeight / 2, bookDepth / 2 + 0.001);
+			bookGroup.add(spine);
 		}
+
+		stack.add(bookGroup);
 	}
 
 	stack.position.set(1.8, DESK_SURFACE_Y, 0.6);

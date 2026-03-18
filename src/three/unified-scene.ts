@@ -108,6 +108,13 @@ const CLOSE_ANIMATIONS: Record<string, (obj: Object3D) => Promise<void>> = {
 	Photos: animateFrameClose,
 };
 
+const MODAL_OPEN_DELAY_MS: Record<string, number> = {
+	Blog: 350,
+	Projects: 350,
+	Reading: 560,
+	Photos: 350,
+};
+
 function trackEvent(event: string, props: Record<string, string>): void {
 	const w = window as Window & {
 		posthog?: { capture: (e: string, p: Record<string, string>) => void };
@@ -590,13 +597,14 @@ export function initUnifiedScene(
 					OPEN_ANIMATIONS[label]?.(object);
 
 					if (pendingModalTimeout) window.clearTimeout(pendingModalTimeout);
+					const modalDelay = MODAL_OPEN_DELAY_MS[label] ?? 350;
 					pendingModalTimeout = window.setTimeout(() => {
 						pendingModalTimeout = 0;
 						if (disposed) return;
 						const modal = getContentModal();
 						if (modal) modal.open(label, href);
 						else window.location.href = href;
-					}, 350);
+					}, modalDelay);
 
 					trackEvent("desk_object_click", { label, href });
 				},

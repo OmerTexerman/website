@@ -1,5 +1,5 @@
 import { type Mesh, MeshStandardMaterial, type Object3D, type SpotLight, Vector3 } from "three";
-import { lerp } from "./math-utils";
+import { clamp, lerp } from "./math-utils";
 
 type AnimationCallback = (progress: number) => void;
 
@@ -153,26 +153,74 @@ export function animateLaptopClose(laptop: Object3D): Promise<void> {
 
 // ─── BOOK STACK (Reading) ────────────────────────────────────────
 export function animateBookLift(stack: Object3D): Promise<void> {
-	const top = stack.children[stack.children.length - 1];
-	if (!top) return Promise.resolve();
-	saveRest(top, "y", top.position.y);
-	saveRest(top, "rz", top.rotation.z);
-	const restY = getRest(top, "y");
-	const restRZ = getRest(top, "rz");
-	return animate(`book-${stack.uuid}`, 500, (p) => {
-		top.position.y = lerp(restY, restY + 0.3, p);
-		top.rotation.z = lerp(restRZ, restRZ + 0.2, p);
+	const books = stack.children.filter((child) => child.userData?.bookItem);
+	if (books.length === 0) return Promise.resolve();
+
+	for (const book of books) {
+		saveRest(book, "x", book.position.x);
+		saveRest(book, "y", book.position.y);
+		saveRest(book, "z", book.position.z);
+		saveRest(book, "rx", book.rotation.x);
+		saveRest(book, "ry", book.rotation.y);
+		saveRest(book, "rz", book.rotation.z);
+	}
+
+	return animate(`book-${stack.uuid}`, 650, (p) => {
+		const count = books.length;
+		for (let i = 0; i < count; i++) {
+			const book = books[i];
+			const prominence = (i + 1) / count;
+			const delay = (count - 1 - i) * 0.08;
+			const local = easeInOutCubic(clamp((p - delay) / 0.72, 0, 1));
+			const direction = i % 2 === 0 ? -1 : 1;
+			const restX = getRest(book, "x");
+			const restY = getRest(book, "y");
+			const restZ = getRest(book, "z");
+			const restRX = getRest(book, "rx");
+			const restRY = getRest(book, "ry");
+			const restRZ = getRest(book, "rz");
+
+			book.position.x = lerp(restX, restX + direction * (0.03 + prominence * 0.11), local);
+			book.position.y = lerp(restY, restY + 0.01 + prominence * 0.09, local);
+			book.position.z = lerp(restZ, restZ + 0.02 + prominence * 0.18, local);
+			book.rotation.x = lerp(restRX, restRX - prominence * 0.04, local);
+			book.rotation.y = lerp(restRY, restRY + direction * prominence * 0.12, local);
+			book.rotation.z = lerp(restRZ, restRZ + direction * (0.02 + prominence * 0.08), local);
+		}
 	});
 }
 
 export function animateBookClose(stack: Object3D): Promise<void> {
-	const top = stack.children[stack.children.length - 1];
-	if (!top) return Promise.resolve();
-	const curY = top.position.y;
-	const curRZ = top.rotation.z;
-	return animate(`book-${stack.uuid}`, 400, (p) => {
-		top.position.y = lerp(curY, getRest(top, "y"), p);
-		top.rotation.z = lerp(curRZ, getRest(top, "rz"), p);
+	const books = stack.children.filter((child) => child.userData?.bookItem);
+	if (books.length === 0) return Promise.resolve();
+
+	const current = books.map((book) => {
+		saveRest(book, "x", book.position.x);
+		saveRest(book, "y", book.position.y);
+		saveRest(book, "z", book.position.z);
+		saveRest(book, "rx", book.rotation.x);
+		saveRest(book, "ry", book.rotation.y);
+		saveRest(book, "rz", book.rotation.z);
+		return {
+			book,
+			x: book.position.x,
+			y: book.position.y,
+			z: book.position.z,
+			rx: book.rotation.x,
+			ry: book.rotation.y,
+			rz: book.rotation.z,
+		};
+	});
+
+	return animate(`book-${stack.uuid}`, 420, (p) => {
+		for (const pose of current) {
+			pose.book.position.x = lerp(pose.x, getRest(pose.book, "x"), p);
+			pose.book.position.y = lerp(pose.y, getRest(pose.book, "y"), p);
+			pose.book.position.z = lerp(pose.z, getRest(pose.book, "z"), p);
+			pose.book.rotation.x = lerp(pose.rx, getRest(pose.book, "rx"), p);
+			pose.book.rotation.y = lerp(pose.ry, getRest(pose.book, "ry"), p);
+			pose.book.rotation.z = lerp(pose.rz, getRest(pose.book, "rz"), p);
+		}
 	});
 }
 
