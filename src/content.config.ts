@@ -25,6 +25,9 @@ const projects = defineCollection({
 		tech: z.array(z.string()),
 		url: z.url().optional(),
 		repo: z.url().optional(),
+		folder: z.string().default("Desk Folder"),
+		notes: z.array(z.string()).default([]),
+		relatedPosts: z.array(z.string()).default([]),
 		order: z.number().default(0),
 	}),
 });
@@ -35,7 +38,10 @@ const books = defineCollection({
 		title: z.string(),
 		author: z.string(),
 		spineColor: z.string().regex(hexColor).default("#2a4a6a"),
+		coverColor: z.string().regex(hexColor).optional(),
 		status: z.enum(["reading", "finished", "want-to-read"]),
+		summary: z.string().optional(),
+		reviewSlug: z.string().optional(),
 		url: z.url().optional(),
 	}),
 });
@@ -46,6 +52,9 @@ const photos = defineCollection({
 		src: z.string().regex(photoSource, "Photo src must be an absolute path or URL."),
 		alt: z.string(),
 		caption: z.string().optional(),
+		description: z.string().optional(),
+		collection: z.string().default("Archive"),
+		location: z.string().optional(),
 	}),
 });
 

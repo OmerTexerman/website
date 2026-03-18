@@ -1,14 +1,23 @@
 - id: sample-1
   src: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800"
-  alt: "Lorem ipsum dolor sit amet"
-  caption: "Lorem ipsum dolor"
+  alt: "Laptop and coffee on a wooden table"
+  caption: "Morning work setup"
+  description: "A quiet early setup before the rest of the room wakes up — coffee, code, and warm desk light."
+  collection: "Desk Days"
+  location: "Home"
 
 - id: sample-2
   src: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800"
-  alt: "Consectetur adipiscing elit"
-  caption: "Sed do eiusmod"
+  alt: "Developer workspace with code on screen"
+  caption: "Late night shipping"
+  description: "One of those small but memorable nights where a feature finally clicks into place."
+  collection: "Desk Days"
+  location: "Home"
 
 - id: sample-3
   src: "https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=800"
-  alt: "Tempor incididunt ut labore"
-  caption: "Ut enim ad minim"
+  alt: "Landscape with open road and wide sky"
+  caption: "Between stops"
+  description: "A frame from a trip where the in-between moments ended up feeling more important than the destination."
+  collection: "On the Road"
+  location: "California"

@@ -3,13 +3,16 @@ interface Photo {
 	src: string;
 	alt: string;
 	caption?: string;
+	description?: string;
+	location?: string;
 }
 
 interface Props {
 	photos: Photo[];
+	collectionLabel?: string;
 }
 
-const { photos } = Astro.props;
+const { photos, collectionLabel = "Archive" } = Astro.props;
 ---
 
 <div data-photo-gallery>
@@ -27,8 +30,11 @@ const { photos } = Astro.props;
           />
         </div>
         <div class="photo-frame__note">
-          <p class="section-label mb-2">Pinned frame</p>
+          <p class="section-label mb-2">{collectionLabel}</p>
           <p class="text-sm text-cream">{photo.caption || photo.alt}</p>
+          {(photo.location || photo.description) && (
+            <p class="mt-2 text-sm text-cream-dark line-clamp-2">{photo.location ? `${photo.location} — ` : ""}{photo.description || photo.alt}</p>
+          )}
         </div>
       </button>
     ))}
@@ -44,7 +50,11 @@ const { photos } = Astro.props;
         &times;
       </button>
       <img data-photo-lightbox-img src="" alt="" class="max-h-full max-w-full rounded-[1.25rem] object-contain shadow-2xl" />
-      <p data-photo-lightbox-caption class="absolute bottom-8 left-1/2 w-[min(90vw,40rem)] -translate-x-1/2 rounded-full border border-white/10 bg-black/35 px-4 py-3 text-center text-sm text-cream backdrop-blur-sm sm:text-base"></p>
+      <div class="photo-lightbox__meta">
+        <p data-photo-lightbox-caption class="text-base text-cream"></p>
+        <p data-photo-lightbox-location class="mt-1 text-sm text-cream-dark"></p>
+        <p data-photo-lightbox-description class="mt-3 text-sm leading-relaxed text-cream-dark"></p>
+      </div>
     </div>
   </dialog>
 </div>
@@ -54,6 +64,8 @@ const { photos } = Astro.props;
     src: string;
     alt: string;
     caption?: string;
+    description?: string;
+    location?: string;
   }
 
   const cleanups: Array<() => void> = [];
@@ -66,6 +78,8 @@ const { photos } = Astro.props;
     const dialog = root.querySelector("[data-photo-lightbox]");
     const img = root.querySelector("[data-photo-lightbox-img]");
     const caption = root.querySelector("[data-photo-lightbox-caption]");
+    const location = root.querySelector("[data-photo-lightbox-location]");
+    const description = root.querySelector("[data-photo-lightbox-description]");
     const closeBtn = root.querySelector("[data-photo-lightbox-close]");
 
     if (
@@ -73,6 +87,8 @@ const { photos } = Astro.props;
       !(dialog instanceof HTMLDialogElement) ||
       !(img instanceof HTMLImageElement) ||
       !(caption instanceof HTMLElement) ||
+      !(location instanceof HTMLElement) ||
+      !(description instanceof HTMLElement) ||
       !(closeBtn instanceof HTMLButtonElement)
     ) {
       continue;
@@ -97,6 +113,8 @@ const { photos } = Astro.props;
       img.src = photo.src;
       img.alt = photo.alt;
       caption.textContent = photo.caption || photo.alt;
+      location.textContent = photo.location || "";
+      description.textContent = photo.description || "";
       lastTrigger = btn;
       dialog.showModal();
     };

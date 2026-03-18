@@ -4,9 +4,12 @@ import BookCard from "../../components/BookCard.astro";
 import PageIntro from "../../components/PageIntro.astro";
 import { navItems, site } from "../../config";
 import ContentPage from "../../layouts/ContentPage.astro";
+import { getPublishedPosts } from "../../utils";
 
 const nav = navItems.find((n) => n.href === "/reading");
 const allBooks = await getCollection("books");
+const posts = await getPublishedPosts();
+const postTitleBySlug = new Map(posts.map((post) => [post.id, post.data.title]));
 
 const reading = allBooks.filter((b) => b.data.status === "reading");
 const finished = allBooks.filter((b) => b.data.status === "finished");
@@ -24,7 +27,11 @@ const previewBooks = sections.flatMap((section) =>
 		title: book.data.title,
 		author: book.data.author,
 		spineColor: book.data.spineColor,
+		coverColor: book.data.coverColor || book.data.spineColor,
 		url: book.data.url,
+		summary: book.data.summary,
+		reviewSlug: book.data.reviewSlug,
+		reviewTitle: book.data.reviewSlug ? postTitleBySlug.get(book.data.reviewSlug) : undefined,
 		sectionTitle: section.title,
 		pulled: section.title === "Currently Reading" ? index === 0 : false,
 	})),
@@ -72,7 +79,6 @@ const previewBooks = sections.flatMap((section) =>
           </div>
           <div class="shelf-plank" aria-hidden="true"></div>
         </div>
-
       </section>
     ))}
 
@@ -92,9 +98,13 @@ const previewBooks = sections.flatMap((section) =>
             <p class="section-label mb-3">Pulled from shelf</p>
             <h3 class="font-display text-3xl font-bold tracking-tight text-cream" data-book-preview-title-copy></h3>
             <p class="mt-3 text-lg text-cream-dark" data-book-preview-author-copy></p>
-            <p class="mt-5 max-w-xl text-sm leading-relaxed text-cream-dark">
-              Not every book needs to show its whole face on the shelf. Click a spine and it pulls forward into a full cover preview instead.
+            <p class="mt-5 max-w-xl text-sm leading-relaxed text-cream-dark" data-book-preview-summary>
+              Click a spine and it pulls forward into a fuller reading note instead of exposing everything on the shelf itself.
             </p>
+            <div data-book-preview-review-wrap class="mt-5 hidden rounded-2xl border border-white/10 bg-white/3 p-4">
+              <p class="section-label mb-2">Linked note</p>
+              <a data-book-preview-review-link href="#" class="text-cream hover:text-accent transition-colors"></a>
+            </div>
             <div class="mt-6 flex flex-wrap gap-3">
               <a data-book-preview-link href="#" target="_blank" rel="noopener noreferrer" class="desk-link hidden">
                 Open book link <span aria-hidden="true">&rarr;</span>
@@ -113,7 +123,11 @@ const previewBooks = sections.flatMap((section) =>
       title: string;
       author: string;
       spineColor: string;
+      coverColor: string;
       url?: string;
+      summary?: string;
+      reviewSlug?: string;
+      reviewTitle?: string;
       sectionTitle: string;
       pulled?: boolean;
     }
@@ -132,6 +146,9 @@ const previewBooks = sections.flatMap((section) =>
       const authorEl = root.querySelector("[data-book-preview-author]");
       const titleCopyEl = root.querySelector("[data-book-preview-title-copy]");
       const authorCopyEl = root.querySelector("[data-book-preview-author-copy]");
+      const summaryEl = root.querySelector("[data-book-preview-summary]");
+      const reviewWrap = root.querySelector("[data-book-preview-review-wrap]");
+      const reviewLink = root.querySelector("[data-book-preview-review-link]");
       const linkEl = root.querySelector("[data-book-preview-link]");
       const closeButtons = [...root.querySelectorAll<HTMLButtonElement>("[data-book-preview-close], [data-book-preview-close-secondary]")];
 
@@ -144,6 +161,9 @@ const previewBooks = sections.flatMap((section) =>
         !(authorEl instanceof HTMLElement) ||
         !(titleCopyEl instanceof HTMLElement) ||
         !(authorCopyEl instanceof HTMLElement) ||
+        !(summaryEl instanceof HTMLElement) ||
+        !(reviewWrap instanceof HTMLElement) ||
+        !(reviewLink instanceof HTMLAnchorElement) ||
         !(linkEl instanceof HTMLAnchorElement)
       ) {
         continue;
@@ -167,8 +187,18 @@ const previewBooks = sections.flatMap((section) =>
         authorEl.textContent = book.author;
         titleCopyEl.textContent = book.title;
         authorCopyEl.textContent = book.author;
-        cover.style.backgroundColor = book.spineColor;
-        cover.style.setProperty("--book-cover-color", book.spineColor);
+        summaryEl.textContent = book.summary || "Click a spine and it pulls forward into a fuller reading note instead of exposing everything on the shelf itself.";
+        cover.style.backgroundColor = book.coverColor;
+
+        if (book.reviewSlug && book.reviewTitle) {
+          reviewLink.href = `/blog/${book.reviewSlug}`;
+          reviewLink.textContent = book.reviewTitle;
+          reviewWrap.classList.remove("hidden");
+        } else {
+          reviewLink.href = "#";
+          reviewLink.textContent = "";
+          reviewWrap.classList.add("hidden");
+        }
 
         if (book.url) {
           linkEl.href = book.url;

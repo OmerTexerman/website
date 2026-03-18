@@ -2,28 +2,39 @@
   title: "Lorem Ipsum Dolor Sit"
   author: "Amet Consectetur"
   spineColor: "#2a4a6a"
+  coverColor: "#40617f"
   status: reading
+  summary: "A reflective read about patient craft, systems thinking, and making time for deep work."
+  reviewSlug: "hello-world"
 
 - id: lorem-ipsum-two
   title: "Adipiscing Elit Sed"
   author: "Eiusmod Tempor"
   spineColor: "#6a3a3a"
+  coverColor: "#855555"
   status: finished
+  summary: "Dense, practical, and worth revisiting for the parts on clarity and momentum."
 
 - id: lorem-ipsum-three
   title: "Incididunt Ut Labore"
   author: "Dolore Magna"
   spineColor: "#3a5a3a"
+  coverColor: "#547754"
   status: finished
+  summary: "A slower book that rewards marginal notes more than speed."
 
 - id: lorem-ipsum-four
   title: "Veniam Quis Nostrud"
   author: "Exercitation Ullamco"
   spineColor: "#5a4a3a"
+  coverColor: "#7a6652"
   status: want-to-read
+  summary: "On deck for the next stretch of quieter evenings."
 
 - id: lorem-ipsum-five
   title: "Duis Aute Irure"
   author: "Reprehenderit Voluptate"
   spineColor: "#4a3a6a"
+  coverColor: "#69578e"
   status: finished
+  summary: "One of those books that keeps resurfacing in how you think about taste."

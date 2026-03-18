@@ -3,6 +3,12 @@ title: "Lorem Ipsum Project"
 description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
 tech: ["Astro", "Three.js", "TypeScript", "Tailwind CSS"]
 repo: "https://github.com/OmerTexerman/portfolio"
+folder: "Interactive Builds"
+notes:
+  - "Built around a tactile 3D homepage with supporting content surfaces."
+  - "Pairs product thinking with playful interaction design."
+relatedPosts:
+  - "hello-world"
 order: 1
 ---
 

@@ -7,19 +7,33 @@ import ContentPage from "../../layouts/ContentPage.astro";
 
 const nav = navItems.find((n) => n.href === "/photos");
 const photos = (await getCollection("photos")).map((p) => p.data);
+const collections = Array.from(
+	photos.reduce((map, photo) => {
+		const key = photo.collection || "Archive";
+		const bucket = map.get(key) ?? [];
+		bucket.push(photo);
+		map.set(key, bucket);
+		return map;
+	}, new Map<string, typeof photos>()),
+);
 ---
 
 <ContentPage title={`Photos | ${site.name}`} description={nav?.description}>
   <PageIntro title="Photos" description={nav?.description} />
 
-  <section class="object-row" data-animate style="transition-delay: 0.15s">
-    <div class="flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <p class="section-label mb-2">Pinned frames</p>
-        <h2 class="font-display text-2xl font-bold tracking-tight text-cream">Recent stills</h2>
-      </div>
-      <p class="font-mono text-sm text-muted">{photos.length} moments</p>
-    </div>
-    <PhotoGallery photos={photos} />
-  </section>
+  <div class="object-stack">
+    {collections.map(([collection, items], index) => (
+      <section class="object-row" data-animate style={`transition-delay: ${0.12 + index * 0.08}s`}>
+        <div class="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p class="section-label mb-2">Photo collection</p>
+            <h2 class="font-display text-2xl font-bold tracking-tight text-cream">{collection}</h2>
+            <p class="mt-2 max-w-xl text-sm text-cream-dark">Grouped like photo sets pinned to the wall instead of one endless strip.</p>
+          </div>
+          <p class="font-mono text-sm text-muted">{items.length} frames</p>
+        </div>
+        <PhotoGallery photos={items} collectionLabel={collection} />
+      </section>
+    ))}
+  </div>
 </ContentPage>

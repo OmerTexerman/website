@@ -4,9 +4,12 @@ import PageIntro from "../../components/PageIntro.astro";
 import ProjectCard from "../../components/ProjectCard.astro";
 import { navItems, site } from "../../config";
 import ContentPage from "../../layouts/ContentPage.astro";
+import { getPublishedPosts } from "../../utils";
 
 const nav = navItems.find((n) => n.href === "/projects");
 const projects = (await getCollection("projects")).sort((a, b) => a.data.order - b.data.order);
+const posts = await getPublishedPosts();
+const postsBySlug = new Map(posts.map((post) => [post.id, post.data.title]));
 ---
 
 <ContentPage title={`Projects | ${site.name}`} description={nav?.description}>
@@ -22,6 +25,9 @@ const projects = (await getCollection("projects")).sort((a, b) => a.data.order -
             title={project.data.title}
             description={project.data.description}
             tech={project.data.tech}
+            folder={project.data.folder}
+            notes={project.data.notes}
+            relatedPosts={project.data.relatedPosts.map((slug) => ({ slug, title: postsBySlug.get(slug) ?? slug }))}
             url={project.data.url}
             repo={project.data.repo}
           />
