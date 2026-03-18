@@ -1,4 +1,5 @@
 ---
+import { ClientRouter } from "astro:transitions";
 import "../styles/global.css";
 import SEOHead from "../components/SEOHead.astro";
 import { analytics, site } from "../config";
@@ -29,6 +30,7 @@ const posthogHost = analytics.posthogHost;
 <!doctype html>
 <html lang="en">
   <head>
+    <ClientRouter />
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content={description} />

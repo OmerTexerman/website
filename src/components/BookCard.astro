@@ -9,13 +9,12 @@ interface Props {
 }
 
 const { id, title, author, spineColor, url, pulled = false } = Astro.props;
-const coverTone = `color-mix(in srgb, ${spineColor} 82%, white 18%)`;
 ---
 
 <button
   type="button"
   class="shelf-book"
-  style={`--book-spine:${spineColor}; --book-cover:${coverTone};`}
+  style={`--book-spine:${spineColor};`}
   data-book-id={id}
   data-book-title={title}
   data-book-author={author}
@@ -24,11 +23,7 @@ const coverTone = `color-mix(in srgb, ${spineColor} 82%, white 18%)`;
   data-pulled={pulled ? "true" : undefined}
   aria-label={`Preview ${title} by ${author}`}
 >
-  <span class="shelf-book__object" aria-hidden="true">
-    <span class="shelf-book__spine">
-      <span class="shelf-book__label">{title}</span>
-    </span>
-    <span class="shelf-book__front"></span>
-    <span class="shelf-book__pages"></span>
+  <span class="shelf-book__spine" aria-hidden="true">
+    <span class="shelf-book__label">{title}</span>
   </span>
 </button>

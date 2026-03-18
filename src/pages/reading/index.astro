@@ -48,19 +48,6 @@ const previewBooks = sections.flatMap((section) =>
           <p class="font-mono text-sm text-muted">{section.books.length} {section.books.length === 1 ? "volume" : "volumes"}</p>
         </div>
 
-        <div class="shelf-books no-scrollbar">
-          {section.books.map((book, index) => (
-            <BookCard
-              id={book.id}
-              title={book.data.title}
-              author={book.data.author}
-              spineColor={book.data.spineColor}
-              url={book.data.url}
-              pulled={section.title === "Currently Reading" ? index === 0 : false}
-            />
-          ))}
-        </div>
-
         <div class="shelf-ledger">
           {section.books.map((book) => (
             <button type="button" class="shelf-ledger__item text-left" data-book-ledger-id={book.id}>
@@ -69,6 +56,23 @@ const previewBooks = sections.flatMap((section) =>
             </button>
           ))}
         </div>
+
+        <div class="shelf-stage">
+          <div class="shelf-books no-scrollbar">
+            {section.books.map((book, index) => (
+              <BookCard
+                id={book.id}
+                title={book.data.title}
+                author={book.data.author}
+                spineColor={book.data.spineColor}
+                url={book.data.url}
+                pulled={section.title === "Currently Reading" ? index === 0 : false}
+              />
+            ))}
+          </div>
+          <div class="shelf-plank" aria-hidden="true"></div>
+        </div>
+
       </section>
     ))}
 
