@@ -1,5 +1,5 @@
 export type ContentPreviewResult =
-	| { kind: "content"; content: DocumentFragment }
+	| { kind: "content"; nodes: ChildNode[] }
 	| { kind: "message"; message: string };
 
 export async function loadContentPreview(
@@ -29,17 +29,7 @@ export async function loadContentPreview(
 
 	const sanitized = content.cloneNode(true) as Element;
 	sanitizeNode(sanitized, url.toString());
-	const fragment = document.createDocumentFragment();
-	for (const child of Array.from(sanitized.childNodes)) {
-		fragment.append(child);
-	}
-
-	fragment.querySelectorAll("[data-animate]").forEach((el) => {
-		el.classList.remove("reveal-pending");
-		el.classList.add("is-visible");
-	});
-
-	return { kind: "content", content: fragment };
+	return { kind: "content", nodes: Array.from(sanitized.childNodes) };
 }
 
 function isSafeSameOriginUrl(value: string, baseUrl: string): boolean {

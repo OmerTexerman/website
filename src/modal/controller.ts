@@ -270,7 +270,11 @@ function createContentModalController(elements: ContentModalElements): {
 				return;
 			}
 
-			bodyEl.replaceChildren(result.content);
+			bodyEl.replaceChildren(...result.nodes);
+			bodyEl.querySelectorAll("[data-animate]").forEach((el) => {
+				el.classList.remove("reveal-pending");
+				el.classList.add("is-visible");
+			});
 		} catch (err: unknown) {
 			if (err instanceof DOMException && err.name === "AbortError") return;
 			if (isStalePreviewRequest(requestId)) return;
