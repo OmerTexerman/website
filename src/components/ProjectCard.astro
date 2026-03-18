@@ -29,35 +29,41 @@ const {
 } = Astro.props;
 ---
 
-<div class="folder-card">
-  <div class="folder-card__tab">{folder}</div>
-  <div class="folder-card__body">
-    <div class="folio-meta">
-      <p class="section-label">Project folder</p>
-      <p class="font-mono text-xs uppercase tracking-[0.2em] text-muted-light">{tech.length} tools noted</p>
-    </div>
-
-    <div class="folio-body">
-      <h3 class="font-display text-2xl font-bold tracking-tight text-cream sm:text-3xl">{title}</h3>
-      <p class="max-w-2xl text-sm leading-relaxed text-cream-dark sm:text-base">{description}</p>
-      <div class="tag-cluster">
-        {tech.map((t) => (
-          <Tag label={t} />
-        ))}
+<article class="project-dossier">
+  <div class="project-dossier__head">
+    <div>
+      <p class="section-label mb-2">Project dossier</p>
+      <div class="flex flex-wrap items-center gap-3">
+        <span class="project-dossier__label">{folder}</span>
+        <span class="font-mono text-xs uppercase tracking-[0.2em] text-muted-light">{tech.length} tools noted</span>
       </div>
-      {notes.length > 0 && (
-        <ul class="folder-card__notes">
-          {notes.map((note) => (
-            <li>{note}</li>
-          ))}
-        </ul>
-      )}
+    </div>
+  </div>
+
+  <div class="project-dossier__body">
+    <h3 class="font-display text-2xl font-bold tracking-tight text-cream sm:text-3xl">{title}</h3>
+    <p class="max-w-3xl text-sm leading-relaxed text-cream-dark sm:text-base">{description}</p>
+
+    <div class="tag-cluster">
+      {tech.map((t) => (
+        <Tag label={t} />
+      ))}
     </div>
 
-    <div class="folio-aside">
-      <p class="section-label mb-3">Attached</p>
-      {relatedPosts.length > 0 ? (
-        <div class="folder-card__attachments">
+    {notes.length > 0 && (
+      <ul class="project-dossier__notes">
+        {notes.map((note) => (
+          <li>{note}</li>
+        ))}
+      </ul>
+    )}
+
+    {(relatedPosts.length > 0 || url || repo) && <div class="project-dossier__rule"></div>}
+
+    {relatedPosts.length > 0 && (
+      <div>
+        <p class="section-label mb-3">Linked notes</p>
+        <div class="project-dossier__attachments">
           {relatedPosts.map((post) => (
             <a href={`/blog/${post.slug}`} class="attachment-chip">
               <span class="attachment-chip__dot"></span>
@@ -65,22 +71,20 @@ const {
             </a>
           ))}
         </div>
-      ) : (
-        <p class="text-sm text-muted">No linked notes yet.</p>
-      )}
-
-      <div class="mt-5 flex flex-wrap gap-3">
-        {url && (
-          <a href={url} target="_blank" rel="noopener noreferrer" class="desk-link">
-            Open live site <span aria-hidden="true">&rarr;</span>
-          </a>
-        )}
-        {repo && (
-          <a href={repo} target="_blank" rel="noopener noreferrer" class="desk-link text-muted hover:text-cream">
-            View source
-          </a>
-        )}
       </div>
+    )}
+
+    <div class="flex flex-wrap gap-3">
+      {url && (
+        <a href={url} target="_blank" rel="noopener noreferrer" class="desk-link">
+          Open live site <span aria-hidden="true">&rarr;</span>
+        </a>
+      )}
+      {repo && (
+        <a href={repo} target="_blank" rel="noopener noreferrer" class="desk-link text-muted hover:text-cream">
+          View source
+        </a>
+      )}
     </div>
   </div>
-</div>
+</article>
