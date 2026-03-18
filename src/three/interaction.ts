@@ -6,31 +6,22 @@ export interface DeskInteraction {
 	label?: string;
 	object: Object3D;
 }
-export function setupInteraction(
+
+export interface InteractionPicker {
+	getInteractionAt(clientX: number, clientY: number): DeskInteraction | null;
+}
+
+export function createInteractionPicker(
 	canvas: HTMLCanvasElement,
 	camera: Camera,
 	scene: Scene,
-	onHover: (interaction: DeskInteraction | null) => void,
-	onClick: (interaction: DeskInteraction) => void,
-	options?: { enableHover?: boolean },
-): () => void {
+): InteractionPicker {
 	const meshes = collectMeshesBy(scene, "interactive");
-	const groups = collectGroupsBy(scene, "interactive");
-	// Only navigable objects (those with href) are keyboard-focusable
-	const navigableGroups = groups.filter((g) => g.userData.href);
 	const pointer = new Vector2();
 	const raycaster = new Raycaster();
-	const enableHover = options?.enableHover ?? true;
-	let hovered: DeskInteraction | null = null;
-	let focusIndex = -1;
-	let pendingHoverFrame = 0;
-	let pointerDownX = 0;
-	let pointerDownY = 0;
-	const CLICK_THRESHOLD = 6;
 
-	canvas.tabIndex = 0;
-
-	function raycast(): DeskInteraction | null {
+	function getInteractionAt(clientX: number, clientY: number): DeskInteraction | null {
+		updatePointer(pointer, canvas, clientX, clientY);
 		raycaster.setFromCamera(pointer, camera);
 		const hits = raycaster.intersectObjects(meshes, false);
 		if (hits.length === 0) return null;
@@ -41,6 +32,38 @@ export function setupInteraction(
 			label: ancestor.userData.label,
 			object: ancestor,
 		};
+	}
+
+	return { getInteractionAt };
+}
+
+export function setupInteraction(
+	canvas: HTMLCanvasElement,
+	camera: Camera,
+	scene: Scene,
+	onHover: (interaction: DeskInteraction | null) => void,
+	onClick: (interaction: DeskInteraction) => void,
+	options?: { enableHover?: boolean; enablePointerClick?: boolean },
+): () => void {
+	const picker = createInteractionPicker(canvas, camera, scene);
+	const groups = collectGroupsBy(scene, "interactive");
+	// Only navigable objects (those with href) are keyboard-focusable
+	const navigableGroups = groups.filter((g) => g.userData.href);
+	const enableHover = options?.enableHover ?? true;
+	const enablePointerClick = options?.enablePointerClick ?? true;
+	let hovered: DeskInteraction | null = null;
+	let focusIndex = -1;
+	let pendingHoverFrame = 0;
+	let pointerX = 0;
+	let pointerY = 0;
+	let pointerDownX = 0;
+	let pointerDownY = 0;
+	const CLICK_THRESHOLD = 10;
+
+	canvas.tabIndex = 0;
+
+	function raycast(): DeskInteraction | null {
+		return picker.getInteractionAt(pointerX, pointerY);
 	}
 
 	function setHover(hit: DeskInteraction | null): void {
@@ -60,22 +83,25 @@ export function setupInteraction(
 
 	function onPointerMove(e: PointerEvent): void {
 		if (!enableHover) return;
-		updatePointer(pointer, canvas, e.clientX, e.clientY);
+		pointerX = e.clientX;
+		pointerY = e.clientY;
 		requestHoverUpdate();
 	}
 
 	function onPointerDown(e: PointerEvent): void {
+		pointerX = e.clientX;
+		pointerY = e.clientY;
 		pointerDownX = e.clientX;
 		pointerDownY = e.clientY;
 		if (document.activeElement !== canvas) canvas.focus({ preventScroll: true });
 	}
 
 	function onPointerUp(e: PointerEvent): void {
+		if (!enablePointerClick) return;
 		const dx = e.clientX - pointerDownX;
 		const dy = e.clientY - pointerDownY;
 		if (dx * dx + dy * dy > CLICK_THRESHOLD * CLICK_THRESHOLD) return;
-		updatePointer(pointer, canvas, e.clientX, e.clientY);
-		const hit = raycast();
+		const hit = picker.getInteractionAt(e.clientX, e.clientY);
 		if (hit) onClick(hit);
 	}
 
@@ -98,19 +124,27 @@ export function setupInteraction(
 		setHover(null);
 	};
 
-	canvas.addEventListener("pointerleave", onPointerLeave);
-	canvas.addEventListener("pointermove", onPointerMove, { passive: true });
 	canvas.addEventListener("pointerdown", onPointerDown);
-	canvas.addEventListener("pointerup", onPointerUp);
+	if (enableHover) {
+		canvas.addEventListener("pointerleave", onPointerLeave);
+		canvas.addEventListener("pointermove", onPointerMove, { passive: true });
+	}
+	if (enablePointerClick) {
+		canvas.addEventListener("pointerup", onPointerUp);
+	}
 	window.addEventListener("keydown", onKeydown);
 
 	return () => {
 		if (pendingHoverFrame) cancelAnimationFrame(pendingHoverFrame);
 		hovered = null;
-		canvas.removeEventListener("pointerleave", onPointerLeave);
-		canvas.removeEventListener("pointermove", onPointerMove);
 		canvas.removeEventListener("pointerdown", onPointerDown);
-		canvas.removeEventListener("pointerup", onPointerUp);
+		if (enableHover) {
+			canvas.removeEventListener("pointerleave", onPointerLeave);
+			canvas.removeEventListener("pointermove", onPointerMove);
+		}
+		if (enablePointerClick) {
+			canvas.removeEventListener("pointerup", onPointerUp);
+		}
 		window.removeEventListener("keydown", onKeydown);
 		canvas.style.cursor = "default";
 	};

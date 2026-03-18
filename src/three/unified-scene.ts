@@ -45,7 +45,7 @@ import { createDesk } from "./desk";
 import { disposeObjectResources } from "./disposal";
 import { createDeskPhysicsController } from "./drag";
 import { addHitbox } from "./hitbox";
-import { type DeskInteraction, setupInteraction } from "./interaction";
+import { createInteractionPicker, type DeskInteraction, setupInteraction } from "./interaction";
 import { createLabelController } from "./labels";
 import {
 	setupDeskLighting,
@@ -54,6 +54,7 @@ import {
 	setupShelfLighting,
 } from "./lighting";
 import { clamp, lerp } from "./math-utils";
+import { createMobileScrollController, type MobileScrollController } from "./mobile-scroll";
 import { createBookStack } from "./objects/book-stack";
 import { createCircuitBoard } from "./objects/circuit-board";
 import { createDeskLamp, toggleLamp } from "./objects/desk-lamp";
@@ -78,18 +79,10 @@ const MOBILE_SHELF_STOPS = [
 	{ cameraY: MOBILE_POS.y, lookY: MOBILE_LOOK.y },
 	{ cameraY: 4.02, lookY: 3.72 },
 ] as const;
-const MOBILE_SHELF_SCROLL_SPEED = 0.0028;
-const MOBILE_SHELF_DRAG_SPEED = 0.007;
-const MOBILE_SHELF_LERP = 0.26;
-const MOBILE_SHELF_PAN_WHEEL_SPEED = 0.0022;
-const MOBILE_SHELF_PAN_DRAG_SPEED = 0.006;
-const MOBILE_SHELF_PAN_LERP = 0.22;
 const MOBILE_SHELF_PAN_LIMIT = 1;
 const MOBILE_SHELF_PAN_SNAP_POINTS = [[0], [-0.78, 0.3], [0]] as const;
-const MOBILE_SHELF_PAN_SNAP_THRESHOLD = 0.26;
-const MOBILE_SHELF_PAN_SNAP_SETTLE = 0.22;
-const MOBILE_SHELF_PAN_SNAP_DRAG = 0.1;
-const MOBILE_SHELF_VISIBLE_ROW_RANGE = 0.34;
+const MOBILE_SHELF_SCROLL_SPEED = 0.0028;
+const MOBILE_SHELF_PAN_WHEEL_SPEED = 0.0022;
 const MOBILE_TRANSITION_MID_POS = MOBILE_INTRO_START_POS.clone();
 const MOBILE_TRANSITION_MID_LOOK = new Vector3(8.1, 2.2, 4.7);
 
@@ -126,18 +119,42 @@ function easeInOutSine(t: number): number {
 	return -(Math.cos(Math.PI * t) - 1) / 2;
 }
 
-function sampleMobileShelfTrack(t: number): {
+function sampleMobileShelfTrack(
+	t: number,
+	options?: { allowOverflow?: boolean },
+): {
 	cameraY: number;
 	lookY: number;
 	index: number;
 	nextIndex: number;
 	localT: number;
 } {
-	const clamped = clamp(t, 0, 1);
-	const scaled = clamped * (MOBILE_SHELF_STOPS.length - 1);
-	const index = Math.floor(scaled);
-	const nextIndex = Math.min(index + 1, MOBILE_SHELF_STOPS.length - 1);
-	const localT = scaled - index;
+	const maxIndex = MOBILE_SHELF_STOPS.length - 1;
+	if (maxIndex <= 0) {
+		const only = MOBILE_SHELF_STOPS[0];
+		return {
+			cameraY: only.cameraY,
+			lookY: only.lookY,
+			index: 0,
+			nextIndex: 0,
+			localT: 0,
+		};
+	}
+
+	const scaled = (options?.allowOverflow ? t : clamp(t, 0, 1)) * maxIndex;
+	let index = Math.floor(scaled);
+	let nextIndex = Math.min(index + 1, maxIndex);
+	let localT = scaled - index;
+
+	if (scaled <= 0) {
+		index = 0;
+		nextIndex = 1;
+		localT = scaled;
+	} else if (scaled >= maxIndex) {
+		index = maxIndex - 1;
+		nextIndex = maxIndex;
+		localT = scaled - index;
+	}
 	const from = MOBILE_SHELF_STOPS[index];
 	const to = MOBILE_SHELF_STOPS[nextIndex];
 
@@ -225,13 +242,7 @@ export function initUnifiedScene(
 	let currentHover: DeskInteraction | null = null;
 	let openObject: { label: string; object: Object3D } | null = null;
 	let clickLockedUntil = 0;
-	let mobileShelfTargetT = 0.5;
-	let mobileShelfCurrentT = 0.5;
-	const mobileShelfTargetPanByStop = MOBILE_SHELF_STOPS.map(() => 0);
-	const mobileShelfCurrentPanByStop = MOBILE_SHELF_STOPS.map(() => 0);
-	let mobilePointerId: number | null = null;
-	let mobilePointerLastX = 0;
-	let mobilePointerLastY = 0;
+	let scrollController: MobileScrollController | null = null;
 	let cleanupModalClose: (() => void) | null = null;
 	let disposed = false;
 	let pendingModalTimeout = 0;
@@ -257,6 +268,7 @@ export function initUnifiedScene(
 	let cleanupInteraction: (() => void) | null = null;
 	let cleanupDrag: (() => void) | null = null;
 	let cleanupMobileShelfControls: (() => void) | null = null;
+	let lastRenderTime = 0;
 	let lastCanvasWidth = initialSize.width;
 	let lastCanvasHeight = initialSize.height;
 	const mobilePosePos = new Vector3();
@@ -284,62 +296,10 @@ export function initUnifiedScene(
 		return lerp(pans[sample.index] ?? 0, pans[sample.nextIndex] ?? 0, sample.localT);
 	}
 
-	function applyMobileShelfPanDelta(t: number, panDelta: number): void {
-		const sample = sampleMobileShelfTrack(t);
-		const updateStop = (index: number, weight: number) => {
-			mobileShelfTargetPanByStop[index] = clamp(
-				mobileShelfTargetPanByStop[index] + panDelta * weight,
-				-MOBILE_SHELF_PAN_LIMIT,
-				MOBILE_SHELF_PAN_LIMIT,
-			);
-		};
-
-		if (sample.index === sample.nextIndex) {
-			updateStop(sample.index, 1);
-			return;
-		}
-
-		updateStop(sample.index, 1 - sample.localT);
-		updateStop(sample.nextIndex, sample.localT);
-	}
-
-	function applyMobileShelfPanSnap(t: number, strength: number): void {
-		for (let i = 0; i < MOBILE_SHELF_PAN_SNAP_POINTS.length; i++) {
-			const stopT = i / (MOBILE_SHELF_STOPS.length - 1);
-			const rowDistance = Math.abs(t - stopT);
-			if (rowDistance > MOBILE_SHELF_VISIBLE_ROW_RANGE) continue;
-
-			const snapPoints = MOBILE_SHELF_PAN_SNAP_POINTS[i];
-			let nearestSnap: number = snapPoints[0] ?? 0;
-			let nearestSnapDistance = Math.abs(mobileShelfTargetPanByStop[i] - nearestSnap);
-
-			for (let j = 1; j < snapPoints.length; j++) {
-				const candidate = snapPoints[j];
-				const candidateDistance = Math.abs(mobileShelfTargetPanByStop[i] - candidate);
-				if (candidateDistance < nearestSnapDistance) {
-					nearestSnap = candidate;
-					nearestSnapDistance = candidateDistance;
-				}
-			}
-
-			if (nearestSnapDistance > MOBILE_SHELF_PAN_SNAP_THRESHOLD) continue;
-
-			const visibilityWeight = 1 - rowDistance / MOBILE_SHELF_VISIBLE_ROW_RANGE;
-			mobileShelfTargetPanByStop[i] = lerp(
-				mobileShelfTargetPanByStop[i],
-				nearestSnap,
-				strength * visibilityWeight,
-			);
-
-			if (nearestSnapDistance < 0.015) {
-				mobileShelfTargetPanByStop[i] = nearestSnap;
-			}
-		}
-	}
-
-	function syncMobileShelfCamera(t: number): void {
-		const sample = sampleMobileShelfTrack(t);
-		const pan = sampleMobileShelfPan(t, mobileShelfCurrentPanByStop);
+	function syncMobileShelfCamera(t: number, pans?: readonly number[]): void {
+		const sample = sampleMobileShelfTrack(t, { allowOverflow: true });
+		const panSource = pans ?? scrollController?.panByRow ?? [0, 0, 0];
+		const pan = sampleMobileShelfPan(t, panSource);
 		const responsive = getMobileShelfResponsiveLayout();
 		camera.position.set(
 			MOBILE_POS.x + responsive.cameraX,
@@ -354,8 +314,9 @@ export function initUnifiedScene(
 	}
 
 	function writeMobilePose(t: number, pos: Vector3, look: Vector3): void {
-		const sample = sampleMobileShelfTrack(t);
-		const pan = sampleMobileShelfPan(t, mobileShelfCurrentPanByStop);
+		const sample = sampleMobileShelfTrack(t, { allowOverflow: true });
+		const panSource = scrollController?.panByRow ?? [0, 0, 0];
+		const pan = sampleMobileShelfPan(t, panSource);
 		const responsive = getMobileShelfResponsiveLayout();
 		pos.set(
 			MOBILE_POS.x + responsive.cameraX,
@@ -367,69 +328,6 @@ export function initUnifiedScene(
 			sample.lookY,
 			MOBILE_LOOK.z + pan * responsive.lookZRange,
 		);
-	}
-
-	function setupMobileShelfControls(): () => void {
-		const previousTouchAction = canvas.style.touchAction;
-		canvas.style.touchAction = "none";
-
-		function onWheel(e: WheelEvent): void {
-			if (currentMode !== "mobile" || transitioning || !introComplete) return;
-			e.preventDefault();
-			mobileShelfTargetT = clamp(mobileShelfTargetT - e.deltaY * MOBILE_SHELF_SCROLL_SPEED, 0, 1);
-			if (Math.abs(e.deltaX) > 0.1) {
-				applyMobileShelfPanDelta(mobileShelfCurrentT, -e.deltaX * MOBILE_SHELF_PAN_WHEEL_SPEED);
-			}
-			applyMobileShelfPanSnap(mobileShelfCurrentT, MOBILE_SHELF_PAN_SNAP_SETTLE);
-			dirty = true;
-		}
-
-		function onPointerDown(e: PointerEvent): void {
-			if (currentMode !== "mobile" || transitioning || !introComplete) return;
-			mobilePointerId = e.pointerId;
-			mobilePointerLastX = e.clientX;
-			mobilePointerLastY = e.clientY;
-			canvas.setPointerCapture?.(e.pointerId);
-		}
-
-		function onPointerMove(e: PointerEvent): void {
-			if (currentMode !== "mobile" || mobilePointerId !== e.pointerId) return;
-			const deltaX = e.clientX - mobilePointerLastX;
-			const deltaY = e.clientY - mobilePointerLastY;
-			mobilePointerLastX = e.clientX;
-			mobilePointerLastY = e.clientY;
-			mobileShelfTargetT = clamp(mobileShelfTargetT + deltaY * MOBILE_SHELF_DRAG_SPEED, 0, 1);
-			if (Math.abs(deltaX) > 0.1) {
-				applyMobileShelfPanDelta(mobileShelfCurrentT, -deltaX * MOBILE_SHELF_PAN_DRAG_SPEED);
-			}
-			applyMobileShelfPanSnap(mobileShelfCurrentT, MOBILE_SHELF_PAN_SNAP_DRAG);
-			dirty = true;
-		}
-
-		function releasePointer(e?: PointerEvent): void {
-			if (!e || mobilePointerId === e.pointerId) {
-				if (e) canvas.releasePointerCapture?.(e.pointerId);
-				mobilePointerId = null;
-				mobilePointerLastX = 0;
-			}
-		}
-
-		canvas.addEventListener("wheel", onWheel, { passive: false });
-		canvas.addEventListener("pointerdown", onPointerDown);
-		canvas.addEventListener("pointermove", onPointerMove);
-		canvas.addEventListener("pointerup", releasePointer);
-		canvas.addEventListener("pointercancel", releasePointer);
-
-		return () => {
-			canvas.style.touchAction = previousTouchAction;
-			canvas.removeEventListener("wheel", onWheel);
-			canvas.removeEventListener("pointerdown", onPointerDown);
-			canvas.removeEventListener("pointermove", onPointerMove);
-			canvas.removeEventListener("pointerup", releasePointer);
-			canvas.removeEventListener("pointercancel", releasePointer);
-			mobilePointerId = null;
-			mobilePointerLastX = 0;
-		};
 	}
 
 	// ─── Create desk content ─────────────────────────────────────
@@ -610,8 +508,123 @@ export function initUnifiedScene(
 				},
 			);
 		} else if (currentMode === "mobile" && shelfData) {
-			cleanupMobileShelfControls = setupMobileShelfControls();
-			const shelf = shelfData; // capture for closure narrowing
+			scrollController = createMobileScrollController(canvas, {
+				verticalStops: [0, 0.5, 1],
+				panSnapPoints: MOBILE_SHELF_PAN_SNAP_POINTS,
+				panLimit: MOBILE_SHELF_PAN_LIMIT,
+				numRows: MOBILE_SHELF_STOPS.length,
+				wheelSpeed: MOBILE_SHELF_SCROLL_SPEED,
+				wheelPanSpeed: MOBILE_SHELF_PAN_WHEEL_SPEED,
+			});
+			scrollController.resetTo(0.5);
+
+			const sc = scrollController;
+			const shelf = shelfData;
+			const interactionPicker = createInteractionPicker(canvas, camera, scene);
+			const previousTouchAction = canvas.style.touchAction;
+			canvas.style.touchAction = "none";
+
+			function handleShelfInteraction(interaction: DeskInteraction): void {
+				if (!introComplete || transitioning) return;
+				if (!interaction.href || !interaction.label) return;
+				if (openObject?.label === interaction.label) return;
+				if (performance.now() < clickLockedUntil) return;
+				clickLockedUntil = performance.now() + CLICK_COOLDOWN_MS;
+
+				if (openObject) {
+					const prevIdx = shelf.tapTargets.indexOf(openObject.object);
+					if (prevIdx >= 0) animateShelfReset(shelf.shelfItems[prevIdx]);
+				}
+
+				const idx = shelf.tapTargets.indexOf(interaction.object);
+				if (idx < 0) return;
+				const { label, href } = interaction as { label: string; href: string };
+
+				openObject = { label: interaction.label, object: interaction.object };
+				const activeSelection = openObject;
+				void animateShelfPresent(shelf.shelfItems[idx])
+					.then(() => {
+						if (disposed || openObject !== activeSelection) return;
+						const modal = getContentModal();
+						if (modal) modal.open(label, href);
+						else window.location.href = href;
+					})
+					.catch(() => {});
+
+				dirty = true;
+				trackEvent("shelf_item_tap", { label, href });
+			}
+
+			function onPointerDown(e: PointerEvent): void {
+				if (currentMode !== "mobile" || transitioning || !introComplete) return;
+				sc.onPointerDown(e);
+			}
+
+			function onPointerMove(e: PointerEvent): void {
+				if (currentMode !== "mobile") return;
+				sc.onPointerMove(e);
+				dirty = true;
+			}
+
+			function onPointerUp(e: PointerEvent): void {
+				sc.onPointerUp(e);
+				const tap = sc.consumeTap();
+				if (tap) {
+					const interaction = interactionPicker.getInteractionAt(tap.clientX, tap.clientY);
+					if (interaction) handleShelfInteraction(interaction);
+				}
+				dirty = true;
+			}
+
+			function onPointerCancel(e: PointerEvent): void {
+				sc.onPointerCancel(e);
+				dirty = true;
+			}
+
+			function onLostPointerCapture(): void {
+				sc.cancelActiveGesture();
+				dirty = true;
+			}
+
+			function onWindowBlur(): void {
+				sc.cancelActiveGesture();
+				dirty = true;
+			}
+
+			function onVisibilityChange(): void {
+				if (document.visibilityState !== "hidden") return;
+				sc.cancelActiveGesture();
+				dirty = true;
+			}
+
+			function onWheel(e: WheelEvent): void {
+				if (currentMode !== "mobile" || transitioning || !introComplete) return;
+				sc.onWheel(e);
+				dirty = true;
+			}
+
+			canvas.addEventListener("wheel", onWheel, { passive: false });
+			canvas.addEventListener("pointerdown", onPointerDown);
+			canvas.addEventListener("pointermove", onPointerMove);
+			canvas.addEventListener("pointerup", onPointerUp);
+			canvas.addEventListener("pointercancel", onPointerCancel);
+			canvas.addEventListener("lostpointercapture", onLostPointerCapture);
+			window.addEventListener("blur", onWindowBlur);
+			document.addEventListener("visibilitychange", onVisibilityChange);
+
+			cleanupMobileShelfControls = () => {
+				canvas.style.touchAction = previousTouchAction;
+				canvas.removeEventListener("wheel", onWheel);
+				canvas.removeEventListener("pointerdown", onPointerDown);
+				canvas.removeEventListener("pointermove", onPointerMove);
+				canvas.removeEventListener("pointerup", onPointerUp);
+				canvas.removeEventListener("pointercancel", onPointerCancel);
+				canvas.removeEventListener("lostpointercapture", onLostPointerCapture);
+				window.removeEventListener("blur", onWindowBlur);
+				document.removeEventListener("visibilitychange", onVisibilityChange);
+				sc.dispose();
+			};
+
 			cleanupInteraction = setupInteraction(
 				canvas,
 				camera,
@@ -619,39 +632,8 @@ export function initUnifiedScene(
 				() => {
 					dirty = true;
 				},
-				(interaction) => {
-					if (!introComplete || transitioning) return;
-					if (!interaction.href || !interaction.label) return;
-					if (openObject?.label === interaction.label) return;
-					if (performance.now() < clickLockedUntil) return;
-					clickLockedUntil = performance.now() + CLICK_COOLDOWN_MS;
-
-					// Reset previous shelf item
-					if (openObject) {
-						const prevIdx = shelf.tapTargets.indexOf(openObject.object);
-						if (prevIdx >= 0) animateShelfReset(shelf.shelfItems[prevIdx]);
-					}
-
-					const idx = shelf.tapTargets.indexOf(interaction.object);
-					if (idx < 0) return;
-					const { label, href } = interaction as { label: string; href: string };
-
-					openObject = { label: interaction.label, object: interaction.object };
-					const activeSelection = openObject;
-					void animateShelfPresent(shelf.shelfItems[idx])
-						.then(() => {
-							if (disposed || openObject !== activeSelection) return;
-							const modal = getContentModal();
-							if (modal) modal.open(label, href);
-							else window.location.href = href;
-						})
-						.catch(() => {});
-
-					dirty = true;
-
-					trackEvent("shelf_item_tap", { label, href });
-				},
-				{ enableHover: false },
+				handleShelfInteraction,
+				{ enableHover: false, enablePointerClick: false },
 			);
 		}
 
@@ -680,7 +662,7 @@ export function initUnifiedScene(
 	} else {
 		createShelfContent();
 		room.rotation.y = 0;
-		syncMobileShelfCamera(mobileShelfCurrentT);
+		syncMobileShelfCamera(0.5);
 	}
 
 	setupModeInteractions();
@@ -706,7 +688,7 @@ export function initUnifiedScene(
 				introComplete = animateIntro(camera, startTime, now);
 			} else {
 				introComplete = animateMobileIntro(camera, startTime, now);
-				if (introComplete) syncMobileShelfCamera(mobileShelfCurrentT);
+				if (introComplete) syncMobileShelfCamera(scrollController?.verticalT ?? 0.5);
 			}
 			if (currentMode === "desktop") {
 				composer.render();
@@ -721,33 +703,13 @@ export function initUnifiedScene(
 			if (idleFloat(camera, now)) dirty = true;
 		}
 
-		if (currentMode === "mobile" && !transitioning) {
-			let cameraChanged = false;
-			if (mobilePointerId === null) {
-				applyMobileShelfPanSnap(mobileShelfCurrentT, MOBILE_SHELF_PAN_SNAP_SETTLE);
-			}
-			const delta = mobileShelfTargetT - mobileShelfCurrentT;
-			if (Math.abs(delta) > 0.0005) {
-				mobileShelfCurrentT += delta * MOBILE_SHELF_LERP;
-				cameraChanged = true;
-			} else if (Math.abs(delta) > 0) {
-				mobileShelfCurrentT = mobileShelfTargetT;
-				cameraChanged = true;
-			}
+		if (currentMode === "mobile" && !transitioning && scrollController) {
+			// Compute dt from last frame (frame-rate independent)
+			const dt = lastRenderTime > 0 ? Math.min((now - lastRenderTime) / 1000, 0.05) : 1 / 60;
+			lastRenderTime = now;
 
-			for (let i = 0; i < mobileShelfCurrentPanByStop.length; i++) {
-				const panDelta = mobileShelfTargetPanByStop[i] - mobileShelfCurrentPanByStop[i];
-				if (Math.abs(panDelta) > 0.0005) {
-					mobileShelfCurrentPanByStop[i] += panDelta * MOBILE_SHELF_PAN_LERP;
-					cameraChanged = true;
-				} else if (Math.abs(panDelta) > 0) {
-					mobileShelfCurrentPanByStop[i] = mobileShelfTargetPanByStop[i];
-					cameraChanged = true;
-				}
-			}
-
-			if (cameraChanged) {
-				syncMobileShelfCamera(mobileShelfCurrentT);
+			if (scrollController.tick(dt)) {
+				syncMobileShelfCamera(scrollController.verticalT);
 				dirty = true;
 			}
 		}
@@ -798,7 +760,9 @@ export function initUnifiedScene(
 		bloomPass.resolution.set(width, height);
 		camera.aspect = width / height;
 		camera.updateProjectionMatrix();
-		if (currentMode === "mobile" && !transitioning) syncMobileShelfCamera(mobileShelfCurrentT);
+		if (currentMode === "mobile" && !transitioning) {
+			syncMobileShelfCamera(scrollController?.verticalT ?? 0.5);
+		}
 
 		// Render immediately so the resized canvas doesn't flash black
 		if (currentMode === "desktop" || transitioning) {
@@ -890,7 +854,7 @@ export function initUnifiedScene(
 		// Determine rotation and camera poses
 		const fromRotY = room.rotation.y;
 		const toRotY = 0;
-		writeMobilePose(mobileShelfCurrentT, mobilePosePos, mobilePoseLook);
+		writeMobilePose(scrollController?.verticalT ?? 0.5, mobilePosePos, mobilePoseLook);
 		const fromPos = currentMode === "desktop" ? camera.position.clone() : mobilePosePos.clone();
 		const fromLook = currentMode === "desktop" ? DESKTOP_LOOK.clone() : mobilePoseLook.clone();
 		writeMobilePose(0.5, mobilePosePos, mobilePoseLook);
@@ -968,14 +932,13 @@ export function initUnifiedScene(
 			applyRenderSettings("desktop");
 			targetInterval = 0;
 		} else {
-			mobileShelfCurrentT = 0.5;
-			mobileShelfTargetT = 0.5;
-			syncMobileShelfCamera(mobileShelfCurrentT);
+			// scrollController will be created by setupModeInteractions() below
+			syncMobileShelfCamera(0.5);
 			postTransitionRaf = requestAnimationFrame(() => {
 				postTransitionRaf = 0;
 				if (disposed) return;
-				if (currentMode === "mobile" && !transitioning) {
-					syncMobileShelfCamera(mobileShelfCurrentT);
+				if (currentMode === "mobile" && !transitioning && scrollController) {
+					syncMobileShelfCamera(scrollController.verticalT);
 					dirty = true;
 				}
 			});
