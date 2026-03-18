@@ -15,11 +15,11 @@ const { photos } = Astro.props;
 <div data-photo-gallery>
   <template data-photo-gallery-data>{JSON.stringify(photos)}</template>
 
-  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+  <div class="content-card-grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
     {photos.map((photo, i) => (
       <button
         type="button"
-        class="group relative aspect-[4/3] cursor-pointer overflow-hidden rounded-xl border border-white/8 bg-dark-surface-elevated focus:outline-none focus:ring-2 focus:ring-accent"
+        class="content-card group relative aspect-[4/3] cursor-pointer overflow-hidden focus:outline-none"
         data-photo-index={i}
         aria-label={`View photo: ${photo.alt}`}
       >
@@ -29,11 +29,10 @@ const { photos } = Astro.props;
           loading="lazy"
           class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
         />
-        {photo.caption && (
-          <div class="absolute inset-x-0 bottom-0 translate-y-full bg-gradient-to-t from-black/70 to-transparent p-3 transition-transform duration-300 group-hover:translate-y-0 group-focus-visible:translate-y-0">
-            <p class="text-sm text-cream">{photo.caption}</p>
-          </div>
-        )}
+        <div class="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent p-4">
+          <p class="font-mono text-[0.68rem] uppercase tracking-[0.22em] text-cream/80">Photo archive</p>
+          <p class="mt-2 text-sm text-cream">{photo.caption || photo.alt}</p>
+        </div>
       </button>
     ))}
   </div>
@@ -42,10 +41,10 @@ const { photos } = Astro.props;
     data-photo-lightbox
     class="fixed inset-0 z-50 m-0 h-full max-h-none w-full max-w-none bg-dark/95 p-0 backdrop-blur-sm"
   >
-    <div class="flex h-full w-full items-center justify-center p-8">
+    <div class="flex h-full w-full items-center justify-center p-6 sm:p-8">
       <button
         data-photo-lightbox-close
-        class="absolute right-4 top-4 z-10 text-3xl font-light text-cream/80 hover:text-cream"
+        class="absolute right-4 top-4 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-3xl font-light text-cream/80 transition-colors hover:border-accent/40 hover:text-cream"
         aria-label="Close lightbox"
       >
         &times;
@@ -54,11 +53,11 @@ const { photos } = Astro.props;
         data-photo-lightbox-img
         src=""
         alt=""
-        class="max-h-full max-w-full rounded-lg object-contain"
+        class="max-h-full max-w-full rounded-[1.25rem] object-contain shadow-2xl"
       />
       <p
         data-photo-lightbox-caption
-        class="absolute bottom-8 left-1/2 -translate-x-1/2 text-center text-base text-cream"
+        class="absolute bottom-8 left-1/2 w-[min(90vw,40rem)] -translate-x-1/2 rounded-full border border-white/10 bg-black/35 px-4 py-3 text-center text-sm text-cream backdrop-blur-sm sm:text-base"
       >
       </p>
     </div>
@@ -112,7 +111,7 @@ const { photos } = Astro.props;
       if (!photo) return;
       img.src = photo.src;
       img.alt = photo.alt;
-      caption.textContent = photo.caption || "";
+      caption.textContent = photo.caption || photo.alt;
       lastTrigger = btn;
       dialog.showModal();
     };
