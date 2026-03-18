@@ -6,8 +6,8 @@ interface SceneHandle {
 }
 
 function parseBooks(sceneRoot: HTMLElement): ShelfBook[] | undefined {
-	const booksData = sceneRoot.querySelector("template[data-scene-books]");
-	if (!(booksData instanceof HTMLTemplateElement)) return undefined;
+	const booksData = sceneRoot.querySelector("script[data-scene-books]");
+	if (!booksData) return undefined;
 	const raw = booksData.textContent?.trim();
 	if (!raw) return undefined;
 

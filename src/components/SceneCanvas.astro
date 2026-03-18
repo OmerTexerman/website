@@ -5,7 +5,7 @@ const featuredBooks = await getFeaturedShelfBooks();
 ---
 
 <div id="scene-root" class="absolute inset-0">
-  <template data-scene-books>{JSON.stringify(featuredBooks)}</template>
+  <script type="application/json" data-scene-books set:html={JSON.stringify(featuredBooks)} />
   <canvas
     id="scene-canvas"
     class="absolute inset-0 w-full h-full"
