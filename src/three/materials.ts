@@ -1,51 +1,68 @@
 import { Color, MeshPhysicalMaterial, MeshStandardMaterial } from "three";
+import {
+	ACCENT,
+	CERAMIC,
+	CORK,
+	CREAM,
+	DARK_CHARCOAL,
+	DARK_METAL,
+	DARK_WOOD,
+	METAL,
+	NOTEBOOK_RED,
+	PCB_GREEN,
+	SCREEN_BLUE,
+	SCREEN_GLOW,
+	SHELF_WOOD,
+	SILVER_METAL,
+	WOOD,
+} from "./colors";
 
 export const woodMaterial = new MeshStandardMaterial({
-	color: new Color("#5c3a1e"),
+	color: new Color(WOOD),
 	roughness: 0.85,
 	metalness: 0.0,
 });
 
 export const darkWoodMaterial = new MeshStandardMaterial({
-	color: new Color("#3a2210"),
+	color: new Color(DARK_WOOD),
 	roughness: 0.9,
 	metalness: 0.0,
 });
 
 export const paperMaterial = new MeshStandardMaterial({
-	color: new Color("#f0ece4"),
+	color: new Color(CREAM),
 	roughness: 1.0,
 	metalness: 0.0,
 });
 
 export const metalMaterial = new MeshStandardMaterial({
-	color: new Color("#8a8a8a"),
+	color: new Color(METAL),
 	roughness: 0.3,
 	metalness: 0.8,
 });
 
 export const screenMaterial = new MeshStandardMaterial({
-	color: new Color("#4a7aaa"),
-	emissive: new Color("#5a8aba"),
+	color: new Color(SCREEN_BLUE),
+	emissive: new Color(SCREEN_GLOW),
 	emissiveIntensity: 2.5,
 	roughness: 0.05,
 	metalness: 0.1,
 });
 
 export const darkMetalMaterial = new MeshStandardMaterial({
-	color: new Color("#2a2a2a"),
+	color: new Color(DARK_METAL),
 	roughness: 0.3,
 	metalness: 0.8,
 });
 
 export const accentMaterial = new MeshStandardMaterial({
-	color: new Color("#c4453a"),
+	color: new Color(ACCENT),
 	roughness: 0.6,
 	metalness: 0.1,
 });
 
 export const corkMaterial = new MeshStandardMaterial({
-	color: new Color("#c4a46c"),
+	color: new Color(CORK),
 	roughness: 1.0,
 	metalness: 0.0,
 });
@@ -59,20 +76,43 @@ export function createBookMaterial(color: string): MeshStandardMaterial {
 }
 
 export const ceramicMaterial = new MeshPhysicalMaterial({
-	color: new Color("#e8e0d4"),
+	color: new Color(CERAMIC),
 	roughness: 0.4,
 	metalness: 0.0,
 	clearcoat: 0.3,
 });
 
 export const pcbMaterial = new MeshStandardMaterial({
-	color: new Color("#1a472a"),
+	color: new Color(PCB_GREEN),
 	roughness: 0.7,
 	metalness: 0.1,
 });
 
 export const shelfWoodMaterial = new MeshStandardMaterial({
-	color: new Color("#4a3520"),
+	color: new Color(SHELF_WOOD),
 	roughness: 0.85,
 	metalness: 0.0,
+});
+
+export const spiralRingMaterial = new MeshStandardMaterial({
+	color: new Color(SILVER_METAL),
+	roughness: 0.3,
+	metalness: 0.8,
+});
+
+export const notebookCoverMaterial = new MeshStandardMaterial({
+	color: new Color(NOTEBOOK_RED),
+	roughness: 0.7,
+	metalness: 0.05,
+});
+
+export const shelfNotebookCoverMaterial = new MeshStandardMaterial({
+	color: new Color(NOTEBOOK_RED),
+	roughness: 0.6,
+});
+
+export const cameraBodyMaterial = new MeshStandardMaterial({
+	color: new Color(DARK_CHARCOAL),
+	roughness: 0.4,
+	metalness: 0.6,
 });

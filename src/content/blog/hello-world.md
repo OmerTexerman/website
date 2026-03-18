@@ -1,26 +1,9 @@
 ---
-title: "Hello World"
-description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore."
-pubDate: 2026-03-16
+title: "New blog who dis"
+description: "I made this in a brutal arms race against my friend"
+pubDate: 2026-03-18
 tags: ["meta"]
 ---
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
-
-## Duis Aute Irure
-
-Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
-
-- Lorem ipsum dolor sit amet
-- Consectetur adipiscing elit
-- Sed do eiusmod tempor incididunt
-- Ut labore et dolore magna aliqua
-
-## Excepteur Sint
-
-```typescript
-const lorem = "ipsum dolor sit amet";
-console.log(lorem);
-```
-
-Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+So my friend said he was going to start a blog, which means immediately I need to start a blog.
+And now we are here. Whats up gang, I will be writing here about stuff, which is good because the other day I was thinking about writing and I was like woah people do that??? And I realized Its been so long since I've properly written I got to the point where I started thinking about it all funky. Or at least I was at like the tipping point between when something feels like eh not too much and like a whole oredeal. So I need to do it more to deordealanize it from myself, that includes reading too, which is why im reading more, and I have a reading list here so I can get made fun off if its all still lorem ipsons. Anyway hope you liked the desk site thing I thought it was cool :) I think the 3d models that I used which arent actually 3d models and just like shapes I hard coded kinda make it look like a friendslop game which is funny.

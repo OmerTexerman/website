@@ -1,0 +1,49 @@
+---
+import ContentHeader from "../components/ContentHeader.astro";
+import ContextBackLink from "../components/ContextBackLink.astro";
+import Footer from "../components/Footer.astro";
+import BaseLayout from "./BaseLayout.astro";
+
+interface Props {
+	title: string;
+	description?: string;
+	image?: string;
+	type?: "website" | "article";
+	publishedDate?: Date;
+	containerTag?: "div" | "article";
+	containerWidthClass?: string;
+	showBackLink?: boolean;
+}
+
+const {
+	title,
+	description,
+	image,
+	type,
+	publishedDate,
+	containerTag = "div",
+	containerWidthClass = "max-w-4xl",
+	showBackLink = true,
+} = Astro.props;
+
+const ContainerTag = containerTag;
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  image={image}
+  type={type}
+  publishedDate={publishedDate}
+>
+  <ContentHeader />
+  <main id="page-content" class="content-page-main">
+    <ContainerTag class:list={["content-container", containerWidthClass]}>
+      <div class="content-surface-padded" data-preview-content>
+        <slot />
+      </div>
+    </ContainerTag>
+  </main>
+  <Footer />
+  {showBackLink && <ContextBackLink variant="floating" />}
+</BaseLayout>

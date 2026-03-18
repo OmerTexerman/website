@@ -1,31 +1,11 @@
-const KNOWN_BACK_LABELS: Record<string, string> = {
-	"/": "Back to desk",
-	"/blog": "Back to blog",
-	"/photos": "Back to photos",
-	"/projects": "Back to projects",
-	"/reading": "Back to reading",
-};
+import { getBackLabel } from "../config";
+import { getSameOriginReferrer, toRelativeHref } from "../url-utils";
 
-function getSameOriginReferrer(): URL | null {
-	if (!document.referrer) return null;
-
-	try {
-		const url = new URL(document.referrer);
-		return url.origin === window.location.origin ? url : null;
-	} catch {
-		return null;
-	}
-}
-
-function getBackLabel(pathname: string): string {
-	return KNOWN_BACK_LABELS[pathname] ?? "Go back";
-}
-
-export function hydrateContextBackLinks(root: ParentNode = document): void {
+export function mountContextBackLinks(root: ParentNode = document): void {
 	const referrerUrl = getSameOriginReferrer();
 	if (!referrerUrl) return;
 
-	const referrerHref = `${referrerUrl.pathname}${referrerUrl.search}${referrerUrl.hash}`;
+	const referrerHref = toRelativeHref(referrerUrl);
 
 	for (const node of root.querySelectorAll("[data-context-back-link]")) {
 		if (!(node instanceof HTMLAnchorElement) || node.dataset.contextBackReady === "true") {

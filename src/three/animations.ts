@@ -1,5 +1,9 @@
-import { type Mesh, MeshStandardMaterial, type Object3D, type SpotLight, Vector3 } from "three";
+import { MeshStandardMaterial, type Object3D, Vector3 } from "three";
 import { clamp, lerp } from "./math-utils";
+import type { BookStackObject } from "./objects/book-stack";
+import type { LaptopObject } from "./objects/laptop";
+import type { NotebookObject } from "./objects/notebook";
+import type { PhotoFrameObject } from "./objects/photo-frame";
 
 type AnimationCallback = (progress: number) => void;
 
@@ -72,94 +76,91 @@ function getRest(obj: Object3D, prop: string): number {
 	return restValues.get(restKey(obj.uuid, prop)) ?? 0;
 }
 
-// ─── Helper to find child by userData tag ──────────────────────
-function findChild(parent: Object3D, key: string): Object3D | undefined {
-	for (const child of parent.children) {
-		if (child.userData?.[key]) return child;
-		const found = findChild(child, key);
-		if (found) return found;
-	}
-	return undefined;
+function saveRestPose(obj: Object3D): void {
+	saveRest(obj, "x", obj.position.x);
+	saveRest(obj, "y", obj.position.y);
+	saveRest(obj, "z", obj.position.z);
+	saveRest(obj, "rx", obj.rotation.x);
+	saveRest(obj, "ry", obj.rotation.y);
+	saveRest(obj, "rz", obj.rotation.z);
 }
 
-function findChildren(parent: Object3D, key: string): Object3D[] {
-	const matches: Object3D[] = [];
-	for (const child of parent.children) {
-		if (child.userData?.[key]) matches.push(child);
-		matches.push(...findChildren(child, key));
-	}
-	return matches;
+function getRestPose(obj: Object3D): {
+	x: number;
+	y: number;
+	z: number;
+	rx: number;
+	ry: number;
+	rz: number;
+} {
+	return {
+		x: getRest(obj, "x"),
+		y: getRest(obj, "y"),
+		z: getRest(obj, "z"),
+		rx: getRest(obj, "rx"),
+		ry: getRest(obj, "ry"),
+		rz: getRest(obj, "rz"),
+	};
 }
 
 const DESKTOP_CAMERA_WORLD_POS = new Vector3(0, 5, 7);
 const _cameraLocalPos = new Vector3();
 
 // ─── NOTEBOOK (Blog) ─────────────────────────────────────────────
-// The cover pivot has userData.coverPivot = true
-export function animateNotebookOpen(notebook: Object3D): Promise<void> {
-	const pivot = findChild(notebook, "coverPivot");
-	if (!pivot) return Promise.resolve();
+export function animateNotebookOpen(notebook: NotebookObject): Promise<void> {
+	const pivot = notebook.parts.coverPivot;
 	saveRest(pivot, "rx", pivot.rotation.x);
 	const rest = getRest(pivot, "rx");
-	return animate(`notebook-${notebook.uuid}`, 600, (p) => {
+	return animate(`notebook-${notebook.root.uuid}`, 600, (p) => {
 		pivot.rotation.x = lerp(rest, rest - 2.8, p);
 	});
 }
 
-export function animateNotebookClose(notebook: Object3D): Promise<void> {
-	const pivot = findChild(notebook, "coverPivot");
-	if (!pivot) return Promise.resolve();
+export function animateNotebookClose(notebook: NotebookObject): Promise<void> {
+	const pivot = notebook.parts.coverPivot;
 	const current = pivot.rotation.x;
 	const rest = getRest(pivot, "rx");
-	return animate(`notebook-${notebook.uuid}`, 400, (p) => {
+	return animate(`notebook-${notebook.root.uuid}`, 400, (p) => {
 		pivot.rotation.x = lerp(current, rest, p);
 	});
 }
 
 // ─── LAPTOP (Projects) ──────────────────────────────────────────
-// Screen group has userData.screenGroup = true, face has userData.screenFace = true
-export function animateLaptopOpen(laptop: Object3D): Promise<void> {
-	const screen = findChild(laptop, "screenGroup");
-	if (!screen) return Promise.resolve();
-	saveRest(screen, "rx", screen.rotation.x);
-	const rest = getRest(screen, "rx");
+export function animateLaptopOpen(laptop: LaptopObject): Promise<void> {
+	const { screenGroup, screenFace, screenLight } = laptop.parts;
+	saveRest(screenGroup, "rx", screenGroup.rotation.x);
+	const rest = getRest(screenGroup, "rx");
 
-	const face = findChild(screen, "screenFace") as Mesh | undefined;
-	const faceMat = face?.material instanceof MeshStandardMaterial ? face.material : null;
+	const faceMat = screenFace.material instanceof MeshStandardMaterial ? screenFace.material : null;
 	let restEmissive = 0;
-	if (face && faceMat) {
-		saveRest(face, "emissive", faceMat.emissiveIntensity);
-		restEmissive = getRest(face, "emissive");
+	if (faceMat) {
+		saveRest(screenFace, "emissive", faceMat.emissiveIntensity);
+		restEmissive = getRest(screenFace, "emissive");
 	}
 
-	const light = findChild(screen, "screenLight") as SpotLight | undefined;
-	const restLightIntensity = light ? light.intensity : 0;
+	const restLightIntensity = screenLight.intensity;
 
-	return animate(`laptop-${laptop.uuid}`, 500, (p) => {
-		screen.rotation.x = lerp(rest, rest - 0.91, p);
+	return animate(`laptop-${laptop.root.uuid}`, 500, (p) => {
+		screenGroup.rotation.x = lerp(rest, rest - 0.91, p);
 		if (faceMat) faceMat.emissiveIntensity = lerp(restEmissive, 8.0, p);
-		if (light) light.intensity = lerp(restLightIntensity, 8.0, p);
+		screenLight.intensity = lerp(restLightIntensity, 8.0, p);
 	});
 }
 
-export function animateLaptopClose(laptop: Object3D): Promise<void> {
-	const screen = findChild(laptop, "screenGroup");
-	if (!screen) return Promise.resolve();
-	const current = screen.rotation.x;
-	const rest = getRest(screen, "rx");
+export function animateLaptopClose(laptop: LaptopObject): Promise<void> {
+	const { screenGroup, screenFace, screenLight } = laptop.parts;
+	const current = screenGroup.rotation.x;
+	const rest = getRest(screenGroup, "rx");
 
-	const face = findChild(screen, "screenFace") as Mesh | undefined;
-	const faceMat = face?.material instanceof MeshStandardMaterial ? face.material : null;
+	const faceMat = screenFace.material instanceof MeshStandardMaterial ? screenFace.material : null;
 	const curEmissive = faceMat?.emissiveIntensity ?? 0;
-	const restEmissive = face && faceMat ? getRest(face, "emissive") : 0;
+	const restEmissive = faceMat ? getRest(screenFace, "emissive") : 0;
+	const curLightIntensity = screenLight.intensity;
 
-	const light = findChild(screen, "screenLight") as SpotLight | undefined;
-	const curLightIntensity = light?.intensity ?? 0;
-
-	return animate(`laptop-${laptop.uuid}`, 400, (p) => {
-		screen.rotation.x = lerp(current, rest, p);
+	return animate(`laptop-${laptop.root.uuid}`, 400, (p) => {
+		screenGroup.rotation.x = lerp(current, rest, p);
 		if (faceMat) faceMat.emissiveIntensity = lerp(curEmissive, restEmissive, p);
-		if (light) light.intensity = lerp(curLightIntensity, 2.0, p);
+		screenLight.intensity = lerp(curLightIntensity, 2.0, p);
 	});
 }
 
@@ -174,36 +175,22 @@ const READING_CAMERA_PITCH_BIAS = -0.3;
 const READING_LOOSE_PAGE_EDGE_RX =
 	READING_COVER_OPEN_RX - READING_PAGE_BLOCK_INSET_RX - READING_LOOSE_PAGE_MARGIN_RX;
 
-export function animateBookLift(stack: Object3D): Promise<void> {
-	const books = stack.children
-		.filter((child) => child.userData?.bookItem)
-		.sort((a, b) => (a.userData?.bookIndex ?? 0) - (b.userData?.bookIndex ?? 0));
-	const hero = books.find((child) => child.userData?.heroBook);
+export function animateBookLift(stack: BookStackObject): Promise<void> {
+	const {
+		hero,
+		lowerBooks,
+		backCoverPivot,
+		leftPageBlockPivot,
+		rightPageBlockPivot,
+		middlePageFanPivot,
+		frontCoverPivot,
+		loosePagePivots,
+	} = stack.parts;
 	if (!hero) return Promise.resolve();
 
-	const lowerBooks = books.filter((child) => child !== hero);
-	const backCoverPivot = findChild(hero, "backCoverPivot");
-	const leftPageBlockPivot = findChild(hero, "leftPageBlockPivot");
-	const rightPageBlockPivot = findChild(hero, "rightPageBlockPivot");
-	const middlePageFanPivot = findChild(hero, "middlePageFanPivot");
-	const frontCoverPivot = findChild(hero, "frontCoverPivot");
-	const loosePages = findChildren(hero, "loosePagePivot").sort(
-		(a, b) => (a.userData?.loosePageIndex ?? 0) - (b.userData?.loosePageIndex ?? 0),
-	);
-
-	saveRest(hero, "x", hero.position.x);
-	saveRest(hero, "y", hero.position.y);
-	saveRest(hero, "z", hero.position.z);
-	saveRest(hero, "rx", hero.rotation.x);
-	saveRest(hero, "ry", hero.rotation.y);
-	saveRest(hero, "rz", hero.rotation.z);
+	saveRestPose(hero);
 	for (const book of lowerBooks) {
-		saveRest(book, "x", book.position.x);
-		saveRest(book, "y", book.position.y);
-		saveRest(book, "z", book.position.z);
-		saveRest(book, "rx", book.rotation.x);
-		saveRest(book, "ry", book.rotation.y);
-		saveRest(book, "rz", book.rotation.z);
+		saveRestPose(book);
 	}
 	if (backCoverPivot) {
 		saveRest(backCoverPivot, "rx", backCoverPivot.rotation.x);
@@ -220,22 +207,17 @@ export function animateBookLift(stack: Object3D): Promise<void> {
 	if (frontCoverPivot) {
 		saveRest(frontCoverPivot, "rx", frontCoverPivot.rotation.x);
 	}
-	for (const leaf of loosePages) {
+	for (const leaf of loosePagePivots) {
 		saveRest(leaf, "rx", leaf.rotation.x);
 	}
 
-	return animate(`book-${stack.uuid}`, READING_OPEN_DURATION_MS, (p) => {
+	return animate(`book-${stack.root.uuid}`, READING_OPEN_DURATION_MS, (p) => {
 		const lift = easeInOutCubic(clamp(p / 0.28, 0, 1));
 		const present = easeInOutCubic(clamp((p - 0.12) / 0.28, 0, 1));
 		const open = easeInOutCubic(clamp((p - 0.34) / 0.38, 0, 1));
 		const riffle = clamp((p - 0.62) / 0.2, 0, 1);
 
-		const restX = getRest(hero, "x");
-		const restY = getRest(hero, "y");
-		const restZ = getRest(hero, "z");
-		const restRX = getRest(hero, "rx");
-		const restRY = getRest(hero, "ry");
-		const restRZ = getRest(hero, "rz");
+		const { x: restX, y: restY, z: restZ, rx: restRX, ry: restRY, rz: restRZ } = getRestPose(hero);
 
 		hero.position.x = lerp(restX, restX - 0.095, present);
 		hero.position.y = lerp(restY, restY + 0.45, lift);
@@ -307,9 +289,9 @@ export function animateBookLift(stack: Object3D): Promise<void> {
 			frontCoverPivot.rotation.x = lerp(restCoverRX, restCoverRX - READING_COVER_OPEN_RX, open);
 		}
 
-		const loosePageCount = loosePages.length;
+		const loosePageCount = loosePagePivots.length;
 		for (let i = 0; i < loosePageCount; i++) {
-			const leaf = loosePages[i];
+			const leaf = loosePagePivots[i];
 			const restLeafRX = getRest(leaf, "rx");
 			const t = loosePageCount <= 1 ? 0.5 : i / (loosePageCount - 1);
 			const angle = lerp(READING_LOOSE_PAGE_EDGE_RX, -READING_LOOSE_PAGE_EDGE_RX, t);
@@ -321,21 +303,18 @@ export function animateBookLift(stack: Object3D): Promise<void> {
 	});
 }
 
-export function animateBookClose(stack: Object3D): Promise<void> {
-	const books = stack.children
-		.filter((child) => child.userData?.bookItem)
-		.sort((a, b) => (a.userData?.bookIndex ?? 0) - (b.userData?.bookIndex ?? 0));
-	const hero = books.find((child) => child.userData?.heroBook);
+export function animateBookClose(stack: BookStackObject): Promise<void> {
+	const {
+		books,
+		hero,
+		backCoverPivot,
+		leftPageBlockPivot,
+		rightPageBlockPivot,
+		middlePageFanPivot,
+		frontCoverPivot,
+		loosePagePivots,
+	} = stack.parts;
 	if (!hero) return Promise.resolve();
-
-	const backCoverPivot = findChild(hero, "backCoverPivot");
-	const leftPageBlockPivot = findChild(hero, "leftPageBlockPivot");
-	const rightPageBlockPivot = findChild(hero, "rightPageBlockPivot");
-	const middlePageFanPivot = findChild(hero, "middlePageFanPivot");
-	const frontCoverPivot = findChild(hero, "frontCoverPivot");
-	const loosePages = findChildren(hero, "loosePagePivot").sort(
-		(a, b) => (a.userData?.loosePageIndex ?? 0) - (b.userData?.loosePageIndex ?? 0),
-	);
 	const poses = books.map((book) => ({
 		book,
 		x: book.position.x,
@@ -350,21 +329,11 @@ export function animateBookClose(stack: Object3D): Promise<void> {
 	const rightPagesRX = rightPageBlockPivot?.rotation.x ?? 0;
 	const middleFanRX = middlePageFanPivot?.rotation.x ?? 0;
 	const coverRX = frontCoverPivot?.rotation.x ?? 0;
-	const looseLeafRotations = loosePages.map((leaf) => ({ leaf, rx: leaf.rotation.x }));
+	const looseLeafRotations = loosePagePivots.map((leaf) => ({ leaf, rx: leaf.rotation.x }));
 
-	saveRest(hero, "x", hero.position.x);
-	saveRest(hero, "y", hero.position.y);
-	saveRest(hero, "z", hero.position.z);
-	saveRest(hero, "rx", hero.rotation.x);
-	saveRest(hero, "ry", hero.rotation.y);
-	saveRest(hero, "rz", hero.rotation.z);
+	saveRestPose(hero);
 	for (const book of books) {
-		saveRest(book, "x", book.position.x);
-		saveRest(book, "y", book.position.y);
-		saveRest(book, "z", book.position.z);
-		saveRest(book, "rx", book.rotation.x);
-		saveRest(book, "ry", book.rotation.y);
-		saveRest(book, "rz", book.rotation.z);
+		saveRestPose(book);
 	}
 	if (backCoverPivot) {
 		saveRest(backCoverPivot, "rx", backCoverPivot.rotation.x);
@@ -381,23 +350,24 @@ export function animateBookClose(stack: Object3D): Promise<void> {
 	if (frontCoverPivot) {
 		saveRest(frontCoverPivot, "rx", frontCoverPivot.rotation.x);
 	}
-	for (const leaf of loosePages) {
+	for (const leaf of loosePagePivots) {
 		saveRest(leaf, "rx", leaf.rotation.x);
 	}
 
-	return animate(`book-${stack.uuid}`, READING_CLOSE_DURATION_MS, (p) => {
+	return animate(`book-${stack.root.uuid}`, READING_CLOSE_DURATION_MS, (p) => {
 		const pageSettle = easeInOutCubic(clamp(p / 0.42, 0, 1));
 		const blockSettle = easeInOutCubic(clamp((p - 0.02) / 0.4, 0, 1));
 		const coverSettle = easeInOutCubic(clamp((p - 0.03) / 0.44, 0, 1));
 		const poseReturn = easeInOutCubic(clamp((p - 0.5) / 0.5, 0, 1));
 
 		for (const pose of poses) {
-			pose.book.position.x = lerp(pose.x, getRest(pose.book, "x"), poseReturn);
-			pose.book.position.y = lerp(pose.y, getRest(pose.book, "y"), poseReturn);
-			pose.book.position.z = lerp(pose.z, getRest(pose.book, "z"), poseReturn);
-			pose.book.rotation.x = lerp(pose.rx, getRest(pose.book, "rx"), poseReturn);
-			pose.book.rotation.y = lerp(pose.ry, getRest(pose.book, "ry"), poseReturn);
-			pose.book.rotation.z = lerp(pose.rz, getRest(pose.book, "rz"), poseReturn);
+			const rest = getRestPose(pose.book);
+			pose.book.position.x = lerp(pose.x, rest.x, poseReturn);
+			pose.book.position.y = lerp(pose.y, rest.y, poseReturn);
+			pose.book.position.z = lerp(pose.z, rest.z, poseReturn);
+			pose.book.rotation.x = lerp(pose.rx, rest.rx, poseReturn);
+			pose.book.rotation.y = lerp(pose.ry, rest.ry, poseReturn);
+			pose.book.rotation.z = lerp(pose.rz, rest.rz, poseReturn);
 		}
 		if (backCoverPivot) {
 			backCoverPivot.rotation.x = lerp(backCoverRX, getRest(backCoverPivot, "rx"), coverSettle);
@@ -443,9 +413,8 @@ let flyingPhotoData: {
 	restLocal: { x: number; y: number; z: number; rz: number };
 } | null = null;
 
-export function animateFrameReveal(frame: Object3D): Promise<void> {
-	const photo = findChild(frame, "flyPhoto");
-	if (!photo) return Promise.resolve();
+export function animateFrameReveal(frame: PhotoFrameObject): Promise<void> {
+	const photo = frame.parts.flyPhoto;
 
 	photo.getWorldPosition(_worldPos);
 	const startWorld = { x: _worldPos.x, y: _worldPos.y, z: _worldPos.z };
@@ -458,17 +427,17 @@ export function animateFrameReveal(frame: Object3D): Promise<void> {
 	const startRotZ = photo.rotation.z;
 
 	// Reparent to scene for world-space flight
-	const sceneRoot = frame.parent;
+	const sceneRoot = frame.root.parent;
 	if (!sceneRoot) return Promise.resolve();
-	frame.remove(photo);
+	frame.root.remove(photo);
 	photo.position.set(startWorld.x, startWorld.y, startWorld.z);
 	photo.rotation.set(0, 0, startRotZ);
 	photo.scale.set(1, 1, 1);
 	sceneRoot.add(photo);
 
-	flyingPhotoData = { photo, frame, startWorld, restLocal };
+	flyingPhotoData = { photo, frame: frame.root, startWorld, restLocal };
 
-	return animate(`frame-${frame.uuid}`, 800, (p) => {
+	return animate(`frame-${frame.root.uuid}`, 800, (p) => {
 		const midY = Math.max(startWorld.y, FLY_TARGET.y) + 1.5;
 		const t = p;
 		const omt = 1 - t;
@@ -483,14 +452,14 @@ export function animateFrameReveal(frame: Object3D): Promise<void> {
 			2 * omt * t * ((startWorld.z + FLY_TARGET.z) / 2) +
 			t * t * FLY_TARGET.z;
 		photo.rotation.z = lerp(startRotZ, 0, p);
-		photo.rotation.x = lerp(frame.rotation.x, 0, p);
+		photo.rotation.x = lerp(frame.root.rotation.x, 0, p);
 		const s = lerp(1, 3.0, p);
 		photo.scale.set(s, s, s);
 	});
 }
 
-export function animateFrameClose(frame: Object3D): Promise<void> {
-	if (!flyingPhotoData || flyingPhotoData.frame !== frame) return Promise.resolve();
+export function animateFrameClose(frame: PhotoFrameObject): Promise<void> {
+	if (!flyingPhotoData || flyingPhotoData.frame !== frame.root) return Promise.resolve();
 	const { photo, startWorld, restLocal } = flyingPhotoData;
 	const curPos = { x: photo.position.x, y: photo.position.y, z: photo.position.z };
 	const curRotZ = photo.rotation.z;
@@ -498,7 +467,7 @@ export function animateFrameClose(frame: Object3D): Promise<void> {
 	const curScale = photo.scale.x;
 	const saved = flyingPhotoData;
 
-	return animate(`frame-${frame.uuid}`, 500, (p) => {
+	return animate(`frame-${frame.root.uuid}`, 500, (p) => {
 		photo.position.x = lerp(curPos.x, startWorld.x, p);
 		photo.position.y = lerp(curPos.y, startWorld.y, p);
 		photo.position.z = lerp(curPos.z, startWorld.z, p);
@@ -511,7 +480,7 @@ export function animateFrameClose(frame: Object3D): Promise<void> {
 			photo.position.set(restLocal.x, restLocal.y, restLocal.z);
 			photo.rotation.set(0, 0, restLocal.rz);
 			photo.scale.set(1, 1, 1);
-			frame.add(photo);
+			frame.root.add(photo);
 			if (saved === flyingPhotoData) flyingPhotoData = null;
 		}
 	});
@@ -540,18 +509,8 @@ export function animateSpin(obj: Object3D): Promise<void> {
 
 /** Tip shelf items forward and drop them off the shelf before opening */
 export function animateShelfPresent(items: Object3D): Promise<void> {
-	saveRest(items, "x", items.position.x);
-	saveRest(items, "y", items.position.y);
-	saveRest(items, "z", items.position.z);
-	saveRest(items, "rx", items.rotation.x);
-	saveRest(items, "ry", items.rotation.y);
-	saveRest(items, "rz", items.rotation.z);
-	const restX = getRest(items, "x");
-	const restY = getRest(items, "y");
-	const restZ = getRest(items, "z");
-	const restRX = getRest(items, "rx");
-	const restRY = getRest(items, "ry");
-	const restRZ = getRest(items, "rz");
+	saveRestPose(items);
+	const { x: restX, y: restY, z: restZ, rx: restRX, ry: restRY, rz: restRZ } = getRestPose(items);
 	return animate(`shelf-present-${items.uuid}`, 280, (p) => {
 		items.position.x = lerp(restX, restX - 0.7, p);
 		items.position.y = lerp(restY, restY - 1.45, p);
@@ -570,12 +529,7 @@ export function animateShelfReset(items: Object3D): Promise<void> {
 	const curRX = items.rotation.x;
 	const curRY = items.rotation.y;
 	const curRZ = items.rotation.z;
-	const restX = getRest(items, "x");
-	const restY = getRest(items, "y");
-	const restZ = getRest(items, "z");
-	const restRX = getRest(items, "rx");
-	const restRY = getRest(items, "ry");
-	const restRZ = getRest(items, "rz");
+	const { x: restX, y: restY, z: restZ, rx: restRX, ry: restRY, rz: restRZ } = getRestPose(items);
 	return animate(`shelf-present-${items.uuid}`, 320, (p) => {
 		items.position.x = lerp(curX, restX, p);
 		items.position.y = lerp(curY, restY, p);

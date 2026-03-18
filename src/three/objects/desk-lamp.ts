@@ -10,6 +10,7 @@ import {
 	SphereGeometry,
 	SpotLight,
 } from "three";
+import { DARK_GRAY, VERY_DARK_GRAY, WARM_GLOW } from "../colors";
 import { metalMaterial } from "../materials";
 import { DESK_SURFACE_Y } from "../math-utils";
 
@@ -53,7 +54,7 @@ export function createDeskLamp(): Group {
 
 	// Shade
 	const shadeMat = new MeshStandardMaterial({
-		color: new Color("#3a3a3a"),
+		color: new Color(DARK_GRAY),
 		roughness: 0.8,
 		metalness: 0.3,
 	});
@@ -65,8 +66,8 @@ export function createDeskLamp(): Group {
 
 	// Warm glow material for inner surfaces
 	const glowMat = new MeshStandardMaterial({
-		color: new Color("#ffcc88"),
-		emissive: new Color("#ffcc88"),
+		color: new Color(WARM_GLOW),
+		emissive: new Color(WARM_GLOW),
 		emissiveIntensity: 1.5,
 	});
 
@@ -82,7 +83,7 @@ export function createDeskLamp(): Group {
 	headPivot.add(bulb);
 
 	// SpotLight — wide cone aimed at the desk center
-	const light = new SpotLight(new Color("#ffcc88"), LAMP_ON_INTENSITY, 10, Math.PI / 3, 0.6, 1.2);
+	const light = new SpotLight(new Color(WARM_GLOW), LAMP_ON_INTENSITY, 10, Math.PI / 3, 0.6, 1.2);
 	light.position.set(0, -0.12, 0);
 	light.castShadow = true;
 	light.shadow.mapSize.width = 1024;
@@ -113,6 +114,6 @@ export function toggleLamp(lamp: Group): boolean {
 	};
 	light.intensity = on ? LAMP_ON_INTENSITY : 0;
 	glowMat.emissiveIntensity = on ? 1.5 : 0;
-	glowMat.color.set(on ? "#ffcc88" : "#222222");
+	glowMat.color.set(on ? WARM_GLOW : VERY_DARK_GRAY);
 	return on;
 }

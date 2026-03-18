@@ -1,18 +1,19 @@
 ---
-import { getCollection } from "astro:content";
-import PageIntro from "../../components/PageIntro.astro";
 import PhotoGallery from "../../components/PhotoGallery.astro";
-import { navItems, site } from "../../config";
+import { getSectionById } from "../../config";
+import { getPhotos } from "../../content/selectors";
 import ContentPage from "../../layouts/ContentPage.astro";
 
-const nav = navItems.find((n) => n.href === "/photos");
-const photos = (await getCollection("photos")).map((p) => p.data);
+const section = getSectionById("photos");
+const photos = await getPhotos();
 ---
 
-<ContentPage title={`Photos | ${site.name}`} description={nav?.description}>
-  <PageIntro title="Photos" description={nav?.description} />
-
-  <div data-animate style="transition-delay: 0.15s">
-    <PhotoGallery photos={photos} />
-  </div>
+<ContentPage section={section}>
+  {photos.length === 0 ? (
+    <p class="text-muted font-mono">nothing here yet :)</p>
+  ) : (
+    <div data-animate style="transition-delay: 0.15s">
+      <PhotoGallery photos={photos} />
+    </div>
+  )}
 </ContentPage>

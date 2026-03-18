@@ -1,7 +1,7 @@
 ---
 import { render } from "astro:content";
+import { getPublishedPosts } from "../../content/selectors";
 import BlogPost from "../../layouts/BlogPost.astro";
-import { getPublishedPosts } from "../../utils";
 
 export async function getStaticPaths() {
 	const posts = await getPublishedPosts();

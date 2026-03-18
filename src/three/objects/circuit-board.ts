@@ -1,4 +1,5 @@
 import { BoxGeometry, Color, Group, Mesh, MeshStandardMaterial } from "three";
+import { DARK_CHARCOAL, DARK_METAL, TRACE_GOLD } from "../colors";
 import { pcbMaterial } from "../materials";
 import { DESK_SURFACE_Y } from "../math-utils";
 
@@ -15,12 +16,12 @@ export function createCircuitBoard(): Group {
 
 	// Tiny components (chips, capacitors, etc.)
 	const componentMat = new MeshStandardMaterial({
-		color: new Color("#1a1a1a"),
+		color: new Color(DARK_CHARCOAL),
 		roughness: 0.4,
 		metalness: 0.6,
 	});
 	const chipMat = new MeshStandardMaterial({
-		color: new Color("#2a2a2a"),
+		color: new Color(DARK_METAL),
 		roughness: 0.3,
 		metalness: 0.5,
 	});
@@ -49,7 +50,7 @@ export function createCircuitBoard(): Group {
 
 	// Traces (thin lines on the board)
 	const traceMat = new MeshStandardMaterial({
-		color: new Color("#8a7a2a"),
+		color: new Color(TRACE_GOLD),
 		roughness: 0.2,
 		metalness: 0.8,
 	});

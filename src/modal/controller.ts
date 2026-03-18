@@ -1,3 +1,5 @@
+import { revealAnimatedChildren } from "../dom/reveal";
+import { getSameOriginUrl } from "../url-utils";
 import { type ContentModalApi, registerContentModal, unregisterContentModal } from "./api";
 import { type ContentModalHistoryState, rememberContentModalReturnState } from "./history";
 import { loadContentPreview } from "./preview";
@@ -219,13 +221,7 @@ function createContentModalController(elements: ContentModalElements): {
 	function isSameOriginNavigation(anchor: HTMLAnchorElement): boolean {
 		if (anchor.target && anchor.target !== "_self") return false;
 		if (anchor.hasAttribute("download")) return false;
-
-		try {
-			const url = new URL(anchor.href, window.location.origin);
-			return url.origin === window.location.origin;
-		} catch {
-			return false;
-		}
+		return getSameOriginUrl(anchor.href) !== null;
 	}
 
 	function handleNavigationIntent(event: MouseEvent): void {
@@ -305,10 +301,7 @@ function createContentModalController(elements: ContentModalElements): {
 			}
 
 			bodyEl.replaceChildren(...result.nodes);
-			bodyEl.querySelectorAll("[data-animate]").forEach((el) => {
-				el.classList.remove("reveal-pending");
-				el.classList.add("is-visible");
-			});
+			revealAnimatedChildren(bodyEl);
 		} catch (err: unknown) {
 			if (err instanceof DOMException && err.name === "AbortError") return;
 			if (isStalePreviewRequest(requestId)) return;

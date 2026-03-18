@@ -1,5 +1,5 @@
 ---
-import { navItems, site } from "../config";
+import { orderedSections, site } from "../config";
 
 const pathname = Astro.url.pathname;
 ---
@@ -12,7 +12,7 @@ const pathname = Astro.url.pathname;
       </span>
     </a>
     <ul class="flex items-center gap-3 sm:gap-6 overflow-x-auto whitespace-nowrap no-scrollbar max-w-[75vw] sm:max-w-none">
-      {navItems.map(({ href, label }) => (
+      {orderedSections.map(({ href, label }) => (
         <li>
           <a
             href={href}

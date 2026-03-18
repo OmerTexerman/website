@@ -1,4 +1,5 @@
 import { CanvasTexture, MeshStandardMaterial } from "three";
+import { SPINE_TEXT } from "./colors";
 import { createBookMaterial } from "./materials";
 
 export interface SpineTextureOptions {
@@ -37,7 +38,7 @@ export function createSpineTexture(
 	ctx.fillStyle = spineColor;
 	ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-	ctx.fillStyle = "#ffffff";
+	ctx.fillStyle = SPINE_TEXT;
 	ctx.globalAlpha = 0.85;
 	ctx.font = `500 ${options.fontSize(canvas.width, canvas.height)}px 'Space Grotesk', sans-serif`;
 	ctx.textAlign = "center";

@@ -1,13 +1,41 @@
 import { BoxGeometry, Group, Mesh, PlaneGeometry } from "three";
+import { BOOK_COLORS, PAGE_DARK, PAGE_LEFT, PAGE_LIGHT, PAGE_MID, PAGE_RIGHT } from "../colors";
+import { applySectionInteraction } from "../interactive-section";
 import { createBookMaterial, paperMaterial } from "../materials";
 import { DESK_SURFACE_Y } from "../math-utils";
 import { createSpineTexture } from "../spine-texture";
 
-const BOOK_COLORS = ["#2a4a6a", "#6a3a3a", "#3a5a3a", "#5a4a3a", "#4a3a6a"];
 const BOOK_HEIGHT = 0.08;
 const BOOK_GAP = 0.005;
 const BOOK_DEPTH = 0.55;
 const HERO_LOOSE_PAGE_COUNT = 20;
+
+export interface BookStackObject {
+	root: Group;
+	parts: {
+		books: Group[];
+		hero: Group | null;
+		lowerBooks: Group[];
+		backCoverPivot?: Group;
+		leftPageBlockPivot?: Group;
+		rightPageBlockPivot?: Group;
+		middlePageFanPivot?: Group;
+		frontCoverPivot?: Group;
+		loosePagePivots: Group[];
+	};
+}
+
+interface HeroBookObject {
+	root: Group;
+	parts: {
+		backCoverPivot: Group;
+		leftPageBlockPivot: Group;
+		rightPageBlockPivot: Group;
+		middlePageFanPivot: Group;
+		frontCoverPivot: Group;
+		loosePagePivots: Group[];
+	};
+}
 
 function createStackBook(
 	index: number,
@@ -20,7 +48,6 @@ function createStackBook(
 	const xOffset = (((index * 3 + 1) % 3) - 1) * 0.02; // deterministic slight offset
 	const yRot = (((index * 7 + 2) % 5) - 2) * 0.012; // deterministic slight rotation
 	const bookGroup = new Group();
-	bookGroup.userData = { bookItem: true, bookIndex: index, title };
 	bookGroup.position.set(xOffset, index * (bookHeight + BOOK_GAP), 0);
 	bookGroup.rotation.y = yRot;
 
@@ -52,7 +79,7 @@ function createHeroBook(
 	width: number,
 	bookHeight: number,
 	bookDepth: number,
-): Group {
+): HeroBookObject {
 	const xOffset = (((index * 3 + 1) % 3) - 1) * 0.02;
 	const yRot = (((index * 7 + 2) % 5) - 2) * 0.012;
 	const coverThickness = 0.012;
@@ -66,15 +93,14 @@ function createHeroBook(
 	const looseStackThickness = (HERO_LOOSE_PAGE_COUNT - 1) * loosePageStep + loosePageThickness;
 	const totalThickness = coverThickness * 2 + pageBlockThickness * 2 + looseStackThickness + 0.003;
 	const hero = new Group();
-	hero.userData = { bookItem: true, heroBook: true, bookIndex: index, title };
 	hero.position.set(xOffset, index * (bookHeight + BOOK_GAP), 0);
 	hero.rotation.y = yRot;
 
 	const coverMaterial = createBookMaterial(color);
 	const leftPageMaterial = paperMaterial.clone();
-	leftPageMaterial.color.set("#e7e0d4");
+	leftPageMaterial.color.set(PAGE_LEFT);
 	const rightPageMaterial = paperMaterial.clone();
-	rightPageMaterial.color.set("#ece5da");
+	rightPageMaterial.color.set(PAGE_RIGHT);
 	const pageWidth = width - 0.04;
 	const coverZ = -(spineDepth / 2 + coverDepth / 2);
 	const pageZ = -(spineDepth / 2 + pageDepth / 2);
@@ -83,7 +109,6 @@ function createHeroBook(
 	hero.add(spineRoot);
 
 	const backCoverPivot = new Group();
-	backCoverPivot.userData = { backCoverPivot: true };
 	spineRoot.add(backCoverPivot);
 
 	const backCover = new Mesh(new BoxGeometry(width, coverThickness, coverDepth), coverMaterial);
@@ -92,7 +117,6 @@ function createHeroBook(
 	backCoverPivot.add(backCover);
 
 	const leftPageBlockPivot = new Group();
-	leftPageBlockPivot.userData = { leftPageBlockPivot: true };
 	leftPageBlockPivot.position.y = coverThickness + 0.001;
 	backCoverPivot.add(leftPageBlockPivot);
 
@@ -106,34 +130,32 @@ function createHeroBook(
 	leftPageBlockPivot.add(leftPages);
 
 	const middlePageFanPivot = new Group();
-	middlePageFanPivot.userData = { middlePageFanPivot: true };
 	middlePageFanPivot.position.y = coverThickness + pageBlockThickness + 0.0014;
 	spineRoot.add(middlePageFanPivot);
+	const loosePagePivots: Group[] = [];
 
 	for (let i = 0; i < HERO_LOOSE_PAGE_COUNT; i++) {
 		const leafWidth = Math.max(pageWidth - i * 0.0024, pageWidth * 0.84);
 		const leafDepth = Math.max(loosePageDepth - i * 0.0038, loosePageDepth * 0.78);
 		const leafPivot = new Group();
-		leafPivot.userData = { loosePagePivot: true, loosePageIndex: i };
 		leafPivot.position.y = i * loosePageStep;
 
 		const leafMaterial = paperMaterial.clone();
-		leafMaterial.color.set(i % 3 === 0 ? "#f5efe6" : i % 3 === 1 ? "#efe8dc" : "#e8e1d4");
+		leafMaterial.color.set(i % 3 === 0 ? PAGE_LIGHT : i % 3 === 1 ? PAGE_MID : PAGE_DARK);
 		const leaf = new Mesh(new BoxGeometry(leafWidth, loosePageThickness, leafDepth), leafMaterial);
 		leaf.position.set(0, loosePageThickness / 2, -(spineDepth / 2 + leafDepth / 2));
 		leaf.castShadow = true;
 		leaf.receiveShadow = true;
 		leafPivot.add(leaf);
 		middlePageFanPivot.add(leafPivot);
+		loosePagePivots.push(leafPivot);
 	}
 
 	const frontCoverPivot = new Group();
-	frontCoverPivot.userData = { frontCoverPivot: true };
 	frontCoverPivot.position.y = totalThickness;
 	spineRoot.add(frontCoverPivot);
 
 	const rightPageBlockPivot = new Group();
-	rightPageBlockPivot.userData = { rightPageBlockPivot: true };
 	rightPageBlockPivot.position.y = -coverThickness - 0.001;
 	frontCoverPivot.add(rightPageBlockPivot);
 
@@ -167,28 +189,61 @@ function createHeroBook(
 		spineRoot.add(spineLabel);
 	}
 
-	return hero;
+	return {
+		root: hero,
+		parts: {
+			backCoverPivot,
+			leftPageBlockPivot,
+			rightPageBlockPivot,
+			middlePageFanPivot,
+			frontCoverPivot,
+			loosePagePivots,
+		},
+	};
 }
 
 /** Book stack → links to /reading */
-export function createBookStack(books?: { title: string; spineColor: string }[]): Group {
+export function createBookStack(books?: { title: string; spineColor: string }[]): BookStackObject {
 	const stack = new Group();
-	stack.userData = { interactive: true, href: "/reading", label: "Reading" };
+	applySectionInteraction(stack, "reading");
 
 	const count = books ? Math.min(books.length, 5) : BOOK_COLORS.length;
+	const bookItems: Group[] = [];
+	let heroParts: HeroBookObject["parts"] | null = null;
+	let heroRoot: Group | null = null;
 
 	for (let i = 0; i < count; i++) {
 		const color = books?.[i]?.spineColor ?? BOOK_COLORS[i] ?? BOOK_COLORS[0];
 		const title = books?.[i]?.title ?? "";
 		const width = 0.6 + ((i * 7 + 3) % 5) * 0.05; // deterministic variation
-		const book =
-			i === count - 1
-				? createHeroBook(i, title, color, width, BOOK_HEIGHT, BOOK_DEPTH)
-				: createStackBook(i, title, color, width, BOOK_HEIGHT, BOOK_DEPTH);
+		if (i === count - 1) {
+			const hero = createHeroBook(i, title, color, width, BOOK_HEIGHT, BOOK_DEPTH);
+			heroRoot = hero.root;
+			heroParts = hero.parts;
+			bookItems.push(hero.root);
+			stack.add(hero.root);
+			continue;
+		}
+
+		const book = createStackBook(i, title, color, width, BOOK_HEIGHT, BOOK_DEPTH);
+		bookItems.push(book);
 		stack.add(book);
 	}
 
 	stack.position.set(1.8, DESK_SURFACE_Y, 0.6);
 
-	return stack;
+	return {
+		root: stack,
+		parts: {
+			books: bookItems,
+			hero: heroRoot,
+			lowerBooks: heroRoot ? bookItems.filter((book) => book !== heroRoot) : bookItems,
+			backCoverPivot: heroParts?.backCoverPivot,
+			leftPageBlockPivot: heroParts?.leftPageBlockPivot,
+			rightPageBlockPivot: heroParts?.rightPageBlockPivot,
+			middlePageFanPivot: heroParts?.middlePageFanPivot,
+			frontCoverPivot: heroParts?.frontCoverPivot,
+			loosePagePivots: heroParts?.loosePagePivots ?? [],
+		},
+	};
 }

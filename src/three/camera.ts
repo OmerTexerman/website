@@ -1,10 +1,8 @@
 import { PerspectiveCamera, Vector3 } from "three";
 import { easeInOutCubic } from "./animations";
+import { IDLE_AMPLITUDE, IDLE_SPEED, INTRO_DURATION, MOBILE_INTRO_DURATION } from "./constants";
 
 // ─── Desktop (desk) camera poses ────────────────────────────────
-const INTRO_DURATION = 2800;
-const IDLE_AMPLITUDE = 0.03;
-const IDLE_SPEED = 0.0005;
 
 const START_POS = new Vector3(4, 12, 10);
 const END_POS = new Vector3(0, 5, 7);
@@ -18,7 +16,6 @@ export const DESKTOP_LOOK = END_LOOK;
 export const MOBILE_POS = new Vector3(5.8, 2.55, 5.95);
 export const MOBILE_LOOK = new Vector3(8.5, 2.2, 4.6);
 export const MOBILE_INTRO_START_POS = new Vector3(3.9, 3.7, 7.45);
-export const MOBILE_INTRO_DURATION = 2000;
 
 const _lookTarget = new Vector3();
 let lastIdleY = END_POS.y;

@@ -1,28 +1,28 @@
-- id: lorem-ipsum-one
+book1:
   title: "Lorem Ipsum Dolor Sit"
   author: "Amet Consectetur"
   spineColor: "#2a4a6a"
   status: reading
 
-- id: lorem-ipsum-two
+lorem-ipsum-two:
   title: "Adipiscing Elit Sed"
   author: "Eiusmod Tempor"
   spineColor: "#6a3a3a"
   status: finished
 
-- id: lorem-ipsum-three
+lorem-ipsum-three:
   title: "Incididunt Ut Labore"
   author: "Dolore Magna"
   spineColor: "#3a5a3a"
   status: finished
 
-- id: lorem-ipsum-four
+lorem-ipsum-four:
   title: "Veniam Quis Nostrud"
   author: "Exercitation Ullamco"
   spineColor: "#5a4a3a"
   status: want-to-read
 
-- id: lorem-ipsum-five
+lorem-ipsum-five:
   title: "Duis Aute Irure"
   author: "Reprehenderit Voluptate"
   spineColor: "#4a3a6a"

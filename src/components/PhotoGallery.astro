@@ -1,12 +1,8 @@
 ---
-interface Photo {
-	src: string;
-	alt: string;
-	caption?: string;
-}
+import type { PhotoGalleryPhoto } from "../dom/photo-gallery";
 
 interface Props {
-	photos: Photo[];
+	photos: PhotoGalleryPhoto[];
 }
 
 const { photos } = Astro.props;
@@ -66,94 +62,8 @@ const { photos } = Astro.props;
 </div>
 
 <script>
-  interface Photo {
-    src: string;
-    alt: string;
-    caption?: string;
-  }
+  import { mountPhotoGalleries } from "../dom/photo-gallery";
 
-  const cleanups: Array<() => void> = [];
-
-  const galleries = [...document.querySelectorAll<HTMLElement>("[data-photo-gallery]")];
-  for (const root of galleries) {
-    if (root.dataset.photoGalleryMounted === "true") continue;
-
-    const dataEl = root.querySelector("template[data-photo-gallery-data]");
-    const dialog = root.querySelector("[data-photo-lightbox]");
-    const img = root.querySelector("[data-photo-lightbox-img]");
-    const caption = root.querySelector("[data-photo-lightbox-caption]");
-    const closeBtn = root.querySelector("[data-photo-lightbox-close]");
-
-    if (
-      !(dataEl instanceof HTMLTemplateElement) ||
-      !(dialog instanceof HTMLDialogElement) ||
-      !(img instanceof HTMLImageElement) ||
-      !(caption instanceof HTMLElement) ||
-      !(closeBtn instanceof HTMLButtonElement)
-    ) {
-      continue;
-    }
-
-    let photos: Photo[] = [];
-    try {
-      const raw = dataEl.innerHTML.trim();
-      photos = raw ? (JSON.parse(raw) as Photo[]) : [];
-    } catch {
-      continue;
-    }
-
-    root.dataset.photoGalleryMounted = "true";
-    let lastTrigger: HTMLButtonElement | null = null;
-    const buttons = [...root.querySelectorAll<HTMLButtonElement>("[data-photo-index]")];
-
-    const openPhoto = (btn: HTMLButtonElement) => {
-      const idx = Number.parseInt(btn.getAttribute("data-photo-index") || "0", 10);
-      const photo = photos[idx];
-      if (!photo) return;
-      img.src = photo.src;
-      img.alt = photo.alt;
-      caption.textContent = photo.caption || "";
-      lastTrigger = btn;
-      dialog.showModal();
-    };
-
-    const buttonHandlers = buttons.map((btn) => {
-      const handler = () => openPhoto(btn);
-      btn.addEventListener("click", handler);
-      return { btn, handler };
-    });
-
-    const onCloseClick = () => dialog.close();
-    const onBackdropClick = (e: MouseEvent) => {
-      if (e.target === dialog) dialog.close();
-    };
-    const onClose = () => {
-      lastTrigger?.focus();
-      lastTrigger = null;
-    };
-
-    closeBtn.addEventListener("click", onCloseClick);
-    dialog.addEventListener("click", onBackdropClick);
-    dialog.addEventListener("close", onClose);
-
-    cleanups.push(() => {
-      for (const { btn, handler } of buttonHandlers) {
-        btn.removeEventListener("click", handler);
-      }
-      if (dialog.open) dialog.close();
-      closeBtn.removeEventListener("click", onCloseClick);
-      dialog.removeEventListener("click", onBackdropClick);
-      dialog.removeEventListener("close", onClose);
-      delete root.dataset.photoGalleryMounted;
-    });
-  }
-
-  if (cleanups.length > 0) {
-    const cleanup = () => {
-      for (const dispose of cleanups) dispose();
-      document.removeEventListener("astro:before-preparation", cleanup);
-    };
-
-    document.addEventListener("astro:before-preparation", cleanup, { once: true });
-  }
+  const cleanup = mountPhotoGalleries();
+  document.addEventListener("astro:before-preparation", cleanup, { once: true });
 </script>

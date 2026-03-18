@@ -2,19 +2,21 @@
 @plugin "@tailwindcss/typography";
 
 @theme {
+	--breakpoint-sm: 48rem;
+
 	--font-display: "Space Grotesk", sans-serif;
 	--font-body: "Inter", sans-serif;
 	--font-mono: "JetBrains Mono", monospace;
 
-	--color-dark: #1e1e1e;
-	--color-dark-surface: #2a2a2a;
-	--color-dark-surface-elevated: #312f2d;
-	--color-accent: #c4453a;
-	--color-accent-hover: #d65248;
-	--color-cream: #f0ece4;
-	--color-cream-dark: #e0dbd2;
-	--color-muted: #8a8a8a;
-	--color-muted-light: #b0b0b0;
+	--color-dark: var(--theme-color-dark);
+	--color-dark-surface: var(--theme-color-dark-surface);
+	--color-dark-surface-elevated: var(--theme-color-dark-surface-elevated);
+	--color-accent: var(--theme-color-accent);
+	--color-accent-hover: var(--theme-color-accent-hover);
+	--color-cream: var(--theme-color-cream);
+	--color-cream-dark: var(--theme-color-cream-dark);
+	--color-muted: var(--theme-color-muted);
+	--color-muted-light: var(--theme-color-muted-light);
 }
 
 html {
@@ -74,8 +76,78 @@ html[data-scene-ready="true"] #scene-fallback {
 	pointer-events: none;
 }
 
+/* ── Shared card utilities ─────────────────────────── */
+
+/* Base card container (all three card types) */
+.card-base {
+	@apply rounded-xl border border-white/8 bg-dark-surface-elevated p-4;
+}
+
+/* Extended padding for blog / project cards */
+.card-base-lg {
+	@apply sm:p-6;
+}
+
+/* Lift-on-hover for blog / project cards */
+.card-hover {
+	@apply transition-[transform,box-shadow] duration-200 hover:ring-2 hover:ring-accent/40 hover:translate-y-[-2px];
+}
+
+/* Subtle ring-on-hover for book cards (no lift) */
+.card-hover-subtle {
+	@apply transition-all hover:ring-2 hover:ring-accent/40;
+}
+
+/* Card title */
+.card-title {
+	@apply font-display text-xl font-bold text-cream;
+}
+
+/* Card description */
+.card-desc {
+	@apply text-sm leading-relaxed text-cream-dark;
+}
+
+/* Tag list wrapper */
+.card-tags {
+	@apply flex flex-wrap gap-2;
+}
+
+.skip-link {
+	@apply sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:border focus:border-white/20 focus:bg-dark-surface focus:px-4 focus:py-2 focus:font-mono focus:text-sm focus:text-cream;
+}
+
+.nav-pill-link {
+	@apply inline-flex items-center rounded-full border border-white/10 px-4 py-2 font-mono text-sm text-cream transition-colors hover:border-accent/50 hover:text-accent;
+}
+
+.back-link {
+	@apply inline-flex items-center gap-2 font-mono transition-colors;
+}
+
+.back-link-inline {
+	@apply mb-10 text-sm text-muted hover:text-cream;
+}
+
+.back-link-floating {
+	@apply fixed bottom-4 right-4 z-30 rounded-full border border-white/10 bg-dark-surface/90 px-3 py-2 text-xs text-cream backdrop-blur-sm hover:border-accent/50 hover:text-accent sm:bottom-6 sm:right-6 sm:px-4 sm:py-2.5 sm:text-sm;
+}
+
+.back-link-button {
+	@apply rounded-lg bg-accent px-6 py-3 text-sm text-white hover:bg-accent-hover;
+}
+
+.icon-button {
+	@apply flex h-8 w-8 items-center justify-center rounded-full text-muted-light transition-colors hover:bg-white/8 hover:text-cream;
+}
+
+.accent-link {
+	@apply inline-flex items-center gap-2 font-mono text-sm text-accent transition-colors hover:text-accent-hover;
+}
+
 /* Content card surface — dark room panel */
-.content-surface {
+.content-surface,
+.content-surface-padded {
 	background:
 		linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0)),
 		var(--color-dark-surface);
@@ -85,11 +157,27 @@ html[data-scene-ready="true"] #scene-fallback {
 	box-shadow: 0 28px 80px rgba(0, 0, 0, 0.35);
 }
 
-/* Content page background gradient */
-.content-page-bg {
+/* Shared <main> wrapper for content pages */
+.content-page-main {
+	@apply min-h-screen pt-14;
 	background:
 		radial-gradient(circle at top, rgba(196, 69, 58, 0.12), transparent 28%),
 		linear-gradient(180deg, #201f1e 0%, #171716 100%);
+}
+
+/* Outer container for content pages (add max-w-* inline) */
+.content-container {
+	@apply mx-auto px-4 sm:px-6 py-8 sm:py-16;
+}
+
+/* Content surface with responsive padding */
+.content-surface-padded {
+	@apply p-5 sm:p-8 md:p-12;
+}
+
+/* Blog prose styling */
+.blog-prose {
+	@apply prose prose-invert prose-lg max-w-none prose-headings:font-display prose-headings:tracking-tight prose-headings:text-cream prose-p:text-cream-dark prose-strong:text-cream prose-li:text-cream-dark prose-blockquote:text-cream-dark prose-a:text-accent prose-a:underline-offset-2 hover:prose-a:text-accent-hover prose-code:text-accent prose-code:font-mono prose-pre:bg-dark prose-pre:text-cream prose-pre:rounded-xl prose-img:rounded-xl;
 }
 
 .no-scrollbar {
@@ -99,6 +187,29 @@ html[data-scene-ready="true"] #scene-fallback {
 
 .no-scrollbar::-webkit-scrollbar {
 	display: none;
+}
+
+.desk-label {
+	position: absolute;
+	pointer-events: none;
+	font-family: var(--font-display);
+	font-size: 0.85rem;
+	font-weight: 500;
+	letter-spacing: 0.02em;
+	text-transform: uppercase;
+	color: var(--color-cream);
+	background: rgba(30, 30, 30, 0.8);
+	backdrop-filter: blur(4px);
+	padding: 0.25rem 0.75rem;
+	border-radius: 0.5rem;
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	opacity: 0;
+	transform: translateY(4px);
+	transition:
+		opacity 0.2s ease,
+		transform 0.2s ease;
+	white-space: nowrap;
+	z-index: 10;
 }
 
 @media (prefers-reduced-motion: reduce) {

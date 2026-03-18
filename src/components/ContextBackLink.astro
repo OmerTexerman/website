@@ -1,0 +1,38 @@
+---
+import { homeLink } from "../config";
+import BackArrowIcon from "./BackArrowIcon.astro";
+
+type Variant = "floating" | "inline" | "button";
+
+interface Props {
+	fallbackHref?: string;
+	fallbackLabel?: string;
+	variant?: Variant;
+	labelClass?: string;
+}
+
+const {
+	fallbackHref = homeLink.href,
+	fallbackLabel = homeLink.backLabel,
+	variant = "inline",
+	labelClass,
+} = Astro.props;
+
+const variantClass = {
+	floating: "back-link back-link-floating group",
+	inline: "back-link back-link-inline",
+	button: "back-link back-link-button",
+}[variant];
+
+const computedLabelClass = labelClass ?? (variant === "floating" ? "hidden sm:inline" : undefined);
+---
+
+<a
+  data-context-back-link
+  href={fallbackHref}
+  class={variantClass}
+  aria-label={fallbackLabel}
+>
+  <BackArrowIcon class={variant === "floating" ? "transition-transform group-hover:-translate-x-0.5" : undefined} />
+  <span data-context-back-label class={computedLabelClass}>{fallbackLabel}</span>
+</a>

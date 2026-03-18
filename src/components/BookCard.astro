@@ -9,7 +9,7 @@ interface Props {
 const { title, author, spineColor, url } = Astro.props;
 ---
 
-<div class="flex items-center gap-4 rounded-xl border border-white/8 bg-dark-surface-elevated p-4 transition-all hover:ring-2 hover:ring-accent/40">
+<div class="flex items-center gap-4 card-base card-hover-subtle">
   <!-- Spine color indicator -->
   <div class="w-3 h-14 rounded-sm shrink-0" style={`background-color: ${spineColor}`}></div>
   <div class="flex-1 min-w-0">

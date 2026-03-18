@@ -13,26 +13,6 @@ export function createLabelController(container: HTMLElement): LabelController {
 	const projectedPosition = new Vector3();
 
 	labelEl.className = "desk-label";
-	Object.assign(labelEl.style, {
-		position: "absolute",
-		pointerEvents: "none",
-		fontFamily: "'Space Grotesk', sans-serif",
-		fontSize: "0.85rem",
-		fontWeight: "500",
-		letterSpacing: "0.02em",
-		textTransform: "uppercase",
-		color: "var(--color-cream, #f0ece4)",
-		background: "rgba(30, 30, 30, 0.8)",
-		backdropFilter: "blur(4px)",
-		padding: "0.25rem 0.75rem",
-		borderRadius: "0.5rem",
-		border: "1px solid rgba(255, 255, 255, 0.1)",
-		opacity: "0",
-		transform: "translateY(4px)",
-		transition: "opacity 0.2s ease, transform 0.2s ease",
-		whiteSpace: "nowrap",
-		zIndex: "10",
-	});
 	container.appendChild(labelEl);
 
 	function update(

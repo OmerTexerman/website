@@ -1,4 +1,5 @@
 import { BoxGeometry, Color, Group, Mesh, MeshStandardMaterial, PlaneGeometry } from "three";
+import { GROUND_DARK } from "./colors";
 import { darkWoodMaterial, woodMaterial } from "./materials";
 
 export function createDesk(): Group {
@@ -29,7 +30,7 @@ export function createDesk(): Group {
 
 	// Ground plane — subtle dark surface so legs don't float into void
 	const groundMat = new MeshStandardMaterial({
-		color: new Color("#252525"),
+		color: new Color(GROUND_DARK),
 		roughness: 0.95,
 		metalness: 0.0,
 	});

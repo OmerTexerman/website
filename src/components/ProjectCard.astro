@@ -12,10 +12,10 @@ interface Props {
 const { title, description, tech, url, repo } = Astro.props;
 ---
 
-<div class="rounded-xl border border-white/8 bg-dark-surface-elevated p-4 sm:p-6 transition-[transform,box-shadow] duration-200 hover:ring-2 hover:ring-accent/40 hover:translate-y-[-2px]">
-  <h3 class="font-display text-xl font-bold text-cream mb-2">{title}</h3>
-  <p class="text-cream-dark text-sm leading-relaxed mb-4">{description}</p>
-  <div class="flex flex-wrap gap-2 mb-4">
+<div class="card-base card-base-lg card-hover">
+  <h3 class="card-title mb-2">{title}</h3>
+  <p class="card-desc mb-4">{description}</p>
+  <div class="card-tags mb-4">
     {tech.map((t) => (
       <Tag label={t} />
     ))}

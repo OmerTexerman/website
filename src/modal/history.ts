@@ -1,3 +1,5 @@
+import { getSameOriginHref } from "../url-utils";
+
 export interface ContentModalHistoryState {
 	href: string;
 	label: string;
@@ -10,13 +12,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function normalizeHref(href: string): string | null {
-	try {
-		const url = new URL(href, window.location.origin);
-		if (url.origin !== window.location.origin) return null;
-		return `${url.pathname}${url.search}${url.hash}`;
-	} catch {
-		return null;
-	}
+	return getSameOriginHref(href);
 }
 
 function normalizeState(value: unknown): ContentModalHistoryState | null {

@@ -1,19 +1,16 @@
 ---
-import { getCollection } from "astro:content";
-import PageIntro from "../../components/PageIntro.astro";
 import ProjectCard from "../../components/ProjectCard.astro";
-import { navItems, site } from "../../config";
+import { getSectionById } from "../../config";
+import { getOrderedProjects } from "../../content/selectors";
 import ContentPage from "../../layouts/ContentPage.astro";
 
-const nav = navItems.find((n) => n.href === "/projects");
-const projects = (await getCollection("projects")).sort((a, b) => a.data.order - b.data.order);
+const section = getSectionById("projects");
+const projects = await getOrderedProjects();
 ---
 
-<ContentPage title={`Projects | ${site.name}`} description={nav?.description}>
-  <PageIntro title="Projects" description={nav?.description} />
-
+<ContentPage section={section}>
   {projects.length === 0 ? (
-    <p class="text-muted font-mono">No projects yet. Check back soon!</p>
+    <p class="text-muted font-mono">nothing here yet :)</p>
   ) : (
     <div class="space-y-5">
       {projects.map((project, i) => (

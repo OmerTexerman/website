@@ -1,8 +1,8 @@
 import type { APIContext } from "astro";
-import { site } from "../config";
+import { getSiteUrl } from "../config";
 
 export function GET(context: APIContext) {
-	const siteUrl = context.site ?? new URL(site.url);
+	const siteUrl = getSiteUrl(context.site);
 	return new Response(
 		`User-agent: *
 Allow: /

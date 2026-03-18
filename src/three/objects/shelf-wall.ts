@@ -11,33 +11,49 @@ import {
 	SphereGeometry,
 	TorusGeometry,
 } from "three";
+import type { SectionId } from "../../config";
+import type { ShelfBook } from "../../content/types";
+import {
+	BOOK_COLORS,
+	CERAMIC,
+	DARK_GRAY,
+	DARK_METAL,
+	SCREEN_BLUE,
+	SCREEN_GLOW,
+	SHELL_FLOOR,
+	SHELL_RETURN,
+	SHELL_SHADOW,
+	SHELL_WALL,
+} from "../colors";
 import { addHitbox } from "../hitbox";
+import { applySectionInteraction } from "../interactive-section";
 import {
 	accentMaterial,
+	cameraBodyMaterial,
 	createBookMaterial,
 	darkMetalMaterial,
 	metalMaterial,
 	paperMaterial,
+	shelfNotebookCoverMaterial,
 	shelfWoodMaterial,
+	spiralRingMaterial,
 } from "../materials";
+import { SHELF_BOT_Y, SHELF_MID_Y, SHELF_TOP_Y, SHELF_WALL_X, SHELF_WALL_Z } from "../shelf-layout";
 import { createSpineTexture } from "../spine-texture";
-
-export interface BookData {
-	title: string;
-	spineColor: string;
-}
 
 export interface ShelfWallResult {
 	wall: Group;
-	tapTargets: Object3D[];
-	shelfItems: Object3D[];
+	entries: ShelfSceneEntry[];
 }
 
-// ─── Shelf geometry constants ────────────────────────────────────
-export const SHELF_WALL_X = 8.95; // Room-local X position (to the right of desk)
+export interface ShelfSceneEntry {
+	sectionId: SectionId;
+	target: Group;
+	item: Object3D;
+}
+
 const WALL_W = 4.8;
 const WALL_H = 5.2;
-export const SHELF_WALL_Z = 4.4;
 const FLOOR_Y = -2;
 const BLEND_WALL_W = 7.4;
 const BLEND_WALL_H = WALL_H - FLOOR_Y + 0.7;
@@ -51,10 +67,6 @@ const BRACKET_SIZE = 0.08;
 const WALL_X = SHELF_WALL_X;
 const WALL_Z = SHELF_WALL_Z;
 const SHELF_CENTER_X = WALL_X - SHELF_DEPTH / 2;
-
-export const SHELF_TOP_Y = 3.6;
-export const SHELF_MID_Y = 2.2;
-export const SHELF_BOT_Y = 0.8;
 const TOP_Y = SHELF_TOP_Y;
 const MID_Y = SHELF_MID_Y;
 const BOT_Y = SHELF_BOT_Y;
@@ -102,14 +114,15 @@ function createShelfPlank(y: number): Group {
 
 // ─── Shelf items ─────────────────────────────────────────────────
 
-const BOOK_COLORS = ["#2a4a6a", "#6a3a3a", "#3a5a3a", "#5a4a3a"];
+/** Shelf shows at most 4 books from the shared palette */
+const SHELF_BOOK_COLORS = BOOK_COLORS.slice(0, 4);
 
-function createShelfBooks(books?: BookData[]): Group {
+function createShelfBooks(books?: ShelfBook[]): Group {
 	const g = new Group();
-	const count = books ? Math.min(books.length, 4) : BOOK_COLORS.length;
+	const count = books ? Math.min(books.length, 4) : SHELF_BOOK_COLORS.length;
 
 	for (let i = 0; i < count; i++) {
-		const color = books?.[i]?.spineColor ?? BOOK_COLORS[i];
+		const color = books?.[i]?.spineColor ?? SHELF_BOOK_COLORS[i];
 		const title = books?.[i]?.title ?? "";
 		const bookH = 0.55 + i * 0.04;
 		const bookW = 0.12 + ((i * 3 + 1) % 3) * 0.02;
@@ -146,8 +159,7 @@ function createShelfNotebook(): Group {
 	g.add(body);
 
 	// Cover
-	const coverMat = new MeshStandardMaterial({ color: new Color("#9a3230"), roughness: 0.6 });
-	const cover = new Mesh(new BoxGeometry(0.45, 0.6, 0.03), coverMat);
+	const cover = new Mesh(new BoxGeometry(0.45, 0.6, 0.03), shelfNotebookCoverMaterial);
 	body.add(cover);
 
 	// Pages
@@ -161,14 +173,9 @@ function createShelfNotebook(): Group {
 	body.add(backCover);
 
 	// Spiral rings
-	const ringMat = new MeshStandardMaterial({
-		color: new Color("#c0c0c0"),
-		roughness: 0.3,
-		metalness: 0.8,
-	});
 	const ringGeo = new TorusGeometry(0.02, 0.004, 6, 10);
 	for (let i = 0; i < 5; i++) {
-		const ring = new Mesh(ringGeo, ringMat);
+		const ring = new Mesh(ringGeo, spiralRingMaterial);
 		ring.position.set(-0.18 + i * 0.08, 0.3, -0.01);
 		body.add(ring);
 	}
@@ -188,7 +195,7 @@ function createShelfLaptop(): Group {
 
 	// Top lid
 	const lidMat = new MeshStandardMaterial({
-		color: new Color("#3a3a3a"),
+		color: new Color(DARK_GRAY),
 		roughness: 0.4,
 		metalness: 0.6,
 	});
@@ -200,8 +207,8 @@ function createShelfLaptop(): Group {
 	const logo = new Mesh(
 		new BoxGeometry(0.08, 0.003, 0.08),
 		new MeshStandardMaterial({
-			color: new Color("#5a8aba"),
-			emissive: new Color("#5a8aba"),
+			color: new Color(SCREEN_GLOW),
+			emissive: new Color(SCREEN_GLOW),
 			emissiveIntensity: 0.5,
 			roughness: 0.2,
 		}),
@@ -216,17 +223,12 @@ function createShelfLaptop(): Group {
 function createShelfCamera(): Group {
 	const g = new Group();
 
-	const bodyMat = new MeshStandardMaterial({
-		color: new Color("#1a1a1a"),
-		roughness: 0.4,
-		metalness: 0.6,
-	});
-	const body = new Mesh(new BoxGeometry(0.45, 0.28, 0.22), bodyMat);
+	const body = new Mesh(new BoxGeometry(0.45, 0.28, 0.22), cameraBodyMaterial);
 	body.position.y = 0.14;
 	g.add(body);
 
 	const lensMat = new MeshStandardMaterial({
-		color: new Color("#2a2a2a"),
+		color: new Color(DARK_METAL),
 		roughness: 0.3,
 		metalness: 0.7,
 	});
@@ -236,7 +238,7 @@ function createShelfCamera(): Group {
 	g.add(lens);
 
 	const glassMat = new MeshStandardMaterial({
-		color: new Color("#4a7aaa"),
+		color: new Color(SCREEN_BLUE),
 		roughness: 0.05,
 		metalness: 0.3,
 		transparent: true,
@@ -249,12 +251,12 @@ function createShelfCamera(): Group {
 
 	const flash = new Mesh(
 		new BoxGeometry(0.1, 0.05, 0.07),
-		new MeshStandardMaterial({ color: new Color("#e8e0d4"), roughness: 0.3, metalness: 0.2 }),
+		new MeshStandardMaterial({ color: new Color(CERAMIC), roughness: 0.3, metalness: 0.2 }),
 	);
 	flash.position.set(0.09, 0.3, 0);
 	g.add(flash);
 
-	const viewfinder = new Mesh(new SphereGeometry(0.025, 8, 8), bodyMat);
+	const viewfinder = new Mesh(new SphereGeometry(0.025, 8, 8), cameraBodyMaterial);
 	viewfinder.position.set(-0.1, 0.3, 0);
 	g.add(viewfinder);
 
@@ -266,7 +268,7 @@ function createShelfShell(): Group {
 	const shell = new Group();
 
 	const wallMaterial = new MeshStandardMaterial({
-		color: new Color("#2b2620"),
+		color: new Color(SHELL_WALL),
 		roughness: 1.0,
 		metalness: 0.0,
 		transparent: true,
@@ -275,7 +277,7 @@ function createShelfShell(): Group {
 		side: DoubleSide,
 	});
 	const returnMaterial = new MeshStandardMaterial({
-		color: new Color("#211d19"),
+		color: new Color(SHELL_RETURN),
 		roughness: 1.0,
 		metalness: 0.0,
 		transparent: true,
@@ -284,7 +286,7 @@ function createShelfShell(): Group {
 		side: DoubleSide,
 	});
 	const floorMaterial = new MeshStandardMaterial({
-		color: new Color("#23211f"),
+		color: new Color(SHELL_FLOOR),
 		roughness: 0.98,
 		metalness: 0.0,
 		transparent: true,
@@ -316,7 +318,7 @@ function createShelfShell(): Group {
 	const wallShadow = new Mesh(
 		new PlaneGeometry(WALL_W + 1.8, WALL_H + 0.6),
 		new MeshStandardMaterial({
-			color: new Color("#171412"),
+			color: new Color(SHELL_SHADOW),
 			roughness: 1.0,
 			metalness: 0.0,
 			transparent: true,
@@ -333,7 +335,7 @@ function createShelfShell(): Group {
 }
 
 // ─── Main builder ────────────────────────────────────────────────
-export function createShelfWall(books?: BookData[]): ShelfWallResult {
+export function createShelfWall(books?: ShelfBook[]): ShelfWallResult {
 	const wall = new Group();
 	wall.userData = { shelfWall: true };
 
@@ -356,60 +358,53 @@ export function createShelfWall(books?: BookData[]): ShelfWallResult {
 	enableShadows(botShelves);
 	wall.add(botShelves);
 
-	const tapTargets: Group[] = [];
-	const shelfItems: Group[] = [];
+	const entries: ShelfSceneEntry[] = [];
+	const shelfLayouts = [
+		{
+			sectionId: "reading" as const,
+			item: createShelfBooks(books),
+			position: [SHELF_CENTER_X - 0.04, TOP_Y + SHELF_THICK / 2, WALL_Z] as const,
+			rotationY: -Math.PI / 2,
+			hitboxPadding: 0.1,
+		},
+		{
+			sectionId: "blog" as const,
+			item: createShelfNotebook(),
+			position: [SHELF_CENTER_X + 0.08, MID_Y + SHELF_THICK / 2 + 0.28, WALL_Z - 0.54] as const,
+			rotationY: -Math.PI / 2,
+			hitboxPadding: 0.1,
+		},
+		{
+			sectionId: "projects" as const,
+			item: createShelfLaptop(),
+			position: [SHELF_CENTER_X - 0.14, MID_Y + SHELF_THICK / 2 + 0.025, WALL_Z + 0.62] as const,
+			rotationY: -Math.PI / 2,
+			hitboxPadding: 0.1,
+		},
+		{
+			sectionId: "photos" as const,
+			item: createShelfCamera(),
+			position: [SHELF_CENTER_X - 0.02, BOT_Y + SHELF_THICK / 2, WALL_Z] as const,
+			rotationY: -Math.PI / 2,
+			hitboxPadding: 0.1,
+		},
+	];
 
-	// ─── Top shelf: Books (Reading) ───────────────────────────────
-	const topGroup = new Group();
-	topGroup.userData = { interactive: true, href: "/reading", label: "Reading" };
-	const topBooks = createShelfBooks(books);
-	topBooks.position.set(SHELF_CENTER_X - 0.04, TOP_Y + SHELF_THICK / 2, WALL_Z);
-	topBooks.rotation.y = -Math.PI / 2;
-	enableShadows(topBooks);
-	topGroup.add(topBooks);
-	addHitbox(topGroup, 0.1);
-	wall.add(topGroup);
-	tapTargets.push(topGroup);
-	shelfItems.push(topBooks);
+	for (const layout of shelfLayouts) {
+		const target = new Group();
+		applySectionInteraction(target, layout.sectionId);
+		layout.item.position.set(layout.position[0], layout.position[1], layout.position[2]);
+		layout.item.rotation.y = layout.rotationY;
+		enableShadows(layout.item);
+		target.add(layout.item);
+		addHitbox(target, layout.hitboxPadding);
+		wall.add(target);
+		entries.push({
+			sectionId: layout.sectionId,
+			target,
+			item: layout.item,
+		});
+	}
 
-	// ─── Middle shelf LEFT: Notebook (Blog) ───────────────────────
-	const midLeftGroup = new Group();
-	midLeftGroup.userData = { interactive: true, href: "/blog", label: "Blog" };
-	const notebook = createShelfNotebook();
-	notebook.position.set(SHELF_CENTER_X + 0.08, MID_Y + SHELF_THICK / 2 + 0.28, WALL_Z - 0.54);
-	notebook.rotation.y = -Math.PI / 2;
-	enableShadows(notebook);
-	midLeftGroup.add(notebook);
-	addHitbox(midLeftGroup, 0.1);
-	wall.add(midLeftGroup);
-	tapTargets.push(midLeftGroup);
-	shelfItems.push(notebook);
-
-	// ─── Middle shelf RIGHT: Laptop (Projects) ───────────────────
-	const midRightGroup = new Group();
-	midRightGroup.userData = { interactive: true, href: "/projects", label: "Projects" };
-	const laptop = createShelfLaptop();
-	laptop.position.set(SHELF_CENTER_X - 0.14, MID_Y + SHELF_THICK / 2 + 0.025, WALL_Z + 0.62);
-	laptop.rotation.y = -Math.PI / 2;
-	enableShadows(laptop);
-	midRightGroup.add(laptop);
-	addHitbox(midRightGroup, 0.1);
-	wall.add(midRightGroup);
-	tapTargets.push(midRightGroup);
-	shelfItems.push(laptop);
-
-	// ─── Bottom shelf: Camera (Photos) ────────────────────────────
-	const botGroup = new Group();
-	botGroup.userData = { interactive: true, href: "/photos", label: "Photos" };
-	const camera = createShelfCamera();
-	camera.position.set(SHELF_CENTER_X - 0.02, BOT_Y + SHELF_THICK / 2, WALL_Z);
-	camera.rotation.y = -Math.PI / 2;
-	enableShadows(camera);
-	botGroup.add(camera);
-	addHitbox(botGroup, 0.1);
-	wall.add(botGroup);
-	tapTargets.push(botGroup);
-	shelfItems.push(camera);
-
-	return { wall, tapTargets, shelfItems };
+	return { wall, entries };
 }

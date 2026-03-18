@@ -11,6 +11,8 @@ import {
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { getSectionById, type SiteSection } from "../config";
+import type { ShelfBook } from "../content/types";
 import { getContentModal } from "../modal/api";
 import {
 	animateBookClose,
@@ -37,10 +39,18 @@ import {
 	DESKTOP_POS,
 	idleFloat,
 	lerpCameraPose,
-	MOBILE_INTRO_START_POS,
 	MOBILE_LOOK,
 	MOBILE_POS,
 } from "./camera";
+import { DARK } from "./colors";
+import {
+	CLICK_COOLDOWN_MS,
+	DESKTOP_TO_SHELF_TRANSITION_DURATION,
+	HOVER_LERP,
+	HOVER_SCALE,
+	MOBILE_BREAKPOINT,
+	TRANSITION_DURATION,
+} from "./constants";
 import { createDesk } from "./desk";
 import { disposeObjectResources } from "./disposal";
 import { createDeskPhysicsController } from "./drag";
@@ -59,54 +69,63 @@ import { createBookStack } from "./objects/book-stack";
 import { createCircuitBoard } from "./objects/circuit-board";
 import { createDeskLamp, toggleLamp } from "./objects/desk-lamp";
 import { createGuitarPick } from "./objects/guitar-pick";
-import { attachLaptopEffects, createLaptop } from "./objects/laptop";
+import { createLaptop } from "./objects/laptop";
 import { createMug } from "./objects/mug";
 import { createNotebook } from "./objects/notebook";
 import { createPen } from "./objects/pen";
 import { createPhotoFrame } from "./objects/photo-frame";
-import { type BookData, createShelfWall } from "./objects/shelf-wall";
+import { createShelfWall, type ShelfSceneEntry } from "./objects/shelf-wall";
+import {
+	MOBILE_SHELF_SCROLL,
+	MOBILE_SHELF_STOPS,
+	MOBILE_TRANSITION_MID_LOOK,
+	MOBILE_TRANSITION_MID_POS,
+} from "./shelf-layout";
 
-export type { BookData };
+interface DeskSectionEntity {
+	kind: "section";
+	section: SiteSection;
+	root: Object3D;
+	hitboxPadding: number;
+	obstacleRadius?: number;
+	hoverScale?: boolean;
+	modalDelayMs: number;
+	open: () => Promise<void>;
+	close: () => Promise<void>;
+}
 
-const MOBILE_BREAKPOINT = 768;
-const HOVER_SCALE = 1.05;
-const HOVER_LERP = 0.16;
-const CLICK_COOLDOWN_MS = 420;
-const TRANSITION_DURATION = 1000;
-const DESKTOP_TO_SHELF_TRANSITION_DURATION = 1800;
-const MOBILE_SHELF_STOPS = [
-	{ cameraY: 1.25, lookY: 0.95 },
-	{ cameraY: MOBILE_POS.y, lookY: MOBILE_LOOK.y },
-	{ cameraY: 4.02, lookY: 3.72 },
-] as const;
-const MOBILE_SHELF_PAN_LIMIT = 1;
-const MOBILE_SHELF_PAN_SNAP_POINTS = [[0], [-0.78, 0.3], [0]] as const;
-const MOBILE_SHELF_SCROLL_SPEED = 0.0015;
-const MOBILE_SHELF_PAN_WHEEL_SPEED = 0.0011;
-const MOBILE_TRANSITION_MID_POS = MOBILE_INTRO_START_POS.clone();
-const MOBILE_TRANSITION_MID_LOOK = new Vector3(8.1, 2.2, 4.7);
+interface DeskMicroEntity {
+	kind: "micro";
+	root: Object3D;
+	hitboxPadding?: number;
+	obstacleRadius?: number;
+	hoverScale?: boolean;
+	activate: () => void;
+}
 
-// ─── Desk animation maps ─────────────────────────────────────────
-const OPEN_ANIMATIONS: Record<string, (obj: Object3D) => Promise<void>> = {
-	Blog: animateNotebookOpen,
-	Projects: animateLaptopOpen,
-	Reading: animateBookLift,
-	Photos: animateFrameReveal,
-};
+type DeskInteractiveEntity = DeskSectionEntity | DeskMicroEntity;
 
-const CLOSE_ANIMATIONS: Record<string, (obj: Object3D) => Promise<void>> = {
-	Blog: animateNotebookClose,
-	Projects: animateLaptopClose,
-	Reading: animateBookClose,
-	Photos: animateFrameClose,
-};
+interface DeskSceneData {
+	roots: Object3D[];
+	interactiveEntityByRoot: Map<Object3D, DeskInteractiveEntity>;
+	hoverTargets: Object3D[];
+}
 
-const MODAL_OPEN_DELAY_MS: Record<string, number> = {
-	Blog: 350,
-	Projects: 350,
-	Reading: 820,
-	Photos: 350,
-};
+interface ShelfSceneData {
+	wall: Group;
+	entries: ShelfSceneEntry[];
+	entryByTarget: Map<Object3D, ShelfSceneEntry>;
+}
+
+type OpenSelection =
+	| {
+			mode: "desktop";
+			entity: DeskSectionEntity;
+	  }
+	| {
+			mode: "mobile";
+			entry: ShelfSceneEntry;
+	  };
 
 function trackEvent(event: string, props: Record<string, string>): void {
 	const w = window as Window & {
@@ -172,11 +191,11 @@ export function initUnifiedScene(
 	canvas: HTMLCanvasElement,
 	labelContainer: HTMLElement,
 	initialMode: "desktop" | "mobile",
-	books?: BookData[],
+	books?: ShelfBook[],
 ): { cleanup: () => void; transition: (target: "desktop" | "mobile") => Promise<void> } {
 	const scene = new Scene();
-	scene.background = new Color("#1e1e1e");
-	scene.fog = new FogExp2(new Color("#1e1e1e"), 0.04);
+	scene.background = new Color(DARK);
+	scene.fog = new FogExp2(new Color(DARK), 0.04);
 
 	const isInitiallyMobile = initialMode === "mobile";
 
@@ -240,7 +259,7 @@ export function initUnifiedScene(
 	let isDragging = false;
 	let introComplete = false;
 	let currentHover: DeskInteraction | null = null;
-	let openObject: { label: string; object: Object3D } | null = null;
+	let openSelection: OpenSelection | null = null;
 	let clickLockedUntil = 0;
 	let scrollController: MobileScrollController | null = null;
 	let cleanupModalClose: (() => void) | null = null;
@@ -252,17 +271,8 @@ export function initUnifiedScene(
 	// Wall state — lazily created
 	let deskCreated = false;
 	let shelfCreated = false;
-	let deskObjects: {
-		notebook: Object3D;
-		laptop: Object3D;
-		bookStack: Object3D;
-		photoFrame: Object3D;
-		deskLamp: Object3D;
-		mug: Object3D;
-		pen: Object3D;
-		interactiveObjects: Object3D[];
-	} | null = null;
-	let shelfData: ReturnType<typeof createShelfWall> | null = null;
+	let deskScene: DeskSceneData | null = null;
+	let shelfScene: ShelfSceneData | null = null;
 
 	// Interaction & drag cleanup references
 	let cleanupInteraction: (() => void) | null = null;
@@ -273,7 +283,6 @@ export function initUnifiedScene(
 	let lastCanvasHeight = initialSize.height;
 	const mobilePosePos = new Vector3();
 	const mobilePoseLook = new Vector3();
-	const microInteractions = new Map<Object3D, () => void>();
 
 	function getMobileShelfResponsiveLayout(): {
 		cameraX: number;
@@ -338,56 +347,121 @@ export function initUnifiedScene(
 		setupDeskLighting(room);
 
 		const desk = createDesk();
-		room.add(desk);
-
 		const deskLamp = createDeskLamp();
-		room.add(deskLamp);
-
 		const notebook = createNotebook();
 		const laptop = createLaptop();
 		const bookStack = createBookStack(books);
 		const photoFrame = createPhotoFrame();
-		room.add(notebook);
-		room.add(laptop);
-		room.add(bookStack);
-		room.add(photoFrame);
-
 		const mug = createMug();
 		const pen = createPen();
-		room.add(mug);
-		room.add(pen);
-
-		if (window.innerWidth >= MOBILE_BREAKPOINT) {
-			room.add(createGuitarPick());
-			room.add(createCircuitBoard());
-		}
-
-		addHitbox(notebook, 0.1);
-		addHitbox(laptop, 0.1);
-		addHitbox(bookStack, 0.1);
-		addHitbox(photoFrame, 0.15);
-		addHitbox(deskLamp, 0.05);
-
-		deskPhysics.addStaticObstacle(notebook, 0.5);
-		deskPhysics.addStaticObstacle(laptop, 0.6);
-		deskPhysics.addStaticObstacle(bookStack, 0.45);
-		deskPhysics.addStaticObstacle(deskLamp, 0.2);
-
-		attachLaptopEffects(laptop);
-
-		microInteractions.set(deskLamp, () => toggleLamp(deskLamp));
-		microInteractions.set(mug, () => animateWobble(mug));
-		microInteractions.set(pen, () => animateSpin(pen));
-
-		deskObjects = {
-			notebook,
-			laptop,
-			bookStack,
-			photoFrame,
+		const roots: Object3D[] = [
+			desk,
 			deskLamp,
+			notebook.root,
+			laptop.root,
+			bookStack.root,
+			photoFrame.root,
 			mug,
 			pen,
-			interactiveObjects: [notebook, laptop, bookStack, photoFrame, deskLamp],
+		];
+
+		for (const root of roots) {
+			room.add(root);
+		}
+
+		if (window.innerWidth >= MOBILE_BREAKPOINT) {
+			const guitarPick = createGuitarPick();
+			const circuitBoard = createCircuitBoard();
+			roots.push(guitarPick, circuitBoard);
+			room.add(guitarPick);
+			room.add(circuitBoard);
+		}
+
+		const interactiveEntities: DeskInteractiveEntity[] = [
+			{
+				kind: "section",
+				section: getSectionById("blog"),
+				root: notebook.root,
+				hitboxPadding: 0.1,
+				obstacleRadius: 0.5,
+				hoverScale: true,
+				modalDelayMs: 350,
+				open: () => animateNotebookOpen(notebook),
+				close: () => animateNotebookClose(notebook),
+			},
+			{
+				kind: "section",
+				section: getSectionById("projects"),
+				root: laptop.root,
+				hitboxPadding: 0.1,
+				obstacleRadius: 0.6,
+				hoverScale: true,
+				modalDelayMs: 350,
+				open: () => animateLaptopOpen(laptop),
+				close: () => animateLaptopClose(laptop),
+			},
+			{
+				kind: "section",
+				section: getSectionById("reading"),
+				root: bookStack.root,
+				hitboxPadding: 0.1,
+				obstacleRadius: 0.45,
+				hoverScale: true,
+				modalDelayMs: 820,
+				open: () => animateBookLift(bookStack),
+				close: () => animateBookClose(bookStack),
+			},
+			{
+				kind: "section",
+				section: getSectionById("photos"),
+				root: photoFrame.root,
+				hitboxPadding: 0.15,
+				hoverScale: true,
+				modalDelayMs: 350,
+				open: () => animateFrameReveal(photoFrame),
+				close: () => animateFrameClose(photoFrame),
+			},
+			{
+				kind: "micro",
+				root: deskLamp,
+				hitboxPadding: 0.05,
+				obstacleRadius: 0.2,
+				hoverScale: true,
+				activate: () => {
+					toggleLamp(deskLamp);
+				},
+			},
+			{
+				kind: "micro",
+				root: mug,
+				activate: () => {
+					void animateWobble(mug);
+				},
+			},
+			{
+				kind: "micro",
+				root: pen,
+				activate: () => {
+					void animateSpin(pen);
+				},
+			},
+		];
+
+		for (const entity of interactiveEntities) {
+			if (entity.hitboxPadding !== undefined) {
+				addHitbox(entity.root, entity.hitboxPadding);
+			}
+			if (entity.obstacleRadius !== undefined) {
+				deskPhysics.addStaticObstacle(entity.root, entity.obstacleRadius);
+			}
+		}
+
+		deskScene = {
+			roots,
+			interactiveEntityByRoot: new Map(interactiveEntities.map((entity) => [entity.root, entity])),
+			hoverTargets: interactiveEntities
+				.filter((entity) => entity.hoverScale)
+				.map((entity) => entity.root),
 		};
 	}
 
@@ -397,29 +471,24 @@ export function initUnifiedScene(
 		shelfCreated = true;
 
 		setupShelfLighting(room);
-		shelfData = createShelfWall(books);
-		room.add(shelfData.wall);
+		const shelf = createShelfWall(books);
+		shelfScene = {
+			...shelf,
+			entryByTarget: new Map(shelf.entries.map((entry) => [entry.target, entry])),
+		};
+		room.add(shelf.wall);
 	}
 
 	// ─── Visibility helpers ──────────────────────────────────────
 	function setDeskVisible(visible: boolean): void {
-		if (!deskObjects) return;
-		for (const obj of deskObjects.interactiveObjects) obj.visible = visible;
-		deskObjects.mug.visible = visible;
-		deskObjects.pen.visible = visible;
-		// Also set desk geometry and lamp visible
-		room.traverse((child) => {
-			if (child.userData?.shelfWall) return; // skip shelf
-			if (child === room) return;
-			// Only hide direct desk children, not the shelf wall group
-			if (child.parent === room && !child.userData?.shelfWall) {
-				child.visible = visible;
-			}
-		});
+		if (!deskScene) return;
+		for (const root of deskScene.roots) {
+			root.visible = visible;
+		}
 	}
 
 	function setShelfVisible(visible: boolean): void {
-		if (shelfData) shelfData.wall.visible = visible;
+		if (shelfScene) shelfScene.wall.visible = visible;
 	}
 
 	// ─── Setup interactions for current mode ─────────────────────
@@ -439,11 +508,16 @@ export function initUnifiedScene(
 		}
 		cleanupModalClose?.();
 		cleanupModalClose = null;
+		if (pendingModalTimeout) {
+			window.clearTimeout(pendingModalTimeout);
+			pendingModalTimeout = 0;
+		}
 		currentHover = null;
-		openObject = null;
+		openSelection = null;
 		labelController.update(null, camera, canvas);
 
-		if (currentMode === "desktop" && deskObjects) {
+		if (currentMode === "desktop" && deskScene) {
+			const desk = deskScene;
 			cleanupDrag = deskPhysics.setupDrag(
 				canvas,
 				camera,
@@ -470,89 +544,80 @@ export function initUnifiedScene(
 					if (isDragging || !introComplete) return;
 					if (performance.now() < clickLockedUntil) return;
 
-					if (!interaction.href) {
-						const handler = microInteractions.get(interaction.object);
-						if (handler) {
-							clickLockedUntil = performance.now() + 200;
-							handler();
-							dirty = true;
-						}
+					const entity = desk.interactiveEntityByRoot.get(interaction.object);
+					if (!entity) return;
+
+					if (entity.kind === "micro") {
+						clickLockedUntil = performance.now() + 200;
+						entity.activate();
+						dirty = true;
 						return;
 					}
 
-					const { href, label, object } = interaction as {
-						href: string;
-						label: string;
-						object: Object3D;
-					};
-					if (openObject?.label === label) return;
+					if (openSelection?.mode === "desktop" && openSelection.entity === entity) return;
 					clickLockedUntil = performance.now() + CLICK_COOLDOWN_MS;
 
-					if (openObject) {
-						CLOSE_ANIMATIONS[openObject.label]?.(openObject.object);
+					if (openSelection?.mode === "desktop") {
+						void openSelection.entity.close();
 					}
-					openObject = { label, object };
-					OPEN_ANIMATIONS[label]?.(object);
+					openSelection = { mode: "desktop", entity };
+					void entity.open();
 
 					if (pendingModalTimeout) window.clearTimeout(pendingModalTimeout);
-					const modalDelay = MODAL_OPEN_DELAY_MS[label] ?? 350;
+					const { label, href } = entity.section;
 					pendingModalTimeout = window.setTimeout(() => {
 						pendingModalTimeout = 0;
 						if (disposed) return;
 						const modal = getContentModal();
 						if (modal) modal.open(label, href);
 						else window.location.href = href;
-					}, modalDelay);
+					}, entity.modalDelayMs);
 
 					trackEvent("desk_object_click", { label, href });
 				},
 			);
-		} else if (currentMode === "mobile" && shelfData) {
+		} else if (currentMode === "mobile" && shelfScene) {
 			scrollController = createMobileScrollController(canvas, {
-				verticalStops: [0, 0.5, 1],
-				panSnapPoints: MOBILE_SHELF_PAN_SNAP_POINTS,
-				panLimit: MOBILE_SHELF_PAN_LIMIT,
+				verticalStops: MOBILE_SHELF_SCROLL.verticalStops,
+				panSnapPoints: MOBILE_SHELF_SCROLL.panSnapPoints,
+				panLimit: MOBILE_SHELF_SCROLL.panLimit,
 				numRows: MOBILE_SHELF_STOPS.length,
-				wheelSpeed: MOBILE_SHELF_SCROLL_SPEED,
-				wheelPanSpeed: MOBILE_SHELF_PAN_WHEEL_SPEED,
+				wheelSpeed: MOBILE_SHELF_SCROLL.wheelSpeed,
+				wheelPanSpeed: MOBILE_SHELF_SCROLL.wheelPanSpeed,
 			});
 			scrollController.resetTo(0.5);
 
 			const sc = scrollController;
-			const shelf = shelfData;
+			const shelf = shelfScene;
 			const interactionPicker = createInteractionPicker(canvas, camera, scene);
 			const previousTouchAction = canvas.style.touchAction;
 			canvas.style.touchAction = "none";
 
 			function handleShelfInteraction(interaction: DeskInteraction): void {
 				if (!introComplete || transitioning) return;
-				if (!interaction.href || !interaction.label) return;
-				if (openObject?.label === interaction.label) return;
+				const entry = shelf.entryByTarget.get(interaction.object);
+				if (!entry) return;
+				if (openSelection?.mode === "mobile" && openSelection.entry === entry) return;
 				if (performance.now() < clickLockedUntil) return;
 				clickLockedUntil = performance.now() + CLICK_COOLDOWN_MS;
 
-				if (openObject) {
-					const prevIdx = shelf.tapTargets.indexOf(openObject.object);
-					if (prevIdx >= 0) animateShelfReset(shelf.shelfItems[prevIdx]);
+				if (openSelection?.mode === "mobile") {
+					void animateShelfReset(openSelection.entry.item);
 				}
-
-				const idx = shelf.tapTargets.indexOf(interaction.object);
-				if (idx < 0) return;
-				const { label, href } = interaction as { label: string; href: string };
-
-				openObject = { label: interaction.label, object: interaction.object };
-				const activeSelection = openObject;
-				void animateShelfPresent(shelf.shelfItems[idx])
+				openSelection = { mode: "mobile", entry };
+				const activeSelection = openSelection;
+				const section = getSectionById(entry.sectionId);
+				void animateShelfPresent(entry.item)
 					.then(() => {
-						if (disposed || openObject !== activeSelection) return;
+						if (disposed || openSelection !== activeSelection) return;
 						const modal = getContentModal();
-						if (modal) modal.open(label, href);
-						else window.location.href = href;
+						if (modal) modal.open(section.label, section.href);
+						else window.location.href = section.href;
 					})
 					.catch(() => {});
 
 				dirty = true;
-				trackEvent("shelf_item_tap", { label, href });
+				trackEvent("shelf_item_tap", { label: section.label, href: section.href });
 			}
 
 			function onPointerDown(e: PointerEvent): void {
@@ -641,14 +706,13 @@ export function initUnifiedScene(
 		const modal = getContentModal();
 		cleanupModalClose =
 			modal?.onClose(() => {
-				if (!openObject) return;
-				if (currentMode === "desktop") {
-					CLOSE_ANIMATIONS[openObject.label]?.(openObject.object);
-				} else if (shelfData) {
-					const idx = shelfData.tapTargets.indexOf(openObject.object);
-					if (idx >= 0) animateShelfReset(shelfData.shelfItems[idx]);
+				if (!openSelection) return;
+				if (openSelection.mode === "desktop") {
+					void openSelection.entity.close();
+				} else {
+					void animateShelfReset(openSelection.entry.item);
 				}
-				openObject = null;
+				openSelection = null;
 				dirty = true;
 			}) ?? null;
 	}
@@ -715,8 +779,8 @@ export function initUnifiedScene(
 		}
 
 		// Hover scale lerp (desktop only)
-		if (currentMode === "desktop" && deskObjects && !transitioning) {
-			for (const obj of deskObjects.interactiveObjects) {
+		if (currentMode === "desktop" && deskScene && !transitioning) {
+			for (const obj of deskScene.hoverTargets) {
 				const target = currentHover?.object === obj ? HOVER_SCALE : 1;
 				const delta = target - obj.scale.x;
 				if (Math.abs(delta) > 0.001) {
@@ -829,14 +893,13 @@ export function initUnifiedScene(
 		currentHover = null;
 
 		// Close any open object
-		if (openObject) {
-			if (currentMode === "desktop") {
-				CLOSE_ANIMATIONS[openObject.label]?.(openObject.object);
-			} else if (shelfData) {
-				const idx = shelfData.tapTargets.indexOf(openObject.object);
-				if (idx >= 0) animateShelfReset(shelfData.shelfItems[idx]);
+		if (openSelection) {
+			if (openSelection.mode === "desktop") {
+				void openSelection.entity.close();
+			} else {
+				void animateShelfReset(openSelection.entry.item);
 			}
-			openObject = null;
+			openSelection = null;
 		}
 
 		// Lazy-create target wall

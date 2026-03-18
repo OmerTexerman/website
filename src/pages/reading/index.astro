@@ -1,40 +1,31 @@
 ---
-import { getCollection } from "astro:content";
 import BookCard from "../../components/BookCard.astro";
-import PageIntro from "../../components/PageIntro.astro";
-import { navItems, site } from "../../config";
+import { getSectionById } from "../../config";
+import { getReadingSections } from "../../content/selectors";
 import ContentPage from "../../layouts/ContentPage.astro";
 
-const nav = navItems.find((n) => n.href === "/reading");
-const allBooks = await getCollection("books");
-
-const reading = allBooks.filter((b) => b.data.status === "reading");
-const finished = allBooks.filter((b) => b.data.status === "finished");
-const wantToRead = allBooks.filter((b) => b.data.status === "want-to-read");
-
-const sections = [
-	{ title: "Currently Reading", books: reading },
-	{ title: "Finished", books: finished },
-	{ title: "Want to Read", books: wantToRead },
-].filter((s) => s.books.length > 0);
+const section = getSectionById("reading");
+const readingSections = await getReadingSections();
 ---
 
-<ContentPage title={`Reading | ${site.name}`} description={nav?.description}>
-  <PageIntro title="Reading" description={nav?.description} />
-
-  {sections.map((section, si) => (
-    <div class={si > 0 ? "mt-10" : ""} data-animate style={`transition-delay: ${si * 0.15}s`}>
-      <h2 class="font-display text-2xl font-bold mb-4 text-cream">{section.title}</h2>
-      <div class="space-y-3">
-        {section.books.map((book) => (
-          <BookCard
-            title={book.data.title}
-            author={book.data.author}
-            spineColor={book.data.spineColor}
-            url={book.data.url}
-          />
-        ))}
+<ContentPage section={section}>
+  {readingSections.length === 0 ? (
+    <p class="text-muted font-mono">nothing here yet :)</p>
+  ) : (
+    readingSections.map((readingSection, si) => (
+      <div class={si > 0 ? "mt-10" : ""} data-animate style={`transition-delay: ${si * 0.15}s`}>
+        <h2 class="font-display text-2xl font-bold mb-4 text-cream">{readingSection.title}</h2>
+        <div class="space-y-3">
+          {readingSection.books.map((book) => (
+            <BookCard
+              title={book.data.title}
+              author={book.data.author}
+              spineColor={book.data.spineColor}
+              url={book.data.url}
+            />
+          ))}
+        </div>
       </div>
-    </div>
-  ))}
+    ))
+  )}
 </ContentPage>

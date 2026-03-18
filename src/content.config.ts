@@ -30,7 +30,7 @@ const projects = defineCollection({
 });
 
 const books = defineCollection({
-	loader: file("./src/content/books/currently-reading.yaml"),
+	loader: file("./src/content/books/books.yaml"),
 	schema: z.object({
 		title: z.string(),
 		author: z.string(),

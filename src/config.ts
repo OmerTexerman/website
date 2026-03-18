@@ -1,4 +1,35 @@
-import { siteOrigin } from "../site.config.mjs";
+/** The canonical origin for the site — used by Astro and meta tags. */
+export const siteOrigin = import.meta.env.PUBLIC_SITE_ORIGIN || "https://omer.texerman.com";
+
+export const brandTheme = {
+	dark: "#1e1e1e",
+	darkSurface: "#2a2a2a",
+	darkSurfaceElevated: "#312f2d",
+	accent: "#c4453a",
+	accentHover: "#d65248",
+	cream: "#f0ece4",
+	creamDark: "#e0dbd2",
+	muted: "#8a8a8a",
+	mutedLight: "#b0b0b0",
+} as const;
+
+const rootThemeVars = {
+	"--theme-color-dark": brandTheme.dark,
+	"--theme-color-dark-surface": brandTheme.darkSurface,
+	"--theme-color-dark-surface-elevated": brandTheme.darkSurfaceElevated,
+	"--theme-color-accent": brandTheme.accent,
+	"--theme-color-accent-hover": brandTheme.accentHover,
+	"--theme-color-cream": brandTheme.cream,
+	"--theme-color-cream-dark": brandTheme.creamDark,
+	"--theme-color-muted": brandTheme.muted,
+	"--theme-color-muted-light": brandTheme.mutedLight,
+} as const;
+
+export function getRootThemeStyle(): string {
+	return Object.entries(rootThemeVars)
+		.map(([name, value]) => `${name}: ${value}`)
+		.join("; ");
+}
 
 /**
  * Site-wide configuration — edit this file to update links, metadata,
@@ -7,15 +38,116 @@ import { siteOrigin } from "../site.config.mjs";
  * Any optional field left undefined or empty will cause the
  * corresponding UI element to not render.
  */
-
 export const site = {
 	name: "Omer Texerman",
 	title: "Full Stack Developer",
 	initials: "OT",
 	description:
 		"Full Stack Developer — explore my interactive 3D desk to discover blog posts, projects, reading list, and photos.",
-	url: siteOrigin,
+	shortDescription: "Full Stack Developer portfolio",
+	origin: siteOrigin,
+} as const;
+
+export const homeLink = {
+	label: "Desk",
+	href: "/",
+	backLabel: "Back to desk",
+} as const;
+
+const sectionOrder = ["blog", "projects", "reading", "photos"] as const;
+
+export type SectionId = (typeof sectionOrder)[number];
+
+export interface SiteSection {
+	id: SectionId;
+	label: string;
+	href: `/${string}`;
+	description: string;
+	backLabel: string;
+}
+
+export const sections: Record<SectionId, SiteSection> = {
+	blog: {
+		id: "blog",
+		label: "Blog",
+		href: "/blog",
+		description: "Notes on building software, shipping products, and learning in public.",
+		backLabel: "Back to blog",
+	},
+	projects: {
+		id: "projects",
+		label: "Projects",
+		href: "/projects",
+		description: "Selected work spanning web apps, experiments, and production systems.",
+		backLabel: "Back to projects",
+	},
+	reading: {
+		id: "reading",
+		label: "Reading",
+		href: "/reading",
+		description: "Books I am reading, finished recently, or want to pick up next.",
+		backLabel: "Back to reading",
+	},
+	photos: {
+		id: "photos",
+		label: "Photos",
+		href: "/photos",
+		description: "A small photo journal of places, light, and moments worth keeping.",
+		backLabel: "Back to photos",
+	},
 };
+
+export const orderedSections = sectionOrder.map((id) => sections[id]);
+
+function normalizeSectionHref(href: string): string {
+	if (href === "" || href === "/") return "/";
+	return href.endsWith("/") ? href.slice(0, -1) : href;
+}
+
+export function getSectionById(id: SectionId): SiteSection {
+	return sections[id];
+}
+
+export function getSectionByHref(href: string): SiteSection | undefined {
+	const normalizedHref = normalizeSectionHref(href);
+	return orderedSections.find((section) => section.href === normalizedHref);
+}
+
+export function getSectionPageTitle(section: SiteSection): string {
+	return `${section.label} | ${site.name}`;
+}
+
+export function getBackLabel(href: string): string {
+	const normalizedHref = normalizeSectionHref(href);
+	if (normalizedHref === homeLink.href) return homeLink.backLabel;
+	return getSectionByHref(normalizedHref)?.backLabel ?? "Go back";
+}
+
+export function getSiteUrl(contextSite?: URL | null): URL {
+	return contextSite ?? new URL(site.origin);
+}
+
+export const blogFeed = {
+	title: `${site.name}'s Blog`,
+	description: sections.blog.description,
+} as const;
+
+export const webManifest = {
+	name: site.name,
+	short_name: site.initials,
+	description: site.shortDescription,
+	start_url: "/",
+	display: "standalone",
+	background_color: brandTheme.dark,
+	theme_color: brandTheme.accent,
+	icons: [
+		{
+			src: "/favicon.svg",
+			sizes: "any",
+			type: "image/svg+xml",
+		},
+	],
+} as const;
 
 /**
  * Social links — remove an entry or leave url empty to hide it.
@@ -29,39 +161,8 @@ export const socials: { label: string; url: string; icon: string }[] = [
 	},
 ];
 
-/**
- * Navigation items — drives desk objects, header nav, and accessible nav.
- * Remove an entry to hide that section everywhere.
- */
-export const navItems: {
-	label: string;
-	href: string;
-	description: string;
-}[] = [
-	{
-		label: "Blog",
-		href: "/blog",
-		description: "Notes on building software, shipping products, and learning in public.",
-	},
-	{
-		label: "Projects",
-		href: "/projects",
-		description: "Selected work spanning web apps, experiments, and production systems.",
-	},
-	{
-		label: "Reading",
-		href: "/reading",
-		description: "Books I am reading, finished recently, or want to pick up next.",
-	},
-	{
-		label: "Photos",
-		href: "/photos",
-		description: "A small photo journal of places, light, and moments worth keeping.",
-	},
-];
-
 /** PostHog analytics — leave key empty to disable tracking */
 export const analytics = {
 	posthogKey: import.meta.env.PUBLIC_POSTHOG_KEY ?? "",
-	posthogHost: "https://us.i.posthog.com",
-};
+	posthogHost: import.meta.env.PUBLIC_POSTHOG_HOST || "https://us.i.posthog.com",
+} as const;

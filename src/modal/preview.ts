@@ -1,3 +1,5 @@
+import { getSameOriginUrl, isSafeHttpUrl } from "../url-utils";
+
 export type ContentPreviewResult =
 	| { kind: "content"; nodes: ChildNode[] }
 	| { kind: "message"; message: string };
@@ -6,8 +8,8 @@ export async function loadContentPreview(
 	href: string,
 	signal: AbortSignal,
 ): Promise<ContentPreviewResult> {
-	const url = new URL(href, window.location.origin);
-	if (url.origin !== window.location.origin) {
+	const url = getSameOriginUrl(href);
+	if (!url) {
 		return { kind: "message", message: "External preview is blocked." };
 	}
 
@@ -35,27 +37,12 @@ export async function loadContentPreview(
 function isSafeSameOriginUrl(value: string, baseUrl: string): boolean {
 	if (!value) return false;
 	if (value.startsWith("#")) return true;
-
-	try {
-		const url = new URL(value, baseUrl);
-		return (
-			(url.protocol === "http:" || url.protocol === "https:") &&
-			url.origin === window.location.origin
-		);
-	} catch {
-		return false;
-	}
+	return getSameOriginUrl(value, baseUrl) !== null;
 }
 
 function isSafeAssetUrl(value: string, baseUrl: string): boolean {
 	if (!value) return false;
-
-	try {
-		const url = new URL(value, baseUrl);
-		return url.protocol === "http:" || url.protocol === "https:";
-	} catch {
-		return false;
-	}
+	return isSafeHttpUrl(value, baseUrl);
 }
 
 function sanitizeSrcset(value: string, baseUrl: string, allowExternal: boolean): string | null {

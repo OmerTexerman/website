@@ -1,7 +1,7 @@
 ---
 import ContentModal from "../components/ContentModal.astro";
 import SceneCanvas from "../components/SceneCanvas.astro";
-import { navItems, site } from "../config";
+import { orderedSections, site } from "../config";
 import BaseLayout from "../layouts/BaseLayout.astro";
 ---
 
@@ -19,13 +19,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         </h1>
         <p class="text-cream-dark text-base sm:text-lg leading-relaxed mb-6">{site.description}</p>
         <div class="flex flex-wrap gap-3">
-          {navItems.map(({ href, label }) => (
-            <a
-              href={href}
-              class="inline-flex items-center rounded-full border border-white/10 px-4 py-2 font-mono text-sm text-cream transition-colors hover:border-accent/50 hover:text-accent"
-            >
-              {label}
-            </a>
+          {orderedSections.map(({ href, label }) => (
+            <a href={href} class="nav-pill-link">{label}</a>
           ))}
         </div>
       </div>
@@ -36,13 +31,13 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     <!-- Accessibility: skip to nav + hidden text nav -->
     <a
       href="#text-nav"
-      class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-dark-surface focus:text-cream focus:px-4 focus:py-2 focus:rounded-lg focus:border focus:border-white/20 focus:font-mono focus:text-sm"
+      class="skip-link"
     >
       Skip to navigation
     </a>
     <nav id="text-nav" tabindex="-1" class="sr-only focus-within:not-sr-only focus-within:absolute focus-within:bottom-8 focus-within:left-1/2 focus-within:-translate-x-1/2 focus-within:z-50 focus-within:bg-dark-surface/95 focus-within:backdrop-blur-sm focus-within:rounded-xl focus-within:border focus-within:border-white/10 focus-within:p-4" aria-label="Site navigation">
       <ul class="flex gap-6 font-mono text-sm">
-        {navItems.map(({ href, label }) => (
+        {orderedSections.map(({ href, label }) => (
           <li><a href={href} class="text-cream hover:text-accent transition-colors">{label}</a></li>
         ))}
       </ul>
@@ -60,103 +55,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
   <!-- Unified scene boot -->
   <script>
-    let sceneHandle: { cleanup: () => void; transition: (target: "desktop" | "mobile") => Promise<void> } | null = null;
-    let activeMode: "desktop" | "mobile" | null = null;
-    let transitionQueue: Promise<void> = Promise.resolve();
-    const fallback = document.getElementById("scene-fallback");
-    const sceneRoot = document.getElementById("scene-root");
-    let modeSyncFrame = 0;
+    import { mountSceneApp } from "../dom/scene-app";
 
-    function setFallbackVisible(visible: boolean) {
-      if (!(fallback instanceof HTMLElement)) return;
-      fallback.setAttribute("aria-hidden", visible ? "false" : "true");
-      fallback.inert = !visible;
-    }
-
-    setFallbackVisible(false);
-
-    let fallbackTimer = window.setTimeout(() => {
-      if (!sceneHandle) {
-        document.documentElement.dataset.sceneFallback = "visible";
-        setFallbackVisible(true);
-      }
-    }, 900);
-
-    function modeFromSceneWidth(): "desktop" | "mobile" {
-      if (!(sceneRoot instanceof HTMLElement)) {
-        return window.innerWidth >= 768 ? "desktop" : "mobile";
-      }
-      const rect = sceneRoot.getBoundingClientRect();
-      const width = Math.max(1, Math.round(rect.width || sceneRoot.clientWidth || window.innerWidth));
-      return width >= 768 ? "desktop" : "mobile";
-    }
-
-    async function applyMode(mode: "desktop" | "mobile") {
-      if (!sceneHandle) {
-        const canvas = document.getElementById("scene-canvas") as HTMLCanvasElement;
-        const labels = document.getElementById("scene-labels") as HTMLElement;
-        const booksJson = sceneRoot?.getAttribute("data-books");
-        const books = booksJson ? JSON.parse(booksJson) : undefined;
-
-        const { initUnifiedScene } = await import("../three/unified-scene");
-        sceneHandle = initUnifiedScene(canvas, labels, mode, books);
-        (window as any).__sceneHandle = sceneHandle;
-        window.clearTimeout(fallbackTimer);
-        delete document.documentElement.dataset.sceneFallback;
-        setFallbackVisible(false);
-        document.documentElement.dataset.sceneReady = "true";
-        activeMode = mode;
-        return;
-      }
-
-      if (mode === activeMode) return;
-
-      await sceneHandle.transition(mode);
-      activeMode = mode;
-    }
-
-    function queueModeSync() {
-      transitionQueue = transitionQueue
-        .then(() => applyMode(modeFromSceneWidth()))
-        .catch((error) => {
-          console.error("Failed to update scene mode", error);
-        });
-    }
-
-    function scheduleModeSync() {
-      if (modeSyncFrame) return;
-      modeSyncFrame = requestAnimationFrame(() => {
-        modeSyncFrame = 0;
-        queueModeSync();
-      });
-    }
-
-    const resizeObserver =
-      sceneRoot && typeof ResizeObserver !== "undefined"
-        ? new ResizeObserver(() => {
-            scheduleModeSync();
-          })
-        : null;
-    if (sceneRoot instanceof HTMLElement) resizeObserver?.observe(sceneRoot);
-
-    function cleanup() {
-      if (sceneHandle) {
-        sceneHandle.cleanup();
-        sceneHandle = null;
-      }
-      activeMode = null;
-      delete (window as any).__sceneHandle;
-      resizeObserver?.disconnect();
-      if (modeSyncFrame) cancelAnimationFrame(modeSyncFrame);
-      window.clearTimeout(fallbackTimer);
-      fallbackTimer = 0;
-      delete document.documentElement.dataset.sceneFallback;
-      setFallbackVisible(false);
-      delete document.documentElement.dataset.sceneReady;
-    }
-
-    document.addEventListener("astro:before-preparation", cleanup, { once: true });
-    window.addEventListener("beforeunload", cleanup, { once: true });
-    scheduleModeSync();
+    mountSceneApp();
   </script>
 </BaseLayout>

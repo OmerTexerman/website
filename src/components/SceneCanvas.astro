@@ -1,14 +1,11 @@
 ---
-import { getCollection } from "astro:content";
+import { getFeaturedShelfBooks } from "../content/selectors";
 
-const allBooks = await getCollection("books");
-const recentBooks = allBooks
-	.filter((b) => b.data.status === "reading" || b.data.status === "finished")
-	.slice(0, 5)
-	.map((b) => ({ title: b.data.title, spineColor: b.data.spineColor }));
+const featuredBooks = await getFeaturedShelfBooks();
 ---
 
-<div id="scene-root" class="absolute inset-0" data-books={JSON.stringify(recentBooks)}>
+<div id="scene-root" class="absolute inset-0">
+  <template data-scene-books>{JSON.stringify(featuredBooks)}</template>
   <canvas
     id="scene-canvas"
     class="absolute inset-0 w-full h-full"
