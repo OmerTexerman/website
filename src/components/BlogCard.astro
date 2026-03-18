@@ -15,18 +15,21 @@ const { title, description, pubDate, tags, slug } = Astro.props;
 
 <a
   href={`/blog/${slug}`}
-  class="group block rounded-xl border border-white/8 bg-dark-surface-elevated p-4 sm:p-6 transition-[transform,box-shadow] duration-200 hover:ring-2 hover:ring-accent/40 hover:translate-y-[-2px] focus:outline-none focus:ring-2 focus:ring-accent"
+  class="group flex rounded-xl border border-white/8 bg-dark-surface-elevated overflow-hidden transition-[transform,box-shadow] duration-200 hover:ring-2 hover:ring-accent/40 hover:translate-y-[-2px] focus:outline-none focus:ring-2 focus:ring-accent"
 >
-  <time class="font-mono text-xs text-muted">{formatDate(pubDate)}</time>
-  <h3 class="font-display text-xl font-bold mt-2 mb-2 text-cream group-hover:text-accent transition-colors">
-    {title}
-  </h3>
-  <p class="text-cream-dark text-sm leading-relaxed mb-4">{description}</p>
-  {tags && tags.length > 0 && (
-    <div class="flex flex-wrap gap-2">
-      {tags.map((tag) => (
-        <Tag label={tag} />
-      ))}
-    </div>
-  )}
+  <div class="w-1 shrink-0 bg-accent/30 group-hover:bg-accent transition-colors duration-200"></div>
+  <div class="p-4 sm:p-6 flex-1 min-w-0">
+    <time class="font-mono text-xs text-muted">{formatDate(pubDate)}</time>
+    <h3 class="font-display text-xl font-bold mt-2 mb-2 text-cream group-hover:text-accent transition-colors">
+      {title}
+    </h3>
+    <p class="text-cream-dark text-sm leading-relaxed mb-4">{description}</p>
+    {tags && tags.length > 0 && (
+      <div class="flex flex-wrap gap-2">
+        {tags.map((tag) => (
+          <Tag label={tag} />
+        ))}
+      </div>
+    )}
+  </div>
 </a>

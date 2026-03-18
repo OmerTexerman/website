@@ -19,7 +19,7 @@ const { photos } = Astro.props;
     {photos.map((photo, i) => (
       <button
         type="button"
-        class="group relative aspect-[4/3] cursor-pointer overflow-hidden rounded-xl border border-white/8 bg-dark-surface-elevated focus:outline-none focus:ring-2 focus:ring-accent"
+        class="group relative aspect-[4/3] cursor-pointer overflow-hidden rounded-xl border border-white/8 bg-dark-surface-elevated shadow-lg shadow-black/20 focus:outline-none focus:ring-2 focus:ring-accent transition-[transform,box-shadow] duration-300 hover:translate-y-[-2px] hover:shadow-xl hover:shadow-black/30"
         data-photo-index={i}
         aria-label={`View photo: ${photo.alt}`}
       >
@@ -29,9 +29,10 @@ const { photos } = Astro.props;
           loading="lazy"
           class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
         />
+        <div class="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
         {photo.caption && (
-          <div class="absolute inset-x-0 bottom-0 translate-y-full bg-gradient-to-t from-black/70 to-transparent p-3 transition-transform duration-300 group-hover:translate-y-0 group-focus-visible:translate-y-0">
-            <p class="text-sm text-cream">{photo.caption}</p>
+          <div class="absolute inset-x-0 bottom-0 translate-y-full p-3 pt-6 transition-transform duration-300 group-hover:translate-y-0 group-focus-visible:translate-y-0">
+            <p class="text-sm text-cream font-medium drop-shadow-md">{photo.caption}</p>
           </div>
         )}
       </button>
@@ -42,25 +43,55 @@ const { photos } = Astro.props;
     data-photo-lightbox
     class="fixed inset-0 z-50 m-0 h-full max-h-none w-full max-w-none bg-dark/95 p-0 backdrop-blur-sm"
   >
-    <div class="flex h-full w-full items-center justify-center p-8">
+    <div class="flex h-full w-full items-center justify-center p-4 sm:p-8">
       <button
         data-photo-lightbox-close
-        class="absolute right-4 top-4 z-10 text-3xl font-light text-cream/80 hover:text-cream"
+        class="absolute right-4 top-4 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-white/10 text-cream/80 hover:bg-white/20 hover:text-cream transition-colors"
         aria-label="Close lightbox"
       >
-        &times;
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
       </button>
+
+      <button
+        data-photo-lightbox-prev
+        class="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 z-10 w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center rounded-full bg-white/10 text-cream/80 hover:bg-white/20 hover:text-cream transition-colors"
+        aria-label="Previous photo"
+      >
+        <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+      </button>
+
+      <button
+        data-photo-lightbox-next
+        class="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 z-10 w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center rounded-full bg-white/10 text-cream/80 hover:bg-white/20 hover:text-cream transition-colors"
+        aria-label="Next photo"
+      >
+        <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+      </button>
+
       <img
         data-photo-lightbox-img
         src=""
         alt=""
         class="max-h-full max-w-full rounded-lg object-contain"
       />
-      <p
-        data-photo-lightbox-caption
-        class="absolute bottom-8 left-1/2 -translate-x-1/2 text-center text-base text-cream"
-      >
-      </p>
+      <div class="absolute bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 text-center">
+        <p
+          data-photo-lightbox-caption
+          class="text-base text-cream mb-2"
+        >
+        </p>
+        <p
+          data-photo-lightbox-counter
+          class="font-mono text-xs text-muted"
+        >
+        </p>
+      </div>
     </div>
   </dialog>
 </div>
@@ -82,14 +113,20 @@ const { photos } = Astro.props;
     const dialog = root.querySelector("[data-photo-lightbox]");
     const img = root.querySelector("[data-photo-lightbox-img]");
     const caption = root.querySelector("[data-photo-lightbox-caption]");
+    const counter = root.querySelector("[data-photo-lightbox-counter]");
     const closeBtn = root.querySelector("[data-photo-lightbox-close]");
+    const prevBtn = root.querySelector("[data-photo-lightbox-prev]");
+    const nextBtn = root.querySelector("[data-photo-lightbox-next]");
 
     if (
       !(dataEl instanceof HTMLTemplateElement) ||
       !(dialog instanceof HTMLDialogElement) ||
       !(img instanceof HTMLImageElement) ||
       !(caption instanceof HTMLElement) ||
-      !(closeBtn instanceof HTMLButtonElement)
+      !(counter instanceof HTMLElement) ||
+      !(closeBtn instanceof HTMLButtonElement) ||
+      !(prevBtn instanceof HTMLButtonElement) ||
+      !(nextBtn instanceof HTMLButtonElement)
     ) {
       continue;
     }
@@ -104,16 +141,23 @@ const { photos } = Astro.props;
 
     root.dataset.photoGalleryMounted = "true";
     let lastTrigger: HTMLButtonElement | null = null;
+    let currentIndex = 0;
     const buttons = [...root.querySelectorAll<HTMLButtonElement>("[data-photo-index]")];
 
-    const openPhoto = (btn: HTMLButtonElement) => {
-      const idx = Number.parseInt(btn.getAttribute("data-photo-index") || "0", 10);
-      const photo = photos[idx];
+    const showPhoto = (idx: number) => {
+      currentIndex = ((idx % photos.length) + photos.length) % photos.length;
+      const photo = photos[currentIndex];
       if (!photo) return;
       img.src = photo.src;
       img.alt = photo.alt;
       caption.textContent = photo.caption || "";
+      counter.textContent = `${currentIndex + 1} / ${photos.length}`;
+    };
+
+    const openPhoto = (btn: HTMLButtonElement) => {
+      const idx = Number.parseInt(btn.getAttribute("data-photo-index") || "0", 10);
       lastTrigger = btn;
+      showPhoto(idx);
       dialog.showModal();
     };
 
@@ -123,6 +167,8 @@ const { photos } = Astro.props;
       return { btn, handler };
     });
 
+    const onPrev = () => showPhoto(currentIndex - 1);
+    const onNext = () => showPhoto(currentIndex + 1);
     const onCloseClick = () => dialog.close();
     const onBackdropClick = (e: MouseEvent) => {
       if (e.target === dialog) dialog.close();
@@ -131,19 +177,30 @@ const { photos } = Astro.props;
       lastTrigger?.focus();
       lastTrigger = null;
     };
+    const onKeydown = (e: KeyboardEvent) => {
+      if (!dialog.open) return;
+      if (e.key === "ArrowLeft") { e.preventDefault(); onPrev(); }
+      if (e.key === "ArrowRight") { e.preventDefault(); onNext(); }
+    };
 
+    prevBtn.addEventListener("click", onPrev);
+    nextBtn.addEventListener("click", onNext);
     closeBtn.addEventListener("click", onCloseClick);
     dialog.addEventListener("click", onBackdropClick);
     dialog.addEventListener("close", onClose);
+    document.addEventListener("keydown", onKeydown);
 
     cleanups.push(() => {
       for (const { btn, handler } of buttonHandlers) {
         btn.removeEventListener("click", handler);
       }
       if (dialog.open) dialog.close();
+      prevBtn.removeEventListener("click", onPrev);
+      nextBtn.removeEventListener("click", onNext);
       closeBtn.removeEventListener("click", onCloseClick);
       dialog.removeEventListener("click", onBackdropClick);
       dialog.removeEventListener("close", onClose);
+      document.removeEventListener("keydown", onKeydown);
       delete root.dataset.photoGalleryMounted;
     });
   }

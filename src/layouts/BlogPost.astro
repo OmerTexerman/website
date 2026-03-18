@@ -41,28 +41,32 @@ const { title, description, pubDate, updatedDate, tags } = Astro.props;
         </a>
 
         <header class="mb-10">
-          <time datetime={pubDate.toISOString()} class="font-mono text-sm text-muted">
-            {formatDate(pubDate, "long")}
-          </time>
-          {updatedDate && (
-            <span class="font-mono text-sm text-muted ml-3">
-              (Updated {formatDate(updatedDate, "long")})
-            </span>
-          )}
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-8 h-[3px] bg-accent rounded-full"></div>
+            <time datetime={pubDate.toISOString()} class="font-mono text-xs uppercase tracking-[0.15em] text-accent">
+              {formatDate(pubDate, "long")}
+            </time>
+            {updatedDate && (
+              <span class="font-mono text-xs text-muted">
+                (Updated {formatDate(updatedDate, "long")})
+              </span>
+            )}
+          </div>
           <h1 class="font-display text-4xl sm:text-5xl font-bold mt-3 mb-4 tracking-tight text-cream">
             {title}
           </h1>
-          <p class="text-lg text-cream-dark">{description}</p>
+          <p class="text-lg text-cream-dark leading-relaxed">{description}</p>
           {tags && tags.length > 0 && (
-            <div class="flex flex-wrap gap-2 mt-4">
+            <div class="flex flex-wrap gap-2 mt-5">
               {tags.map((tag) => (
                 <Tag label={tag} />
               ))}
             </div>
           )}
+          <div class="mt-8 h-px bg-gradient-to-r from-accent/30 via-white/8 to-transparent"></div>
         </header>
 
-        <div class="prose prose-invert prose-lg max-w-none prose-headings:font-display prose-headings:tracking-tight prose-headings:text-cream prose-p:text-cream-dark prose-strong:text-cream prose-li:text-cream-dark prose-blockquote:text-cream-dark prose-a:text-accent prose-a:underline-offset-2 hover:prose-a:text-accent-hover prose-code:text-accent prose-code:font-mono prose-pre:bg-dark prose-pre:text-cream prose-pre:rounded-xl prose-img:rounded-xl">
+        <div class="prose prose-invert prose-lg max-w-none prose-headings:font-display prose-headings:tracking-tight prose-headings:text-cream prose-p:text-cream-dark prose-strong:text-cream prose-li:text-cream-dark prose-blockquote:text-cream-dark prose-blockquote:border-accent/40 prose-a:text-accent prose-a:underline-offset-2 hover:prose-a:text-accent-hover prose-code:text-accent prose-code:font-mono prose-pre:bg-dark prose-pre:text-cream prose-pre:rounded-xl prose-pre:border prose-pre:border-white/8 prose-img:rounded-xl prose-hr:border-white/8">
           <slot />
         </div>
       </div>

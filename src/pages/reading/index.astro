@@ -23,8 +23,12 @@ const sections = [
   <PageIntro title="Reading" description={nav?.description} />
 
   {sections.map((section, si) => (
-    <div class={si > 0 ? "mt-10" : ""} data-animate style={`transition-delay: ${si * 0.15}s`}>
-      <h2 class="font-display text-2xl font-bold mb-4 text-cream">{section.title}</h2>
+    <div class={si > 0 ? "mt-12" : ""} data-animate style={`transition-delay: ${si * 0.15}s`}>
+      <div class="flex items-center gap-3 mb-5">
+        <h2 class="font-display text-2xl font-bold text-cream">{section.title}</h2>
+        <span class="font-mono text-xs text-muted bg-white/5 px-2 py-0.5 rounded-full border border-white/8">{section.books.length}</span>
+        <div class="flex-1 h-px bg-white/8"></div>
+      </div>
       <div class="space-y-3">
         {section.books.map((book) => (
           <BookCard
