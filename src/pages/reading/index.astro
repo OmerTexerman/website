@@ -17,12 +17,26 @@ const sections = [
 	{ title: "Finished", note: "Books shelved back after leaving a mark.", books: finished },
 	{ title: "Want to Read", note: "Spines waiting for the next quiet week.", books: wantToRead },
 ].filter((s) => s.books.length > 0);
+
+const previewBooks = sections.flatMap((section) =>
+	section.books.map((book, index) => ({
+		id: book.id,
+		title: book.data.title,
+		author: book.data.author,
+		spineColor: book.data.spineColor,
+		url: book.data.url,
+		sectionTitle: section.title,
+		pulled: section.title === "Currently Reading" ? index === 0 : false,
+	})),
+);
 ---
 
 <ContentPage title={`Reading | ${site.name}`} description={nav?.description}>
   <PageIntro title="Reading" description={nav?.description} />
 
-  <div class="object-stack">
+  <div class="object-stack" data-reading-room>
+    <template data-book-preview-data>{JSON.stringify(previewBooks)}</template>
+
     {sections.map((section, si) => (
       <section class="shelf-section object-row" data-animate style={`transition-delay: ${si * 0.12}s`}>
         <div class="flex flex-wrap items-end justify-between gap-3">
@@ -37,6 +51,7 @@ const sections = [
         <div class="shelf-books no-scrollbar">
           {section.books.map((book, index) => (
             <BookCard
+              id={book.id}
               title={book.data.title}
               author={book.data.author}
               spineColor={book.data.spineColor}
@@ -48,13 +63,165 @@ const sections = [
 
         <div class="shelf-ledger">
           {section.books.map((book) => (
-            <div class="shelf-ledger__item">
+            <button type="button" class="shelf-ledger__item text-left" data-book-ledger-id={book.id}>
               <p class="font-display text-lg font-semibold text-cream">{book.data.title}</p>
               <p class="text-sm text-cream-dark">{book.data.author}</p>
-            </div>
+            </button>
           ))}
         </div>
       </section>
     ))}
+
+    <dialog data-book-preview class="book-preview-dialog fixed inset-0 z-50 m-0 h-full max-h-none w-full max-w-none bg-dark/92 p-0 backdrop-blur-md">
+      <div class="book-preview-shell flex min-h-full items-center justify-center p-4 sm:p-8">
+        <button type="button" data-book-preview-close class="book-preview-close" aria-label="Close book preview">&times;</button>
+
+        <div class="book-preview-panel">
+          <div class="book-cover" data-book-cover>
+            <div class="book-cover__shine"></div>
+            <p class="book-cover__eyebrow" data-book-preview-section></p>
+            <h3 class="book-cover__title" data-book-preview-title></h3>
+            <p class="book-cover__author" data-book-preview-author></p>
+          </div>
+
+          <div class="book-preview-copy">
+            <p class="section-label mb-3">Pulled from shelf</p>
+            <h3 class="font-display text-3xl font-bold tracking-tight text-cream" data-book-preview-title-copy></h3>
+            <p class="mt-3 text-lg text-cream-dark" data-book-preview-author-copy></p>
+            <p class="mt-5 max-w-xl text-sm leading-relaxed text-cream-dark">
+              Not every book needs to show its whole face on the shelf. Click a spine and it pulls forward into a full cover preview instead.
+            </p>
+            <div class="mt-6 flex flex-wrap gap-3">
+              <a data-book-preview-link href="#" target="_blank" rel="noopener noreferrer" class="desk-link hidden">
+                Open book link <span aria-hidden="true">&rarr;</span>
+              </a>
+              <button type="button" data-book-preview-close-secondary class="desk-link text-muted hover:text-cream">Return to shelf</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </dialog>
   </div>
+
+  <script>
+    interface PreviewBook {
+      id: string;
+      title: string;
+      author: string;
+      spineColor: string;
+      url?: string;
+      sectionTitle: string;
+      pulled?: boolean;
+    }
+
+    const cleanups: Array<() => void> = [];
+    const roots = [...document.querySelectorAll<HTMLElement>("[data-reading-room]")];
+
+    for (const root of roots) {
+      if (root.dataset.readingRoomMounted === "true") continue;
+
+      const dataEl = root.querySelector("template[data-book-preview-data]");
+      const dialog = root.querySelector("[data-book-preview]");
+      const cover = root.querySelector("[data-book-cover]");
+      const sectionEl = root.querySelector("[data-book-preview-section]");
+      const titleEl = root.querySelector("[data-book-preview-title]");
+      const authorEl = root.querySelector("[data-book-preview-author]");
+      const titleCopyEl = root.querySelector("[data-book-preview-title-copy]");
+      const authorCopyEl = root.querySelector("[data-book-preview-author-copy]");
+      const linkEl = root.querySelector("[data-book-preview-link]");
+      const closeButtons = [...root.querySelectorAll<HTMLButtonElement>("[data-book-preview-close], [data-book-preview-close-secondary]")];
+
+      if (
+        !(dataEl instanceof HTMLTemplateElement) ||
+        !(dialog instanceof HTMLDialogElement) ||
+        !(cover instanceof HTMLElement) ||
+        !(sectionEl instanceof HTMLElement) ||
+        !(titleEl instanceof HTMLElement) ||
+        !(authorEl instanceof HTMLElement) ||
+        !(titleCopyEl instanceof HTMLElement) ||
+        !(authorCopyEl instanceof HTMLElement) ||
+        !(linkEl instanceof HTMLAnchorElement)
+      ) {
+        continue;
+      }
+
+      let books: PreviewBook[] = [];
+      try {
+        const raw = dataEl.innerHTML.trim();
+        books = raw ? (JSON.parse(raw) as PreviewBook[]) : [];
+      } catch {
+        continue;
+      }
+
+      root.dataset.readingRoomMounted = "true";
+      let lastTrigger: HTMLElement | null = null;
+      const shelfButtons = [...root.querySelectorAll<HTMLElement>("[data-book-id], [data-book-ledger-id]")];
+
+      const setPreview = (book: PreviewBook) => {
+        sectionEl.textContent = book.sectionTitle;
+        titleEl.textContent = book.title;
+        authorEl.textContent = book.author;
+        titleCopyEl.textContent = book.title;
+        authorCopyEl.textContent = book.author;
+        cover.style.backgroundColor = book.spineColor;
+        cover.style.setProperty("--book-cover-color", book.spineColor);
+
+        if (book.url) {
+          linkEl.href = book.url;
+          linkEl.classList.remove("hidden");
+        } else {
+          linkEl.href = "#";
+          linkEl.classList.add("hidden");
+        }
+      };
+
+      const openBook = (bookId: string, trigger: HTMLElement) => {
+        const book = books.find((entry) => entry.id === bookId);
+        if (!book) return;
+        setPreview(book);
+        lastTrigger = trigger;
+        dialog.showModal();
+      };
+
+      const handlers = shelfButtons.map((trigger) => {
+        const bookId = trigger.getAttribute("data-book-id") || trigger.getAttribute("data-book-ledger-id") || "";
+        const handler = () => openBook(bookId, trigger);
+        trigger.addEventListener("click", handler);
+        return { trigger, handler };
+      });
+
+      const closeDialog = () => dialog.close();
+      const onBackdropClick = (event: MouseEvent) => {
+        if (event.target === dialog) dialog.close();
+      };
+      const onClose = () => {
+        lastTrigger?.focus();
+        lastTrigger = null;
+      };
+
+      for (const button of closeButtons) button.addEventListener("click", closeDialog);
+      dialog.addEventListener("click", onBackdropClick);
+      dialog.addEventListener("close", onClose);
+
+      cleanups.push(() => {
+        for (const { trigger, handler } of handlers) {
+          trigger.removeEventListener("click", handler);
+        }
+        for (const button of closeButtons) button.removeEventListener("click", closeDialog);
+        dialog.removeEventListener("click", onBackdropClick);
+        dialog.removeEventListener("close", onClose);
+        if (dialog.open) dialog.close();
+        delete root.dataset.readingRoomMounted;
+      });
+    }
+
+    if (cleanups.length > 0) {
+      const cleanup = () => {
+        for (const dispose of cleanups) dispose();
+        document.removeEventListener("astro:before-preparation", cleanup);
+      };
+
+      document.addEventListener("astro:before-preparation", cleanup, { once: true });
+    }
+  </script>
 </ContentPage>

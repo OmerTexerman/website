@@ -1,5 +1,6 @@
 ---
 interface Props {
+	id: string;
 	title: string;
 	author: string;
 	spineColor: string;
@@ -7,25 +8,20 @@ interface Props {
 	pulled?: boolean;
 }
 
-const { title, author, spineColor, url, pulled = false } = Astro.props;
+const { id, title, author, spineColor, url, pulled = false } = Astro.props;
 ---
 
-{url ? (
-  <a
-    href={url}
-    target="_blank"
-    rel="noopener noreferrer"
-    class="shelf-book"
-    style={`background-color: ${spineColor}`}
-    data-pulled={pulled ? "true" : undefined}
-    aria-label={`${title} by ${author}`}
-  >
-    <span class="shelf-book__author">{author}</span>
-    <span class="shelf-book__label">{title}</span>
-  </a>
-) : (
-  <div class="shelf-book" style={`background-color: ${spineColor}`} data-pulled={pulled ? "true" : undefined}>
-    <span class="shelf-book__author">{author}</span>
-    <span class="shelf-book__label">{title}</span>
-  </div>
-)}
+<button
+  type="button"
+  class="shelf-book"
+  style={`background-color: ${spineColor}`}
+  data-book-id={id}
+  data-book-title={title}
+  data-book-author={author}
+  data-book-color={spineColor}
+  data-book-url={url}
+  data-pulled={pulled ? "true" : undefined}
+  aria-label={`Preview ${title} by ${author}`}
+>
+  <span class="shelf-book__label">{title}</span>
+</button>
