@@ -267,6 +267,7 @@ export function initUnifiedScene(
 	let contextLost = false;
 	let pendingModalTimeout = 0;
 	let transitionAnimationId = 0;
+	let transitionResolve: (() => void) | null = null;
 	let postTransitionRaf = 0;
 
 	// Wall state — lazily created
@@ -950,6 +951,7 @@ export function initUnifiedScene(
 
 		// Animate transition
 		await new Promise<void>((resolve) => {
+			transitionResolve = resolve;
 			const transitionStart = performance.now();
 			const transitionDuration =
 				currentMode === "desktop" && target === "mobile"
@@ -1008,6 +1010,7 @@ export function initUnifiedScene(
 
 			transitionAnimationId = requestAnimationFrame(tick);
 		});
+		transitionResolve = null;
 
 		// Settle into target mode
 		currentMode = target;
@@ -1053,6 +1056,11 @@ export function initUnifiedScene(
 		cancelAnimationFrame(animationId);
 		if (resizeFrame) cancelAnimationFrame(resizeFrame);
 		if (transitionAnimationId) cancelAnimationFrame(transitionAnimationId);
+		// Settle any in-flight transition promise so the async chain can GC
+		if (transitionResolve) {
+			transitionResolve();
+			transitionResolve = null;
+		}
 		if (postTransitionRaf) cancelAnimationFrame(postTransitionRaf);
 		if (pendingModalTimeout) window.clearTimeout(pendingModalTimeout);
 		if (cleanupInteraction) cleanupInteraction();

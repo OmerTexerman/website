@@ -112,8 +112,11 @@ export function mountSceneApp(): () => void {
 
 	resizeObserver?.observe(root);
 
+	const listenerAc = new AbortController();
+
 	function cleanup(): void {
 		generation++; // Invalidate any in-flight async work (e.g. dynamic import)
+		listenerAc.abort(); // Remove astro:before-preparation and beforeunload listeners
 		sceneHandle?.cleanup();
 		sceneHandle = null;
 		activeMode = null;
@@ -130,8 +133,14 @@ export function mountSceneApp(): () => void {
 
 	activeCleanup = cleanup;
 
-	document.addEventListener("astro:before-preparation", cleanup, { once: true });
-	window.addEventListener("beforeunload", cleanup, { once: true });
+	document.addEventListener("astro:before-preparation", cleanup, {
+		once: true,
+		signal: listenerAc.signal,
+	});
+	window.addEventListener("beforeunload", cleanup, {
+		once: true,
+		signal: listenerAc.signal,
+	});
 	scheduleModeSync();
 
 	return cleanup;
