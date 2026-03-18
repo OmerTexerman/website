@@ -4,25 +4,28 @@ interface Props {
 	author: string;
 	spineColor: string;
 	url?: string;
+	pulled?: boolean;
 }
 
-const { title, author, spineColor, url } = Astro.props;
+const { title, author, spineColor, url, pulled = false } = Astro.props;
 ---
 
-<div class="content-card flex items-center gap-4 p-4 sm:p-5">
-  <div class="relative h-16 w-4 shrink-0 overflow-hidden rounded-md border border-black/10" style={`background-color: ${spineColor}`}>
-    <div class="absolute inset-y-0 right-0 w-[3px] bg-black/10"></div>
-    <div class="absolute inset-x-0 top-2 h-px bg-white/30"></div>
+{url ? (
+  <a
+    href={url}
+    target="_blank"
+    rel="noopener noreferrer"
+    class="shelf-book"
+    style={`background-color: ${spineColor}`}
+    data-pulled={pulled ? "true" : undefined}
+    aria-label={`${title} by ${author}`}
+  >
+    <span class="shelf-book__author">{author}</span>
+    <span class="shelf-book__label">{title}</span>
+  </a>
+) : (
+  <div class="shelf-book" style={`background-color: ${spineColor}`} data-pulled={pulled ? "true" : undefined}>
+    <span class="shelf-book__author">{author}</span>
+    <span class="shelf-book__label">{title}</span>
   </div>
-  <div class="min-w-0 flex-1">
-    <p class="section-label mb-2">On the shelf</p>
-    {url ? (
-      <a href={url} target="_blank" rel="noopener noreferrer" class="block truncate font-display text-lg font-bold text-cream transition-colors hover:text-accent sm:text-xl">
-        {title}
-      </a>
-    ) : (
-      <p class="truncate font-display text-lg font-bold text-cream sm:text-xl">{title}</p>
-    )}
-    <p class="mt-1 text-sm text-cream-dark">{author}</p>
-  </div>
-</div>
+)}

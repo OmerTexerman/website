@@ -11,18 +11,16 @@ const shortTitle = title.toLowerCase();
 
 <div class="mb-12 border-b border-white/10 pb-8 sm:pb-10" data-animate style={`transition-delay: ${delay}s`}>
 	<div class="page-kicker mb-5">Desk view / {shortTitle}</div>
-	<div class="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(16rem,0.9fr)] lg:items-end">
+	<div class="page-intro-grid">
 		<div>
-			<h1 class="font-display text-4xl font-bold tracking-tight text-cream sm:text-5xl lg:text-6xl">
-				{title}
-			</h1>
+			<h1 class="font-display text-4xl font-bold tracking-tight text-cream sm:text-5xl lg:text-6xl">{title}</h1>
 			{description && <p class="mt-4 max-w-2xl text-base leading-relaxed text-cream-dark sm:text-lg">{description}</p>}
 		</div>
-		<div class="content-card px-5 py-4 sm:px-6 sm:py-5">
-			<p class="section-label mb-3">Atmosphere</p>
+		<aside class="page-note">
+			<p class="section-label mb-3">From the room</p>
 			<p class="text-sm leading-relaxed text-cream-dark sm:text-[0.95rem]">
-				A quieter corner of the same room — warm highlights, tactile surfaces, and a little more space to browse.
+				Same apartment, different object: less dashboard, more artifact. Each section should feel like you found a different thing on or near the desk.
 			</p>
-		</div>
+		</aside>
 	</div>
 </div>

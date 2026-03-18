@@ -13,33 +13,45 @@ const finished = allBooks.filter((b) => b.data.status === "finished");
 const wantToRead = allBooks.filter((b) => b.data.status === "want-to-read");
 
 const sections = [
-	{ title: "Currently Reading", books: reading },
-	{ title: "Finished", books: finished },
-	{ title: "Want to Read", books: wantToRead },
+	{ title: "Currently Reading", note: "A few volumes pulled slightly forward.", books: reading },
+	{ title: "Finished", note: "Books shelved back after leaving a mark.", books: finished },
+	{ title: "Want to Read", note: "Spines waiting for the next quiet week.", books: wantToRead },
 ].filter((s) => s.books.length > 0);
 ---
 
 <ContentPage title={`Reading | ${site.name}`} description={nav?.description}>
   <PageIntro title="Reading" description={nav?.description} />
 
-  <div class="space-y-8 sm:space-y-10">
+  <div class="object-stack">
     {sections.map((section, si) => (
-      <section class="content-card p-5 sm:p-6" data-animate style={`transition-delay: ${si * 0.15}s`}>
-        <div class="mb-5 flex flex-wrap items-end justify-between gap-3 border-b border-white/10 pb-4">
+      <section class="shelf-section object-row" data-animate style={`transition-delay: ${si * 0.12}s`}>
+        <div class="flex flex-wrap items-end justify-between gap-3">
           <div>
             <p class="section-label mb-2">Shelf section</p>
-            <h2 class="font-display text-2xl font-bold text-cream">{section.title}</h2>
+            <h2 class="font-display text-2xl font-bold tracking-tight text-cream">{section.title}</h2>
+            <p class="mt-2 max-w-xl text-sm text-cream-dark">{section.note}</p>
           </div>
-          <p class="font-mono text-sm text-muted">{section.books.length} {section.books.length === 1 ? "title" : "titles"}</p>
+          <p class="font-mono text-sm text-muted">{section.books.length} {section.books.length === 1 ? "volume" : "volumes"}</p>
         </div>
-        <div class="content-card-grid">
-          {section.books.map((book) => (
+
+        <div class="shelf-books no-scrollbar">
+          {section.books.map((book, index) => (
             <BookCard
               title={book.data.title}
               author={book.data.author}
               spineColor={book.data.spineColor}
               url={book.data.url}
+              pulled={section.title === "Currently Reading" ? index === 0 : false}
             />
+          ))}
+        </div>
+
+        <div class="shelf-ledger">
+          {section.books.map((book) => (
+            <div class="shelf-ledger__item">
+              <p class="font-display text-lg font-semibold text-cream">{book.data.title}</p>
+              <p class="text-sm text-cream-dark">{book.data.author}</p>
+            </div>
           ))}
         </div>
       </section>

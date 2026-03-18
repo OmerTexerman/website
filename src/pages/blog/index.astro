@@ -15,9 +15,9 @@ const posts = await getPublishedPosts();
   {posts.length === 0 ? (
     <p class="font-mono text-muted">No posts yet. Check back soon!</p>
   ) : (
-    <div class="content-card-grid">
+    <div class="object-stack">
       {posts.map((post, i) => (
-        <div data-animate style={`transition-delay: ${i * 0.1}s`}>
+        <div class="object-row" data-animate style={`transition-delay: ${i * 0.08}s`}>
           <BlogCard
             title={post.data.title}
             description={post.data.description}

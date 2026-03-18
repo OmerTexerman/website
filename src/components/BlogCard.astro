@@ -11,28 +11,36 @@ interface Props {
 }
 
 const { title, description, pubDate, tags, slug } = Astro.props;
+const accentWord = title.split(" ")[0] ?? "Note";
 ---
 
-<a
-  href={`/blog/${slug}`}
-  class="content-card group block p-5 sm:p-6"
->
-  <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+<a href={`/blog/${slug}`} class="folio-link group">
+  <div class="folio-meta">
     <time class="font-mono text-xs uppercase tracking-[0.2em] text-muted-light">{formatDate(pubDate)}</time>
-    <span class="section-label text-[0.68rem]">Filed under / journal</span>
+    <span class="section-label text-[0.68rem]">Loose note / blog</span>
   </div>
-  <h3 class="font-display text-xl font-bold text-cream transition-colors group-hover:text-accent sm:text-2xl">
-    {title}
-  </h3>
-  <p class="mt-3 text-sm leading-relaxed text-cream-dark sm:text-base">{description}</p>
-  <div class="mt-6 flex flex-wrap items-center justify-between gap-4">
-    {tags && tags.length > 0 ? (
-      <div class="flex flex-wrap gap-2">
-        {tags.map((tag) => (
-          <Tag label={tag} />
-        ))}
-      </div>
-    ) : <span class="text-sm text-muted">&nbsp;</span>}
-    <span class="font-mono text-sm text-accent transition-transform duration-200 group-hover:translate-x-0.5">Open note &rarr;</span>
+
+  <div class="folio-body">
+    <h3 class="font-display text-2xl font-bold tracking-tight text-cream transition-colors group-hover:text-accent sm:text-3xl">
+      {title}
+    </h3>
+    <p class="max-w-2xl text-sm leading-relaxed text-cream-dark sm:text-base">{description}</p>
+    <div class="flex flex-wrap items-center gap-3">
+      {tags && tags.length > 0 && (
+        <div class="tag-cluster">
+          {tags.map((tag) => (
+            <Tag label={tag} />
+          ))}
+        </div>
+      )}
+      <span class="font-mono text-sm text-accent transition-transform duration-200 group-hover:translate-x-1">Pull note out &rarr;</span>
+    </div>
+  </div>
+
+  <div class="folio-aside hidden md:block">
+    <p class="pull-quote">{accentWord}</p>
+    <p class="mt-3 text-sm leading-relaxed text-muted">
+      A filed thought from the desk — meant to feel picked up, glanced through, and set back down.
+    </p>
   </div>
 </a>
