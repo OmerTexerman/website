@@ -2,28 +2,50 @@
   title: "Lorem Ipsum Dolor Sit"
   author: "Amet Consectetur"
   spineColor: "#2a4a6a"
+  textColor: "#d4e4f4"
   status: reading
+  coverImage: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=300&h=450&fit=crop"
+  review: "A fascinating exploration of modern thought. The author weaves together complex ideas with remarkable clarity."
+  pageCount: 342
 
 - id: lorem-ipsum-two
   title: "Adipiscing Elit Sed"
   author: "Eiusmod Tempor"
   spineColor: "#6a3a3a"
+  textColor: "#f4d4d4"
   status: finished
+  coverImage: "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=300&h=450&fit=crop"
+  review: "One of the best books I've read this year. The narrative pulls you in and doesn't let go."
+  rating: 5
+  pageCount: 278
 
 - id: lorem-ipsum-three
   title: "Incididunt Ut Labore"
   author: "Dolore Magna"
   spineColor: "#3a5a3a"
+  textColor: "#d4f4d4"
   status: finished
+  coverImage: "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=300&h=450&fit=crop"
+  review: "Solid technical writing with practical examples throughout. Would recommend to anyone in the field."
+  rating: 4
+  pageCount: 412
 
 - id: lorem-ipsum-four
   title: "Veniam Quis Nostrud"
   author: "Exercitation Ullamco"
   spineColor: "#5a4a3a"
+  textColor: "#f4e8d4"
   status: want-to-read
+  coverImage: "https://images.unsplash.com/photo-1589998059171-988d887df646?w=300&h=450&fit=crop"
+  pageCount: 256
 
 - id: lorem-ipsum-five
   title: "Duis Aute Irure"
   author: "Reprehenderit Voluptate"
   spineColor: "#4a3a6a"
+  textColor: "#e4d4f4"
   status: finished
+  coverImage: "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=300&h=450&fit=crop"
+  review: "A thoughtful and engaging read. The author's perspective is refreshing and challenges conventional wisdom."
+  rating: 4
+  pageCount: 318

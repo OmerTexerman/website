@@ -1,7 +1,7 @@
 ---
 import { getCollection } from "astro:content";
 import PageIntro from "../../components/PageIntro.astro";
-import PhotoGallery from "../../components/PhotoGallery.astro";
+import PhotoCollections from "../../components/PhotoCollections.astro";
 import { navItems, site } from "../../config";
 import ContentPage from "../../layouts/ContentPage.astro";
 
@@ -13,6 +13,6 @@ const photos = (await getCollection("photos")).map((p) => p.data);
   <PageIntro title="Photos" description={nav?.description} />
 
   <div data-animate style="transition-delay: 0.15s">
-    <PhotoGallery photos={photos} />
+    <PhotoCollections photos={photos} />
   </div>
 </ContentPage>

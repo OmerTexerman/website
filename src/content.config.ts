@@ -14,6 +14,7 @@ const blog = defineCollection({
 		updatedDate: z.coerce.date().optional(),
 		tags: z.array(z.string()).optional(),
 		draft: z.boolean().default(false),
+		featured: z.boolean().default(false),
 	}),
 });
 
@@ -26,6 +27,8 @@ const projects = defineCollection({
 		url: z.url().optional(),
 		repo: z.url().optional(),
 		order: z.number().default(0),
+		image: z.string().optional(),
+		relatedPosts: z.array(z.string()).optional(),
 	}),
 });
 
@@ -35,8 +38,13 @@ const books = defineCollection({
 		title: z.string(),
 		author: z.string(),
 		spineColor: z.string().regex(hexColor).default("#2a4a6a"),
+		textColor: z.string().regex(hexColor).default("#f0ece4"),
 		status: z.enum(["reading", "finished", "want-to-read"]),
 		url: z.url().optional(),
+		coverImage: z.string().optional(),
+		review: z.string().optional(),
+		rating: z.number().min(1).max(5).optional(),
+		pageCount: z.number().optional(),
 	}),
 });
 
@@ -46,6 +54,9 @@ const photos = defineCollection({
 		src: z.string().regex(photoSource, "Photo src must be an absolute path or URL."),
 		alt: z.string(),
 		caption: z.string().optional(),
+		description: z.string().optional(),
+		collection: z.string().default("Uncategorized"),
+		date: z.coerce.date().optional(),
 	}),
 });
 

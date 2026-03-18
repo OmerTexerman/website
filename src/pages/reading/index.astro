@@ -1,6 +1,6 @@
 ---
 import { getCollection } from "astro:content";
-import BookCard from "../../components/BookCard.astro";
+import Bookshelf from "../../components/Bookshelf.astro";
 import PageIntro from "../../components/PageIntro.astro";
 import { navItems, site } from "../../config";
 import ContentPage from "../../layouts/ContentPage.astro";
@@ -8,9 +8,22 @@ import ContentPage from "../../layouts/ContentPage.astro";
 const nav = navItems.find((n) => n.href === "/reading");
 const allBooks = await getCollection("books");
 
-const reading = allBooks.filter((b) => b.data.status === "reading");
-const finished = allBooks.filter((b) => b.data.status === "finished");
-const wantToRead = allBooks.filter((b) => b.data.status === "want-to-read");
+const toBookProps = (b: (typeof allBooks)[number]) => ({
+	id: b.id,
+	title: b.data.title,
+	author: b.data.author,
+	spineColor: b.data.spineColor,
+	textColor: b.data.textColor,
+	coverImage: b.data.coverImage,
+	review: b.data.review,
+	rating: b.data.rating,
+	pageCount: b.data.pageCount,
+	url: b.data.url,
+});
+
+const reading = allBooks.filter((b) => b.data.status === "reading").map(toBookProps);
+const finished = allBooks.filter((b) => b.data.status === "finished").map(toBookProps);
+const wantToRead = allBooks.filter((b) => b.data.status === "want-to-read").map(toBookProps);
 
 const sections = [
 	{ title: "Currently Reading", books: reading },
@@ -23,22 +36,8 @@ const sections = [
   <PageIntro title="Reading" description={nav?.description} />
 
   {sections.map((section, si) => (
-    <div class={si > 0 ? "mt-12" : ""} data-animate style={`transition-delay: ${si * 0.15}s`}>
-      <div class="flex items-center gap-3 mb-5">
-        <h2 class="font-display text-2xl font-bold text-cream">{section.title}</h2>
-        <span class="font-mono text-xs text-muted bg-white/5 px-2 py-0.5 rounded-full border border-white/8">{section.books.length}</span>
-        <div class="flex-1 h-px bg-white/8"></div>
-      </div>
-      <div class="space-y-3">
-        {section.books.map((book) => (
-          <BookCard
-            title={book.data.title}
-            author={book.data.author}
-            spineColor={book.data.spineColor}
-            url={book.data.url}
-          />
-        ))}
-      </div>
+    <div class={si > 0 ? "mt-10" : ""} data-animate style={`transition-delay: ${si * 0.15}s`}>
+      <Bookshelf books={section.books} sectionTitle={section.title} />
     </div>
   ))}
 </ContentPage>

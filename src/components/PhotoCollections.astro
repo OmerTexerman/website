@@ -1,0 +1,400 @@
+---
+interface Photo {
+	src: string;
+	alt: string;
+	caption?: string;
+	description?: string;
+	collection: string;
+	date?: Date;
+}
+
+interface Props {
+	photos: Photo[];
+}
+
+const { photos } = Astro.props;
+
+// Group by collection
+const collectionsMap = new Map<string, Photo[]>();
+for (const photo of photos) {
+	const key = photo.collection;
+	if (!collectionsMap.has(key)) collectionsMap.set(key, []);
+	collectionsMap.get(key)!.push(photo);
+}
+
+const collections = [...collectionsMap.entries()].map(([name, items]) => ({
+	name,
+	photos: items,
+	cover: items[0],
+}));
+---
+
+<div data-photo-collections>
+  <template data-collections-data>{JSON.stringify(collections)}</template>
+
+  <!-- Collection cards grid -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-5" data-collections-grid>
+    {collections.map((col, i) => (
+      <button
+        type="button"
+        class="collection-card group"
+        data-collection-name={col.name}
+        data-animate
+        style={`transition-delay: ${(i + 1) * 0.1}s`}
+      >
+        <div class="collection-card-image">
+          <img src={col.cover.src} alt={col.name} loading="lazy" />
+          <div class="collection-card-overlay">
+            <span class="font-mono text-xs bg-dark/60 backdrop-blur-sm px-2.5 py-1 rounded-full border border-white/10">
+              {col.photos.length} {col.photos.length === 1 ? "photo" : "photos"}
+            </span>
+          </div>
+        </div>
+        <div class="collection-card-info">
+          <h3 class="font-display text-lg font-bold text-cream group-hover:text-accent transition-colors">{col.name}</h3>
+        </div>
+      </button>
+    ))}
+  </div>
+
+  <!-- Expanded collection view (hidden by default) -->
+  <div class="collection-expanded" data-collection-expanded aria-hidden="true">
+    <div class="flex items-center gap-3 mb-6">
+      <button type="button" class="collection-back-btn" data-collection-back aria-label="Back to collections">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+      </button>
+      <h2 class="font-display text-2xl font-bold text-cream" data-collection-title></h2>
+      <span class="font-mono text-xs text-muted bg-white/5 px-2 py-0.5 rounded-full border border-white/8" data-collection-count></span>
+      <div class="flex-1 h-px bg-white/8"></div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" data-collection-photos></div>
+  </div>
+
+  <!-- Lightbox -->
+  <dialog
+    data-photo-lightbox
+    class="fixed inset-0 z-50 m-0 h-full max-h-none w-full max-w-none bg-dark/95 p-0 backdrop-blur-sm"
+  >
+    <div class="flex h-full w-full items-center justify-center p-4 sm:p-8">
+      <button
+        data-photo-lightbox-close
+        class="absolute right-4 top-4 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-white/10 text-cream/80 hover:bg-white/20 hover:text-cream transition-colors"
+        aria-label="Close lightbox"
+      >
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+
+      <button
+        data-photo-lightbox-prev
+        class="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 z-10 w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center rounded-full bg-white/10 text-cream/80 hover:bg-white/20 hover:text-cream transition-colors"
+        aria-label="Previous photo"
+      >
+        <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+      </button>
+
+      <button
+        data-photo-lightbox-next
+        class="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 z-10 w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center rounded-full bg-white/10 text-cream/80 hover:bg-white/20 hover:text-cream transition-colors"
+        aria-label="Next photo"
+      >
+        <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+      </button>
+
+      <img
+        data-photo-lightbox-img
+        src=""
+        alt=""
+        class="max-h-[70vh] max-w-full rounded-lg object-contain"
+      />
+      <div class="absolute bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 text-center max-w-lg px-4">
+        <p data-photo-lightbox-caption class="text-base text-cream font-medium mb-1"></p>
+        <p data-photo-lightbox-description class="text-sm text-cream-dark mb-2"></p>
+        <p data-photo-lightbox-counter class="font-mono text-xs text-muted"></p>
+      </div>
+    </div>
+  </dialog>
+</div>
+
+<style>
+  .collection-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--color-dark-surface-elevated);
+    cursor: pointer;
+    text-align: left;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+
+  .collection-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+  }
+
+  .collection-card:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  .collection-card-image {
+    position: relative;
+    aspect-ratio: 16/10;
+    overflow: hidden;
+  }
+
+  .collection-card-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .collection-card:hover .collection-card-image img {
+    transform: scale(1.05);
+  }
+
+  .collection-card-overlay {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    color: var(--color-cream);
+  }
+
+  .collection-card-info {
+    padding: 0.875rem 1rem;
+  }
+
+  .collection-expanded {
+    display: none;
+  }
+
+  .collection-expanded.is-open {
+    display: block;
+  }
+
+  .collection-back-btn {
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--color-dark-surface-elevated);
+    color: var(--color-cream);
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
+  }
+
+  .collection-back-btn:hover {
+    border-color: rgba(196, 69, 58, 0.4);
+    color: var(--color-accent);
+  }
+
+  .photo-thumb {
+    position: relative;
+    aspect-ratio: 4/3;
+    overflow: hidden;
+    border-radius: 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--color-dark-surface-elevated);
+    cursor: pointer;
+    transition: transform 0.3s, box-shadow 0.3s;
+  }
+
+  .photo-thumb:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  }
+
+  .photo-thumb:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  .photo-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s;
+  }
+
+  .photo-thumb:hover img {
+    transform: scale(1.05);
+  }
+
+  .photo-thumb-caption {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 2rem 0.75rem 0.75rem;
+    background: linear-gradient(to top, rgba(0,0,0,0.6), transparent);
+    transform: translateY(100%);
+    transition: transform 0.3s;
+  }
+
+  .photo-thumb:hover .photo-thumb-caption,
+  .photo-thumb:focus-visible .photo-thumb-caption {
+    transform: translateY(0);
+  }
+</style>
+
+<script>
+  interface Photo {
+    src: string;
+    alt: string;
+    caption?: string;
+    description?: string;
+    collection: string;
+    date?: string;
+  }
+
+  interface Collection {
+    name: string;
+    photos: Photo[];
+    cover: Photo;
+  }
+
+  const cleanups: Array<() => void> = [];
+
+  const roots = [...document.querySelectorAll<HTMLElement>("[data-photo-collections]")];
+  for (const root of roots) {
+    if (root.dataset.mounted === "true") continue;
+    root.dataset.mounted = "true";
+
+    const dataEl = root.querySelector("template[data-collections-data]");
+    const grid = root.querySelector<HTMLElement>("[data-collections-grid]");
+    const expanded = root.querySelector<HTMLElement>("[data-collection-expanded]");
+    const backBtn = root.querySelector<HTMLButtonElement>("[data-collection-back]");
+    const titleEl = root.querySelector<HTMLElement>("[data-collection-title]");
+    const countEl = root.querySelector<HTMLElement>("[data-collection-count]");
+    const photosGrid = root.querySelector<HTMLElement>("[data-collection-photos]");
+    const dialog = root.querySelector<HTMLDialogElement>("[data-photo-lightbox]");
+    const lbImg = root.querySelector<HTMLImageElement>("[data-photo-lightbox-img]");
+    const lbCaption = root.querySelector<HTMLElement>("[data-photo-lightbox-caption]");
+    const lbDesc = root.querySelector<HTMLElement>("[data-photo-lightbox-description]");
+    const lbCounter = root.querySelector<HTMLElement>("[data-photo-lightbox-counter]");
+    const lbClose = root.querySelector<HTMLButtonElement>("[data-photo-lightbox-close]");
+    const lbPrev = root.querySelector<HTMLButtonElement>("[data-photo-lightbox-prev]");
+    const lbNext = root.querySelector<HTMLButtonElement>("[data-photo-lightbox-next]");
+
+    if (!dataEl || !grid || !expanded || !backBtn || !titleEl || !countEl || !photosGrid ||
+        !dialog || !lbImg || !lbCaption || !lbDesc || !lbCounter || !lbClose || !lbPrev || !lbNext) continue;
+
+    let collections: Collection[] = [];
+    try {
+      collections = JSON.parse((dataEl as HTMLTemplateElement).innerHTML.trim());
+    } catch { continue; }
+
+    let currentPhotos: Photo[] = [];
+    let currentIndex = 0;
+
+    const showLightbox = (idx: number) => {
+      currentIndex = ((idx % currentPhotos.length) + currentPhotos.length) % currentPhotos.length;
+      const p = currentPhotos[currentIndex];
+      if (!p) return;
+      lbImg.src = p.src;
+      lbImg.alt = p.alt;
+      lbCaption.textContent = p.caption || "";
+      lbDesc.textContent = p.description || "";
+      lbCounter.textContent = `${currentIndex + 1} / ${currentPhotos.length}`;
+    };
+
+    const openCollection = (name: string) => {
+      const col = collections.find(c => c.name === name);
+      if (!col) return;
+
+      titleEl.textContent = col.name;
+      countEl.textContent = String(col.photos.length);
+      currentPhotos = col.photos;
+
+      photosGrid.innerHTML = "";
+      col.photos.forEach((photo, i) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "photo-thumb";
+        btn.setAttribute("aria-label", `View: ${photo.alt}`);
+
+        const img = document.createElement("img");
+        img.src = photo.src;
+        img.alt = photo.alt;
+        img.loading = "lazy";
+        btn.appendChild(img);
+
+        if (photo.caption) {
+          const cap = document.createElement("div");
+          cap.className = "photo-thumb-caption";
+          cap.innerHTML = `<p class="text-sm text-cream font-medium">${photo.caption}</p>`;
+          btn.appendChild(cap);
+        }
+
+        btn.addEventListener("click", () => {
+          showLightbox(i);
+          dialog.showModal();
+        });
+
+        photosGrid.appendChild(btn);
+      });
+
+      grid.style.display = "none";
+      expanded.classList.add("is-open");
+      expanded.setAttribute("aria-hidden", "false");
+    };
+
+    const closeCollection = () => {
+      expanded.classList.remove("is-open");
+      expanded.setAttribute("aria-hidden", "true");
+      grid.style.display = "";
+    };
+
+    // Collection card handlers
+    const cards = [...root.querySelectorAll<HTMLButtonElement>("[data-collection-name]")];
+    const cardHandlers = cards.map(card => {
+      const handler = () => openCollection(card.dataset.collectionName!);
+      card.addEventListener("click", handler);
+      return { card, handler };
+    });
+
+    backBtn.addEventListener("click", closeCollection);
+
+    // Lightbox controls
+    lbClose.addEventListener("click", () => dialog.close());
+    lbPrev.addEventListener("click", () => showLightbox(currentIndex - 1));
+    lbNext.addEventListener("click", () => showLightbox(currentIndex + 1));
+    dialog.addEventListener("click", (e: MouseEvent) => {
+      if (e.target === dialog) dialog.close();
+    });
+
+    const onKeydown = (e: KeyboardEvent) => {
+      if (!dialog.open) return;
+      if (e.key === "ArrowLeft") { e.preventDefault(); showLightbox(currentIndex - 1); }
+      if (e.key === "ArrowRight") { e.preventDefault(); showLightbox(currentIndex + 1); }
+    };
+    document.addEventListener("keydown", onKeydown);
+
+    cleanups.push(() => {
+      for (const { card, handler } of cardHandlers) card.removeEventListener("click", handler);
+      document.removeEventListener("keydown", onKeydown);
+      delete root.dataset.mounted;
+    });
+  }
+
+  if (cleanups.length > 0) {
+    const cleanup = () => {
+      for (const fn of cleanups) fn();
+      document.removeEventListener("astro:before-preparation", cleanup);
+    };
+    document.addEventListener("astro:before-preparation", cleanup, { once: true });
+  }
+</script>

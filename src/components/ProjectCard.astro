@@ -1,45 +1,221 @@
 ---
 import Tag from "./Tag.astro";
 
+interface RelatedPost {
+	slug: string;
+	title: string;
+	description: string;
+}
+
 interface Props {
 	title: string;
 	description: string;
 	tech: string[];
 	url?: string;
 	repo?: string;
+	image?: string;
+	relatedPosts?: RelatedPost[];
 }
 
-const { title, description, tech, url, repo } = Astro.props;
+const { title, description, tech, url, repo, image, relatedPosts } = Astro.props;
+const hasExpandable = relatedPosts && relatedPosts.length > 0;
 ---
 
-<div class="group rounded-xl border border-white/8 bg-dark-surface-elevated overflow-hidden transition-[transform,box-shadow] duration-200 hover:ring-2 hover:ring-accent/40 hover:translate-y-[-2px]">
+<div class="project-card group" data-project-card>
+  {image && (
+    <div class="project-card-image">
+      <img src={image} alt={title} loading="lazy" />
+      <div class="project-card-image-fade"></div>
+    </div>
+  )}
+
   <div class="p-4 sm:p-6">
     <div class="flex items-start justify-between gap-4 mb-3">
       <h3 class="font-display text-xl font-bold text-cream group-hover:text-accent transition-colors">{title}</h3>
-      {url && (
-        <a href={url} target="_blank" rel="noopener noreferrer" class="shrink-0 inline-flex items-center gap-1 font-mono text-xs text-accent hover:text-accent-hover transition-colors border border-accent/20 rounded-full px-3 py-1 hover:border-accent/40" aria-label={`Visit ${title} live site`}>
-          Live
-          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M17 7H7M17 7v10" />
-          </svg>
-        </a>
-      )}
-    </div>
-    <p class="text-cream-dark text-sm leading-relaxed mb-4">{description}</p>
-    <div class="flex items-center justify-between gap-4">
-      <div class="flex flex-wrap gap-2">
-        {tech.map((t) => (
-          <Tag label={t} />
-        ))}
+      <div class="flex items-center gap-2 shrink-0">
+        {url && (
+          <a href={url} target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 font-mono text-xs text-accent hover:text-accent-hover transition-colors border border-accent/20 rounded-full px-3 py-1 hover:border-accent/40" aria-label={`Visit ${title} live site`}>
+            Live
+            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M17 7H7M17 7v10" />
+            </svg>
+          </a>
+        )}
+        {repo && (
+          <a href={repo} target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center w-8 h-8 rounded-full border border-white/8 text-muted hover:text-cream hover:border-accent/40 transition-colors" aria-label="View source code">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/>
+            </svg>
+          </a>
+        )}
       </div>
-      {repo && (
-        <a href={repo} target="_blank" rel="noopener noreferrer" class="shrink-0 font-mono text-xs text-muted hover:text-cream transition-colors flex items-center gap-1.5">
-          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/>
-          </svg>
-          Source
-        </a>
-      )}
     </div>
+
+    <p class="text-cream-dark text-sm leading-relaxed mb-4">{description}</p>
+
+    <div class="flex flex-wrap gap-2 mb-4">
+      {tech.map((t) => (
+        <Tag label={t} />
+      ))}
+    </div>
+
+    {hasExpandable && (
+      <button
+        type="button"
+        class="project-expand-btn"
+        data-project-expand
+        aria-expanded="false"
+      >
+        <span class="project-expand-label">More details</span>
+        <svg class="w-4 h-4 project-expand-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+    )}
   </div>
+
+  {hasExpandable && (
+    <div class="project-detail-panel" data-project-detail aria-hidden="true">
+      <div class="border-t border-white/8 p-4 sm:p-6 space-y-5">
+        {relatedPosts && relatedPosts.length > 0 && (
+          <div>
+            <div class="flex items-center gap-2 mb-3">
+              <svg class="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.86-4.131a4.5 4.5 0 00-1.242-7.244l-4.5-4.5a4.5 4.5 0 00-6.364 6.364L4.49 8.377" />
+              </svg>
+              <span class="font-mono text-xs text-muted uppercase tracking-wider">Related Posts</span>
+            </div>
+            <div class="space-y-2">
+              {relatedPosts.map((post) => (
+                <a href={`/blog/${post.slug}`} class="block rounded-lg border border-white/8 bg-dark/50 p-3 hover:border-accent/30 transition-colors">
+                  <p class="font-display text-sm font-bold text-cream">{post.title}</p>
+                  <p class="text-xs text-cream-dark mt-1 line-clamp-1">{post.description}</p>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )}
 </div>
+
+<style>
+  .project-card {
+    border-radius: 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--color-dark-surface-elevated);
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+
+  .project-card:hover {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  }
+
+  .project-card-image {
+    position: relative;
+    aspect-ratio: 2.2;
+    overflow: hidden;
+  }
+
+  .project-card-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .project-card:hover .project-card-image img {
+    transform: scale(1.03);
+  }
+
+  .project-card-image-fade {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 4rem;
+    background: linear-gradient(to top, var(--color-dark-surface-elevated), transparent);
+  }
+
+  .project-expand-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--color-muted);
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+
+  .project-expand-btn:hover {
+    color: var(--color-cream);
+  }
+
+  .project-expand-icon {
+    transition: transform 0.2s;
+  }
+
+  .project-expand-btn[aria-expanded="true"] .project-expand-icon {
+    transform: rotate(180deg);
+  }
+
+  .project-expand-btn[aria-expanded="true"] .project-expand-label::after {
+    content: "";
+  }
+
+  .project-detail-panel {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .project-detail-panel > div {
+    overflow: hidden;
+  }
+
+  .project-detail-panel.is-open {
+    grid-template-rows: 1fr;
+  }
+
+  .line-clamp-1 {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+</style>
+
+<script>
+  const cards = [...document.querySelectorAll<HTMLElement>("[data-project-card]")];
+  const cleanups: Array<() => void> = [];
+
+  for (const card of cards) {
+    const btn = card.querySelector<HTMLButtonElement>("[data-project-expand]");
+    const detail = card.querySelector<HTMLElement>("[data-project-detail]");
+    if (!btn || !detail) continue;
+
+    const toggle = () => {
+      const isOpen = detail.classList.toggle("is-open");
+      btn.setAttribute("aria-expanded", String(isOpen));
+      detail.setAttribute("aria-hidden", String(!isOpen));
+      btn.querySelector(".project-expand-label")!.textContent = isOpen ? "Less details" : "More details";
+    };
+
+    btn.addEventListener("click", toggle);
+    cleanups.push(() => btn.removeEventListener("click", toggle));
+  }
+
+  if (cleanups.length > 0) {
+    const cleanup = () => {
+      for (const fn of cleanups) fn();
+      document.removeEventListener("astro:before-preparation", cleanup);
+    };
+    document.addEventListener("astro:before-preparation", cleanup, { once: true });
+  }
+</script>

@@ -2,13 +2,46 @@
   src: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800"
   alt: "Lorem ipsum dolor sit amet"
   caption: "Lorem ipsum dolor"
+  description: "A quiet morning with code and coffee. Sometimes the best ideas come when you're not trying."
+  collection: "Studio"
+  date: 2026-02-15
 
 - id: sample-2
   src: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800"
   alt: "Consectetur adipiscing elit"
   caption: "Sed do eiusmod"
+  description: "Late night coding sessions have their own kind of beauty."
+  collection: "Studio"
+  date: 2026-02-20
 
 - id: sample-3
   src: "https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=800"
   alt: "Tempor incididunt ut labore"
   caption: "Ut enim ad minim"
+  description: "Where the magic happens — screens glowing, ideas flowing."
+  collection: "Studio"
+  date: 2026-03-01
+
+- id: sample-4
+  src: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800"
+  alt: "Mountain peaks at dawn"
+  caption: "First light on the ridge"
+  description: "Woke up at 4am for this. Worth every lost minute of sleep."
+  collection: "Mountains"
+  date: 2026-01-10
+
+- id: sample-5
+  src: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800"
+  alt: "Misty mountain valley"
+  caption: "Valley fog rolling in"
+  description: "The fog moved through the valley like a slow river. Had about five minutes before it swallowed everything."
+  collection: "Mountains"
+  date: 2026-01-12
+
+- id: sample-6
+  src: "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800"
+  alt: "Starry sky over mountains"
+  caption: "Stars above the peaks"
+  description: "No light pollution for miles. The Milky Way was visible with the naked eye."
+  collection: "Mountains"
+  date: 2026-01-14

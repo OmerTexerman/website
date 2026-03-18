@@ -1,0 +1,478 @@
+---
+interface Book {
+	id: string;
+	title: string;
+	author: string;
+	spineColor: string;
+	textColor: string;
+	coverImage?: string;
+	review?: string;
+	rating?: number;
+	pageCount?: number;
+	url?: string;
+}
+
+interface Props {
+	books: Book[];
+	sectionTitle: string;
+}
+
+const { books, sectionTitle } = Astro.props;
+---
+
+<div class="bookshelf-section" data-bookshelf>
+  <div class="flex items-center gap-3 mb-6">
+    <h2 class="font-display text-2xl font-bold text-cream">{sectionTitle}</h2>
+    <span class="font-mono text-xs text-muted bg-white/5 px-2 py-0.5 rounded-full border border-white/8">{books.length}</span>
+    <div class="flex-1 h-px bg-white/8"></div>
+  </div>
+
+  <!-- Shelf with books -->
+  <div class="shelf-container">
+    <div class="shelf-back"></div>
+    <div class="books-row">
+      {books.map((book) => (
+        <button
+          type="button"
+          class="book-spine"
+          data-book-id={book.id}
+          style={`--spine-color: ${book.spineColor}; --text-color: ${book.textColor};`}
+          aria-label={`View details: ${book.title} by ${book.author}`}
+        >
+          <span class="book-spine-title">{book.title}</span>
+          <span class="book-spine-author">{book.author}</span>
+        </button>
+      ))}
+    </div>
+    <div class="shelf-surface"></div>
+    <div class="shelf-edge"></div>
+  </div>
+
+  <!-- Book detail panel (hidden by default) -->
+  <div class="book-detail-overlay" data-book-detail-overlay aria-hidden="true">
+    <div class="book-detail-panel" data-book-detail-panel>
+      <button type="button" class="book-detail-close" data-book-detail-close aria-label="Close book details">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+      <div class="book-detail-content">
+        <div class="book-detail-cover" data-book-detail-cover>
+          <img src="" alt="" data-book-detail-img loading="lazy" />
+        </div>
+        <div class="book-detail-info">
+          <h3 class="font-display text-2xl sm:text-3xl font-bold text-cream mb-1" data-book-detail-title></h3>
+          <p class="text-cream-dark text-base mb-4" data-book-detail-author></p>
+          <div class="flex items-center gap-4 mb-4 text-sm">
+            <div class="book-detail-rating" data-book-detail-rating></div>
+            <span class="text-muted font-mono text-xs" data-book-detail-pages></span>
+          </div>
+          <p class="text-cream-dark text-sm leading-relaxed" data-book-detail-review></p>
+          <a href="" target="_blank" rel="noopener noreferrer" class="book-detail-link" data-book-detail-link>
+            View on web
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M17 7H7M17 7v10" />
+            </svg>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Data template for JS -->
+  <template data-bookshelf-data>{JSON.stringify(books)}</template>
+</div>
+
+<style>
+  .shelf-container {
+    position: relative;
+    padding: 1.5rem 0.75rem 0;
+    margin-bottom: 2.5rem;
+  }
+
+  .shelf-back {
+    position: absolute;
+    inset: 0;
+    bottom: 1.25rem;
+    background: linear-gradient(180deg, rgba(42, 36, 30, 0.6) 0%, rgba(42, 36, 30, 0.3) 100%);
+    border-radius: 0.75rem 0.75rem 0 0;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-bottom: none;
+  }
+
+  .books-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.35rem;
+    padding: 0 0.5rem;
+    position: relative;
+    z-index: 2;
+    min-height: 10rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .books-row::-webkit-scrollbar {
+    display: none;
+  }
+
+  .shelf-surface {
+    position: relative;
+    z-index: 3;
+    height: 0.75rem;
+    background: linear-gradient(180deg, #5a4a3a 0%, #4a3a2a 100%);
+    border-radius: 0 0 0.25rem 0.25rem;
+    box-shadow:
+      0 4px 12px rgba(0, 0, 0, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+
+  .shelf-edge {
+    position: relative;
+    z-index: 3;
+    height: 0.5rem;
+    background: linear-gradient(180deg, #3a2a1a 0%, #2a1a0a 100%);
+    border-radius: 0 0 0.375rem 0.375rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+
+  .book-spine {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    width: 2.75rem;
+    min-width: 2.75rem;
+    height: 10rem;
+    background: var(--spine-color);
+    border-radius: 0.25rem 0.25rem 0 0;
+    padding: 0.5rem 0.15rem;
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    box-shadow:
+      inset -2px 0 4px rgba(0, 0, 0, 0.2),
+      inset 2px 0 4px rgba(255, 255, 255, 0.05),
+      2px 0 4px rgba(0, 0, 0, 0.15);
+    border: none;
+    outline: none;
+  }
+
+  .book-spine:hover {
+    transform: translateY(-0.75rem);
+    box-shadow:
+      inset -2px 0 4px rgba(0, 0, 0, 0.2),
+      inset 2px 0 4px rgba(255, 255, 255, 0.05),
+      2px 4px 16px rgba(0, 0, 0, 0.3);
+  }
+
+  .book-spine:focus-visible {
+    transform: translateY(-0.75rem);
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  .book-spine.is-active {
+    transform: translateY(-1.5rem) scale(1.05);
+    box-shadow:
+      0 8px 24px rgba(0, 0, 0, 0.4),
+      inset -2px 0 4px rgba(0, 0, 0, 0.2);
+  }
+
+  .book-spine-title {
+    color: var(--text-color);
+    font-family: var(--font-display);
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    line-height: 1.1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-height: 70%;
+  }
+
+  .book-spine-author {
+    color: var(--text-color);
+    font-family: var(--font-mono);
+    font-size: 0.45rem;
+    opacity: 0.7;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-height: 25%;
+  }
+
+  /* Detail overlay */
+  .book-detail-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(30, 30, 30, 0.85);
+    backdrop-filter: blur(8px);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+  }
+
+  .book-detail-overlay.is-open {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .book-detail-panel {
+    position: relative;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0)), var(--color-dark-surface);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 1.25rem;
+    padding: 2rem;
+    max-width: 36rem;
+    width: 100%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 32px 80px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.02) inset;
+    transform: translateY(20px) scale(0.97);
+    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .book-detail-overlay.is-open .book-detail-panel {
+    transform: translateY(0) scale(1);
+  }
+
+  .book-detail-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    z-index: 2;
+    width: 2.25rem;
+    height: 2.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--color-muted-light);
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+  }
+
+  .book-detail-close:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: var(--color-cream);
+  }
+
+  .book-detail-content {
+    display: flex;
+    gap: 1.5rem;
+    align-items: flex-start;
+  }
+
+  @media (max-width: 640px) {
+    .book-detail-content {
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+  }
+
+  .book-detail-cover {
+    flex-shrink: 0;
+    width: 8rem;
+    aspect-ratio: 2/3;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    box-shadow: 4px 4px 16px rgba(0, 0, 0, 0.4), -1px 0 4px rgba(0, 0, 0, 0.2);
+    background: var(--color-dark-surface-elevated);
+  }
+
+  .book-detail-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .book-detail-cover:not(.has-image) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem;
+    background: var(--color-dark-surface-elevated);
+  }
+
+  .book-detail-rating {
+    display: flex;
+    gap: 0.15rem;
+  }
+
+  .book-detail-link {
+    display: none;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--color-accent);
+    transition: color 0.2s;
+    text-decoration: none;
+  }
+
+  .book-detail-link:hover {
+    color: var(--color-accent-hover);
+  }
+
+  .book-detail-link.is-visible {
+    display: inline-flex;
+  }
+</style>
+
+<script>
+  interface Book {
+    id: string;
+    title: string;
+    author: string;
+    spineColor: string;
+    textColor: string;
+    coverImage?: string;
+    review?: string;
+    rating?: number;
+    pageCount?: number;
+    url?: string;
+  }
+
+  const cleanups: Array<() => void> = [];
+
+  const shelves = [...document.querySelectorAll<HTMLElement>("[data-bookshelf]")];
+  for (const root of shelves) {
+    if (root.dataset.bookshelfMounted === "true") continue;
+    root.dataset.bookshelfMounted = "true";
+
+    const dataEl = root.querySelector("template[data-bookshelf-data]");
+    const overlay = root.querySelector<HTMLElement>("[data-book-detail-overlay]");
+    const panel = root.querySelector<HTMLElement>("[data-book-detail-panel]");
+    const closeBtn = root.querySelector<HTMLButtonElement>("[data-book-detail-close]");
+    const titleEl = root.querySelector<HTMLElement>("[data-book-detail-title]");
+    const authorEl = root.querySelector<HTMLElement>("[data-book-detail-author]");
+    const imgEl = root.querySelector<HTMLImageElement>("[data-book-detail-img]");
+    const coverEl = root.querySelector<HTMLElement>("[data-book-detail-cover]");
+    const reviewEl = root.querySelector<HTMLElement>("[data-book-detail-review]");
+    const ratingEl = root.querySelector<HTMLElement>("[data-book-detail-rating]");
+    const pagesEl = root.querySelector<HTMLElement>("[data-book-detail-pages]");
+    const linkEl = root.querySelector<HTMLAnchorElement>("[data-book-detail-link]");
+
+    if (
+      !(dataEl instanceof HTMLTemplateElement) ||
+      !overlay || !panel || !closeBtn || !titleEl || !authorEl ||
+      !imgEl || !coverEl || !reviewEl || !ratingEl || !pagesEl || !linkEl
+    ) continue;
+
+    let books: Book[] = [];
+    try {
+      const raw = dataEl.innerHTML.trim();
+      books = raw ? JSON.parse(raw) : [];
+    } catch { continue; }
+
+    let activeSpine: HTMLButtonElement | null = null;
+
+    const openBook = (bookId: string) => {
+      const book = books.find(b => b.id === bookId);
+      if (!book) return;
+
+      titleEl.textContent = book.title;
+      authorEl.textContent = book.author;
+
+      if (book.coverImage) {
+        imgEl.src = book.coverImage;
+        imgEl.alt = book.title;
+        coverEl.classList.add("has-image");
+      } else {
+        imgEl.src = "";
+        imgEl.alt = "";
+        coverEl.classList.remove("has-image");
+      }
+
+      reviewEl.textContent = book.review || "No review yet.";
+
+      if (book.rating) {
+        ratingEl.innerHTML = Array.from({ length: 5 }, (_, i) =>
+          `<svg class="w-4 h-4 ${i < book.rating! ? "text-accent" : "text-muted/30"}" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>`
+        ).join("");
+      } else {
+        ratingEl.innerHTML = "";
+      }
+
+      pagesEl.textContent = book.pageCount ? `${book.pageCount} pages` : "";
+
+      if (book.url) {
+        linkEl.href = book.url;
+        linkEl.classList.add("is-visible");
+      } else {
+        linkEl.classList.remove("is-visible");
+      }
+
+      // Highlight active spine
+      const spine = root.querySelector<HTMLButtonElement>(`[data-book-id="${bookId}"]`);
+      if (activeSpine) activeSpine.classList.remove("is-active");
+      if (spine) spine.classList.add("is-active");
+      activeSpine = spine;
+
+      overlay.classList.add("is-open");
+      overlay.setAttribute("aria-hidden", "false");
+    };
+
+    const closeBook = () => {
+      overlay.classList.remove("is-open");
+      overlay.setAttribute("aria-hidden", "true");
+      if (activeSpine) {
+        activeSpine.classList.remove("is-active");
+        activeSpine.focus();
+        activeSpine = null;
+      }
+    };
+
+    // Spine click handlers
+    const spines = [...root.querySelectorAll<HTMLButtonElement>("[data-book-id]")];
+    const spineHandlers = spines.map(spine => {
+      const handler = () => openBook(spine.dataset.bookId!);
+      spine.addEventListener("click", handler);
+      return { spine, handler };
+    });
+
+    closeBtn.addEventListener("click", closeBook);
+    overlay.addEventListener("click", (e: MouseEvent) => {
+      if (e.target === overlay) closeBook();
+    });
+
+    const onKeydown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && overlay.classList.contains("is-open")) {
+        e.preventDefault();
+        closeBook();
+      }
+    };
+    document.addEventListener("keydown", onKeydown);
+
+    cleanups.push(() => {
+      for (const { spine, handler } of spineHandlers) {
+        spine.removeEventListener("click", handler);
+      }
+      closeBtn.removeEventListener("click", closeBook);
+      document.removeEventListener("keydown", onKeydown);
+      delete root.dataset.bookshelfMounted;
+    });
+  }
+
+  if (cleanups.length > 0) {
+    const cleanup = () => {
+      for (const fn of cleanups) fn();
+      document.removeEventListener("astro:before-preparation", cleanup);
+    };
+    document.addEventListener("astro:before-preparation", cleanup, { once: true });
+  }
+</script>
