@@ -61,11 +61,17 @@
 </div>
 
 <script>
+  import { getContentModal } from "../modal/api";
   import { mountContentModal } from "../modal/controller";
+  import { consumeContentModalReturnState } from "../modal/history";
 
   const modal = document.getElementById("content-modal");
   if (modal instanceof HTMLElement) {
     const cleanup = mountContentModal(modal);
+    const returnState = consumeContentModalReturnState();
+    if (returnState) {
+      getContentModal()?.open(returnState.label, returnState.href);
+    }
     document.addEventListener("astro:before-preparation", cleanup, { once: true });
   }
 </script>

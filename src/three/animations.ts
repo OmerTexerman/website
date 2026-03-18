@@ -82,6 +82,18 @@ function findChild(parent: Object3D, key: string): Object3D | undefined {
 	return undefined;
 }
 
+function findChildren(parent: Object3D, key: string): Object3D[] {
+	const matches: Object3D[] = [];
+	for (const child of parent.children) {
+		if (child.userData?.[key]) matches.push(child);
+		matches.push(...findChildren(child, key));
+	}
+	return matches;
+}
+
+const DESKTOP_CAMERA_WORLD_POS = new Vector3(0, 5, 7);
+const _cameraLocalPos = new Vector3();
+
 // ─── NOTEBOOK (Blog) ─────────────────────────────────────────────
 // The cover pivot has userData.coverPivot = true
 export function animateNotebookOpen(notebook: Object3D): Promise<void> {
@@ -152,10 +164,200 @@ export function animateLaptopClose(laptop: Object3D): Promise<void> {
 }
 
 // ─── BOOK STACK (Reading) ────────────────────────────────────────
-export function animateBookLift(stack: Object3D): Promise<void> {
-	const books = stack.children.filter((child) => child.userData?.bookItem);
-	if (books.length === 0) return Promise.resolve();
+const READING_OPEN_DURATION_MS = 920;
+const READING_CLOSE_DURATION_MS = 1400;
+const READING_COVER_OPEN_RX = 1.22;
+const READING_PAGE_BLOCK_INSET_RX = 0.24;
+const READING_LOOSE_PAGE_MARGIN_RX = 0.18;
+const READING_CAMERA_YAW_BIAS = -0.2;
+const READING_CAMERA_PITCH_BIAS = -0.3;
+const READING_LOOSE_PAGE_EDGE_RX =
+	READING_COVER_OPEN_RX - READING_PAGE_BLOCK_INSET_RX - READING_LOOSE_PAGE_MARGIN_RX;
 
+export function animateBookLift(stack: Object3D): Promise<void> {
+	const books = stack.children
+		.filter((child) => child.userData?.bookItem)
+		.sort((a, b) => (a.userData?.bookIndex ?? 0) - (b.userData?.bookIndex ?? 0));
+	const hero = books.find((child) => child.userData?.heroBook);
+	if (!hero) return Promise.resolve();
+
+	const lowerBooks = books.filter((child) => child !== hero);
+	const backCoverPivot = findChild(hero, "backCoverPivot");
+	const leftPageBlockPivot = findChild(hero, "leftPageBlockPivot");
+	const rightPageBlockPivot = findChild(hero, "rightPageBlockPivot");
+	const middlePageFanPivot = findChild(hero, "middlePageFanPivot");
+	const frontCoverPivot = findChild(hero, "frontCoverPivot");
+	const loosePages = findChildren(hero, "loosePagePivot").sort(
+		(a, b) => (a.userData?.loosePageIndex ?? 0) - (b.userData?.loosePageIndex ?? 0),
+	);
+
+	saveRest(hero, "x", hero.position.x);
+	saveRest(hero, "y", hero.position.y);
+	saveRest(hero, "z", hero.position.z);
+	saveRest(hero, "rx", hero.rotation.x);
+	saveRest(hero, "ry", hero.rotation.y);
+	saveRest(hero, "rz", hero.rotation.z);
+	for (const book of lowerBooks) {
+		saveRest(book, "x", book.position.x);
+		saveRest(book, "y", book.position.y);
+		saveRest(book, "z", book.position.z);
+		saveRest(book, "rx", book.rotation.x);
+		saveRest(book, "ry", book.rotation.y);
+		saveRest(book, "rz", book.rotation.z);
+	}
+	if (backCoverPivot) {
+		saveRest(backCoverPivot, "rx", backCoverPivot.rotation.x);
+	}
+	if (leftPageBlockPivot) {
+		saveRest(leftPageBlockPivot, "rx", leftPageBlockPivot.rotation.x);
+	}
+	if (rightPageBlockPivot) {
+		saveRest(rightPageBlockPivot, "rx", rightPageBlockPivot.rotation.x);
+	}
+	if (middlePageFanPivot) {
+		saveRest(middlePageFanPivot, "rx", middlePageFanPivot.rotation.x);
+	}
+	if (frontCoverPivot) {
+		saveRest(frontCoverPivot, "rx", frontCoverPivot.rotation.x);
+	}
+	for (const leaf of loosePages) {
+		saveRest(leaf, "rx", leaf.rotation.x);
+	}
+
+	return animate(`book-${stack.uuid}`, READING_OPEN_DURATION_MS, (p) => {
+		const lift = easeInOutCubic(clamp(p / 0.28, 0, 1));
+		const present = easeInOutCubic(clamp((p - 0.12) / 0.28, 0, 1));
+		const open = easeInOutCubic(clamp((p - 0.34) / 0.38, 0, 1));
+		const riffle = clamp((p - 0.62) / 0.2, 0, 1);
+
+		const restX = getRest(hero, "x");
+		const restY = getRest(hero, "y");
+		const restZ = getRest(hero, "z");
+		const restRX = getRest(hero, "rx");
+		const restRY = getRest(hero, "ry");
+		const restRZ = getRest(hero, "rz");
+
+		hero.position.x = lerp(restX, restX - 0.095, present);
+		hero.position.y = lerp(restY, restY + 0.45, lift);
+		hero.position.z = lerp(restZ, restZ + 0.22, present);
+		let targetPitch = restRX + 0.14;
+		let targetYaw = restRY;
+		if (hero.parent) {
+			hero.parent.updateWorldMatrix(true, false);
+			_cameraLocalPos.copy(DESKTOP_CAMERA_WORLD_POS);
+			hero.parent.worldToLocal(_cameraLocalPos);
+			const cameraDirX = _cameraLocalPos.x - hero.position.x;
+			const cameraDirY = _cameraLocalPos.y - hero.position.y;
+			const cameraDirZ = _cameraLocalPos.z - hero.position.z;
+			const horizontalDistance = Math.hypot(cameraDirX, cameraDirZ);
+			if (horizontalDistance > 0.0001) {
+				targetPitch =
+					-Math.atan2(cameraDirY, horizontalDistance) * 0.72 + READING_CAMERA_PITCH_BIAS;
+			}
+			if (Math.abs(cameraDirX) + Math.abs(cameraDirZ) > 0.0001) {
+				targetYaw = Math.atan2(cameraDirX, cameraDirZ) + Math.PI + READING_CAMERA_YAW_BIAS;
+			}
+		}
+		hero.rotation.x = lerp(restRX, targetPitch, present);
+		hero.rotation.y = lerp(restRY, targetYaw, present);
+		hero.rotation.z = lerp(restRZ, restRZ - 1.53, present);
+
+		for (let i = 0; i < lowerBooks.length; i++) {
+			const book = lowerBooks[i];
+			const settle = easeInOutCubic(clamp((p - i * 0.03) / 0.2, 0, 1));
+			const restBookY = getRest(book, "y");
+			const restBookRZ = getRest(book, "rz");
+			book.position.y = lerp(restBookY, restBookY - 0.005 * (i + 1), settle);
+			book.rotation.z = lerp(restBookRZ, restBookRZ + (i % 2 === 0 ? -0.018 : 0.018), settle);
+		}
+
+		if (backCoverPivot) {
+			const restBackCoverRX = getRest(backCoverPivot, "rx");
+			backCoverPivot.rotation.x = lerp(
+				restBackCoverRX,
+				restBackCoverRX + READING_COVER_OPEN_RX,
+				open,
+			);
+		}
+
+		if (leftPageBlockPivot) {
+			const restLeftPagesRX = getRest(leftPageBlockPivot, "rx");
+			leftPageBlockPivot.rotation.x = lerp(
+				restLeftPagesRX,
+				restLeftPagesRX - READING_PAGE_BLOCK_INSET_RX,
+				open,
+			);
+		}
+
+		if (rightPageBlockPivot) {
+			const restRightPagesRX = getRest(rightPageBlockPivot, "rx");
+			rightPageBlockPivot.rotation.x = lerp(
+				restRightPagesRX,
+				restRightPagesRX + READING_PAGE_BLOCK_INSET_RX,
+				open,
+			);
+		}
+
+		if (middlePageFanPivot) {
+			middlePageFanPivot.rotation.x = 0;
+		}
+
+		if (frontCoverPivot) {
+			const restCoverRX = getRest(frontCoverPivot, "rx");
+			frontCoverPivot.rotation.x = lerp(restCoverRX, restCoverRX - READING_COVER_OPEN_RX, open);
+		}
+
+		const loosePageCount = loosePages.length;
+		for (let i = 0; i < loosePageCount; i++) {
+			const leaf = loosePages[i];
+			const restLeafRX = getRest(leaf, "rx");
+			const t = loosePageCount <= 1 ? 0.5 : i / (loosePageCount - 1);
+			const angle = lerp(READING_LOOSE_PAGE_EDGE_RX, -READING_LOOSE_PAGE_EDGE_RX, t);
+			const centered = 1 - Math.abs(t * 2 - 1);
+			const flutter =
+				Math.sin(riffle * Math.PI * (2.5 + i * 0.14)) * (0.003 + centered * 0.003) * (1 - riffle);
+			leaf.rotation.x = lerp(restLeafRX, restLeafRX + angle, open) + flutter * open;
+		}
+	});
+}
+
+export function animateBookClose(stack: Object3D): Promise<void> {
+	const books = stack.children
+		.filter((child) => child.userData?.bookItem)
+		.sort((a, b) => (a.userData?.bookIndex ?? 0) - (b.userData?.bookIndex ?? 0));
+	const hero = books.find((child) => child.userData?.heroBook);
+	if (!hero) return Promise.resolve();
+
+	const backCoverPivot = findChild(hero, "backCoverPivot");
+	const leftPageBlockPivot = findChild(hero, "leftPageBlockPivot");
+	const rightPageBlockPivot = findChild(hero, "rightPageBlockPivot");
+	const middlePageFanPivot = findChild(hero, "middlePageFanPivot");
+	const frontCoverPivot = findChild(hero, "frontCoverPivot");
+	const loosePages = findChildren(hero, "loosePagePivot").sort(
+		(a, b) => (a.userData?.loosePageIndex ?? 0) - (b.userData?.loosePageIndex ?? 0),
+	);
+	const poses = books.map((book) => ({
+		book,
+		x: book.position.x,
+		y: book.position.y,
+		z: book.position.z,
+		rx: book.rotation.x,
+		ry: book.rotation.y,
+		rz: book.rotation.z,
+	}));
+	const backCoverRX = backCoverPivot?.rotation.x ?? 0;
+	const leftPagesRX = leftPageBlockPivot?.rotation.x ?? 0;
+	const rightPagesRX = rightPageBlockPivot?.rotation.x ?? 0;
+	const middleFanRX = middlePageFanPivot?.rotation.x ?? 0;
+	const coverRX = frontCoverPivot?.rotation.x ?? 0;
+	const looseLeafRotations = loosePages.map((leaf) => ({ leaf, rx: leaf.rotation.x }));
+
+	saveRest(hero, "x", hero.position.x);
+	saveRest(hero, "y", hero.position.y);
+	saveRest(hero, "z", hero.position.z);
+	saveRest(hero, "rx", hero.rotation.x);
+	saveRest(hero, "ry", hero.rotation.y);
+	saveRest(hero, "rz", hero.rotation.z);
 	for (const book of books) {
 		saveRest(book, "x", book.position.x);
 		saveRest(book, "y", book.position.y);
@@ -164,62 +366,68 @@ export function animateBookLift(stack: Object3D): Promise<void> {
 		saveRest(book, "ry", book.rotation.y);
 		saveRest(book, "rz", book.rotation.z);
 	}
+	if (backCoverPivot) {
+		saveRest(backCoverPivot, "rx", backCoverPivot.rotation.x);
+	}
+	if (leftPageBlockPivot) {
+		saveRest(leftPageBlockPivot, "rx", leftPageBlockPivot.rotation.x);
+	}
+	if (rightPageBlockPivot) {
+		saveRest(rightPageBlockPivot, "rx", rightPageBlockPivot.rotation.x);
+	}
+	if (middlePageFanPivot) {
+		saveRest(middlePageFanPivot, "rx", middlePageFanPivot.rotation.x);
+	}
+	if (frontCoverPivot) {
+		saveRest(frontCoverPivot, "rx", frontCoverPivot.rotation.x);
+	}
+	for (const leaf of loosePages) {
+		saveRest(leaf, "rx", leaf.rotation.x);
+	}
 
-	return animate(`book-${stack.uuid}`, 650, (p) => {
-		const count = books.length;
-		for (let i = 0; i < count; i++) {
-			const book = books[i];
-			const prominence = (i + 1) / count;
-			const delay = (count - 1 - i) * 0.08;
-			const local = easeInOutCubic(clamp((p - delay) / 0.72, 0, 1));
-			const direction = i % 2 === 0 ? -1 : 1;
-			const restX = getRest(book, "x");
-			const restY = getRest(book, "y");
-			const restZ = getRest(book, "z");
-			const restRX = getRest(book, "rx");
-			const restRY = getRest(book, "ry");
-			const restRZ = getRest(book, "rz");
+	return animate(`book-${stack.uuid}`, READING_CLOSE_DURATION_MS, (p) => {
+		const pageSettle = easeInOutCubic(clamp(p / 0.42, 0, 1));
+		const blockSettle = easeInOutCubic(clamp((p - 0.02) / 0.4, 0, 1));
+		const coverSettle = easeInOutCubic(clamp((p - 0.03) / 0.44, 0, 1));
+		const poseReturn = easeInOutCubic(clamp((p - 0.5) / 0.5, 0, 1));
 
-			book.position.x = lerp(restX, restX + direction * (0.03 + prominence * 0.11), local);
-			book.position.y = lerp(restY, restY + 0.01 + prominence * 0.09, local);
-			book.position.z = lerp(restZ, restZ + 0.02 + prominence * 0.18, local);
-			book.rotation.x = lerp(restRX, restRX - prominence * 0.04, local);
-			book.rotation.y = lerp(restRY, restRY + direction * prominence * 0.12, local);
-			book.rotation.z = lerp(restRZ, restRZ + direction * (0.02 + prominence * 0.08), local);
+		for (const pose of poses) {
+			pose.book.position.x = lerp(pose.x, getRest(pose.book, "x"), poseReturn);
+			pose.book.position.y = lerp(pose.y, getRest(pose.book, "y"), poseReturn);
+			pose.book.position.z = lerp(pose.z, getRest(pose.book, "z"), poseReturn);
+			pose.book.rotation.x = lerp(pose.rx, getRest(pose.book, "rx"), poseReturn);
+			pose.book.rotation.y = lerp(pose.ry, getRest(pose.book, "ry"), poseReturn);
+			pose.book.rotation.z = lerp(pose.rz, getRest(pose.book, "rz"), poseReturn);
 		}
-	});
-}
-
-export function animateBookClose(stack: Object3D): Promise<void> {
-	const books = stack.children.filter((child) => child.userData?.bookItem);
-	if (books.length === 0) return Promise.resolve();
-
-	const current = books.map((book) => {
-		saveRest(book, "x", book.position.x);
-		saveRest(book, "y", book.position.y);
-		saveRest(book, "z", book.position.z);
-		saveRest(book, "rx", book.rotation.x);
-		saveRest(book, "ry", book.rotation.y);
-		saveRest(book, "rz", book.rotation.z);
-		return {
-			book,
-			x: book.position.x,
-			y: book.position.y,
-			z: book.position.z,
-			rx: book.rotation.x,
-			ry: book.rotation.y,
-			rz: book.rotation.z,
-		};
-	});
-
-	return animate(`book-${stack.uuid}`, 420, (p) => {
-		for (const pose of current) {
-			pose.book.position.x = lerp(pose.x, getRest(pose.book, "x"), p);
-			pose.book.position.y = lerp(pose.y, getRest(pose.book, "y"), p);
-			pose.book.position.z = lerp(pose.z, getRest(pose.book, "z"), p);
-			pose.book.rotation.x = lerp(pose.rx, getRest(pose.book, "rx"), p);
-			pose.book.rotation.y = lerp(pose.ry, getRest(pose.book, "ry"), p);
-			pose.book.rotation.z = lerp(pose.rz, getRest(pose.book, "rz"), p);
+		if (backCoverPivot) {
+			backCoverPivot.rotation.x = lerp(backCoverRX, getRest(backCoverPivot, "rx"), coverSettle);
+		}
+		if (leftPageBlockPivot) {
+			leftPageBlockPivot.rotation.x = lerp(
+				leftPagesRX,
+				getRest(leftPageBlockPivot, "rx"),
+				blockSettle,
+			);
+		}
+		if (rightPageBlockPivot) {
+			rightPageBlockPivot.rotation.x = lerp(
+				rightPagesRX,
+				getRest(rightPageBlockPivot, "rx"),
+				blockSettle,
+			);
+		}
+		if (middlePageFanPivot) {
+			middlePageFanPivot.rotation.x = lerp(
+				middleFanRX,
+				getRest(middlePageFanPivot, "rx"),
+				pageSettle,
+			);
+		}
+		if (frontCoverPivot) {
+			frontCoverPivot.rotation.x = lerp(coverRX, getRest(frontCoverPivot, "rx"), coverSettle);
+		}
+		for (const leaf of looseLeafRotations) {
+			leaf.leaf.rotation.x = lerp(leaf.rx, getRest(leaf.leaf, "rx"), pageSettle);
 		}
 	});
 }

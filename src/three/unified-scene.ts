@@ -81,8 +81,8 @@ const MOBILE_SHELF_STOPS = [
 ] as const;
 const MOBILE_SHELF_PAN_LIMIT = 1;
 const MOBILE_SHELF_PAN_SNAP_POINTS = [[0], [-0.78, 0.3], [0]] as const;
-const MOBILE_SHELF_SCROLL_SPEED = 0.0028;
-const MOBILE_SHELF_PAN_WHEEL_SPEED = 0.0022;
+const MOBILE_SHELF_SCROLL_SPEED = 0.0015;
+const MOBILE_SHELF_PAN_WHEEL_SPEED = 0.0011;
 const MOBILE_TRANSITION_MID_POS = MOBILE_INTRO_START_POS.clone();
 const MOBILE_TRANSITION_MID_LOOK = new Vector3(8.1, 2.2, 4.7);
 
@@ -104,7 +104,7 @@ const CLOSE_ANIMATIONS: Record<string, (obj: Object3D) => Promise<void>> = {
 const MODAL_OPEN_DELAY_MS: Record<string, number> = {
 	Blog: 350,
 	Projects: 350,
-	Reading: 560,
+	Reading: 820,
 	Photos: 350,
 };
 

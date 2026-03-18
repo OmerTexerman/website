@@ -1,4 +1,5 @@
 import { type ContentModalApi, registerContentModal, unregisterContentModal } from "./api";
+import { type ContentModalHistoryState, rememberContentModalReturnState } from "./history";
 import { loadContentPreview } from "./preview";
 
 interface ContentModalElements {
@@ -68,6 +69,7 @@ function createContentModalController(elements: ContentModalElements): {
 
 	let previousActiveElement: HTMLElement | null = null;
 	let activeRequest: AbortController | null = null;
+	let activeView: ContentModalHistoryState | null = null;
 	let previewRequestId = 0;
 	let modalState: ModalState = "closed";
 	let savedBodyOverflow = "";
@@ -205,6 +207,37 @@ function createContentModalController(elements: ContentModalElements): {
 		bodyEl.append(paragraph);
 	}
 
+	function rememberReturnState(): void {
+		if (!activeView) return;
+		rememberContentModalReturnState(activeView);
+	}
+
+	function isModifiedClick(event: MouseEvent): boolean {
+		return event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
+	}
+
+	function isSameOriginNavigation(anchor: HTMLAnchorElement): boolean {
+		if (anchor.target && anchor.target !== "_self") return false;
+		if (anchor.hasAttribute("download")) return false;
+
+		try {
+			const url = new URL(anchor.href, window.location.origin);
+			return url.origin === window.location.origin;
+		} catch {
+			return false;
+		}
+	}
+
+	function handleNavigationIntent(event: MouseEvent): void {
+		if (modalState === "closed" || event.defaultPrevented || isModifiedClick(event)) return;
+		const target = event.target;
+		if (!(target instanceof Element)) return;
+
+		const anchor = target.closest("a");
+		if (!(anchor instanceof HTMLAnchorElement) || !isSameOriginNavigation(anchor)) return;
+		rememberReturnState();
+	}
+
 	function trapFocus(e: KeyboardEvent): void {
 		if (e.key !== "Tab" || modalState === "closed") return;
 
@@ -240,6 +273,7 @@ function createContentModalController(elements: ContentModalElements): {
 
 		titleEl.textContent = label;
 		linkEl.href = href;
+		activeView = { label, href };
 		renderLoading();
 
 		if (modalState === "closed") {
@@ -293,6 +327,7 @@ function createContentModalController(elements: ContentModalElements): {
 		if (modalState !== "closing") return;
 
 		modalState = "closed";
+		activeView = null;
 		setMounted(false);
 		syncSiblings(false);
 		unlockDocumentScroll();
@@ -330,6 +365,7 @@ function createContentModalController(elements: ContentModalElements): {
 		activeRequest?.abort();
 		activeRequest = null;
 		previewRequestId += 1;
+		activeView = null;
 		cancelAnimations();
 		modalState = "closed";
 		setMounted(false);
@@ -340,6 +376,8 @@ function createContentModalController(elements: ContentModalElements): {
 		closeCallbacks.clear();
 		closeButtonEl.removeEventListener("click", requestCloseHandler);
 		backdropEl.removeEventListener("click", handleBackdropClick);
+		bodyEl.removeEventListener("click", handleNavigationIntent);
+		linkEl.removeEventListener("click", handleNavigationIntent);
 		document.removeEventListener("keydown", handleKeydown);
 		unregisterContentModal(cleanup);
 	}
@@ -360,6 +398,8 @@ function createContentModalController(elements: ContentModalElements): {
 		applyClosedVisualState();
 		closeButtonEl.addEventListener("click", requestCloseHandler);
 		backdropEl.addEventListener("click", handleBackdropClick);
+		bodyEl.addEventListener("click", handleNavigationIntent);
+		linkEl.addEventListener("click", handleNavigationIntent);
 		document.addEventListener("keydown", handleKeydown);
 	}
 

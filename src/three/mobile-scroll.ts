@@ -63,6 +63,9 @@ const PAN_SNAP_STIFFNESS = 60;
 const PAN_SNAP_DAMPING = 12;
 const PAN_SNAP_SETTLE = 0.0003;
 const PAN_SNAP_SEARCH_RADIUS = 0.4;
+const WHEEL_LINE_PIXELS = 16;
+const WHEEL_DELTA_CAP = 80;
+const WHEEL_RESPONSE_CURVE = 0.82;
 
 // ─── Helpers ─────────────────────────────────────────────────────
 
@@ -137,6 +140,22 @@ function nearestSnapPoint(value: number, points: readonly number[]): number {
 		}
 	}
 	return best;
+}
+
+function normalizeWheelDelta(delta: number, deltaMode: number): number {
+	if (deltaMode === 1) return delta * WHEEL_LINE_PIXELS;
+	if (deltaMode === 2) {
+		const viewportHeight = typeof window !== "undefined" ? window.innerHeight : 800;
+		return delta * viewportHeight;
+	}
+	return delta;
+}
+
+function dampWheelDelta(delta: number, deltaMode: number): number {
+	const normalized = normalizeWheelDelta(delta, deltaMode);
+	const sign = Math.sign(normalized);
+	const magnitude = Math.min(Math.abs(normalized), WHEEL_DELTA_CAP);
+	return sign * magnitude ** WHEEL_RESPONSE_CURVE;
 }
 
 // ─── Controller factory ─────────────────────────────────────────
@@ -432,13 +451,15 @@ export function createMobileScrollController(
 	function onWheel(e: WheelEvent): void {
 		e.preventDefault();
 		stopAllMotion();
+		const deltaY = dampWheelDelta(e.deltaY, e.deltaMode);
+		const deltaX = dampWheelDelta(e.deltaX, e.deltaMode);
 
 		// Vertical scroll
-		verticalT = clamp(verticalT - e.deltaY * wheelSpeed, 0, 1);
+		verticalT = clamp(verticalT - deltaY * wheelSpeed, 0, 1);
 
 		// Horizontal pan
-		if (Math.abs(e.deltaX) > 0.1) {
-			applyPanDelta(-e.deltaX * wheelPanSpeed);
+		if (Math.abs(deltaX) > 0.1) {
+			applyPanDelta(-deltaX * wheelPanSpeed);
 		}
 
 		// Snap pan toward nearest points gently
