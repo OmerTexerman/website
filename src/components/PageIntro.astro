@@ -6,11 +6,23 @@ interface Props {
 }
 
 const { title, description, delay = 0 } = Astro.props;
+const shortTitle = title.toLowerCase();
 ---
 
-<div class="mb-10" data-animate style={`transition-delay: ${delay}s`}>
-	<h1 class="font-display text-4xl sm:text-5xl font-bold tracking-tight mb-3 text-cream">
-		{title}
-	</h1>
-	{description && <p class="text-cream-dark text-lg">{description}</p>}
+<div class="mb-12 border-b border-white/10 pb-8 sm:pb-10" data-animate style={`transition-delay: ${delay}s`}>
+	<div class="page-kicker mb-5">Desk view / {shortTitle}</div>
+	<div class="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(16rem,0.9fr)] lg:items-end">
+		<div>
+			<h1 class="font-display text-4xl font-bold tracking-tight text-cream sm:text-5xl lg:text-6xl">
+				{title}
+			</h1>
+			{description && <p class="mt-4 max-w-2xl text-base leading-relaxed text-cream-dark sm:text-lg">{description}</p>}
+		</div>
+		<div class="content-card px-5 py-4 sm:px-6 sm:py-5">
+			<p class="section-label mb-3">Atmosphere</p>
+			<p class="text-sm leading-relaxed text-cream-dark sm:text-[0.95rem]">
+				A quieter corner of the same room — warm highlights, tactile surfaces, and a little more space to browse.
+			</p>
+		</div>
+	</div>
 </div>
