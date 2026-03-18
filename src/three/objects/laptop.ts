@@ -1,5 +1,13 @@
-import { BoxGeometry, Color, Group, Mesh, MeshStandardMaterial, SpotLight } from "three";
-import { darkMetalMaterial, metalMaterial, screenMaterial } from "../materials";
+import {
+	BoxGeometry,
+	Color,
+	CylinderGeometry,
+	Group,
+	Mesh,
+	MeshStandardMaterial,
+	SpotLight,
+} from "three";
+import { darkMetalMaterial, screenMaterial } from "../materials";
 
 /** Laptop → links to /projects */
 export function createLaptop(): Group {
@@ -17,6 +25,19 @@ export function createLaptop(): Group {
 	base.position.set(0, 0.025, 0);
 	base.castShadow = true;
 	laptop.add(base);
+
+	const hinge = new Mesh(
+		new CylinderGeometry(0.026, 0.026, 1.02, 24),
+		new MeshStandardMaterial({
+			color: new Color("#222222"),
+			roughness: 0.62,
+			metalness: 0.3,
+		}),
+	);
+	hinge.rotation.z = Math.PI / 2;
+	hinge.position.set(0, 0.058, -0.37);
+	hinge.castShadow = true;
+	laptop.add(hinge);
 
 	// Keyboard area (dark inset surface)
 	const kbSurface = new Mesh(new BoxGeometry(1.0, 0.005, 0.42), darkMetalMaterial);
@@ -62,23 +83,52 @@ export function createLaptop(): Group {
 	const screenGroup = new Group();
 	screenGroup.userData = { screenGroup: true };
 	const screenGeo = new BoxGeometry(1.18, 0.75, 0.03);
-	const screen = new Mesh(screenGeo, metalMaterial);
+	const screenShellMaterial = new MeshStandardMaterial({
+		color: new Color("#171717"),
+		roughness: 0.58,
+		metalness: 0.25,
+	});
+	const screen = new Mesh(screenGeo, screenShellMaterial);
 	screen.position.set(0, 0.375, 0.015); // offset so bottom edge sits at pivot
 	screen.castShadow = true;
 	screenGroup.add(screen);
 
+	const topBezelHeight = 0.026;
+	const bottomBezelHeight = 0.036;
+	const sideBezelWidth = 0.03;
+	const bezelGeoTop = new BoxGeometry(1.12, topBezelHeight, 0.006);
+	const bezelGeoBottom = new BoxGeometry(1.12, bottomBezelHeight, 0.006);
+	const bezelGeoVertical = new BoxGeometry(sideBezelWidth, 0.646, 0.006);
+	const bezelZ = 0.031;
+	const topBezel = new Mesh(bezelGeoTop, darkMetalMaterial);
+	topBezel.position.set(0, 0.737, bezelZ);
+	screenGroup.add(topBezel);
+
+	const bottomBezel = new Mesh(bezelGeoBottom, darkMetalMaterial);
+	bottomBezel.position.set(0, 0.025, bezelZ);
+	screenGroup.add(bottomBezel);
+
+	const leftBezel = new Mesh(bezelGeoVertical, darkMetalMaterial);
+	leftBezel.position.set(-0.545, 0.381, bezelZ);
+	screenGroup.add(leftBezel);
+
+	const rightBezel = new Mesh(bezelGeoVertical, darkMetalMaterial);
+	rightBezel.position.set(0.545, 0.381, bezelZ);
+	screenGroup.add(rightBezel);
+
 	// Screen face
-	const faceGeo = new BoxGeometry(1.05, 0.65, 0.005);
+	const faceGeo = new BoxGeometry(1.05, 0.645, 0.005);
 	const face = new Mesh(faceGeo, screenMaterial);
 	face.userData = { screenFace: true };
-	face.position.set(0, 0.375, 0.033); // same y offset, on front surface
+	face.position.set(0, 0.381, 0.029); // inset slightly behind the bezel frame
 	screenGroup.add(face);
 
-	screenGroup.position.set(0, 0.05, -0.4); // hinge point: top-back of base
-	screenGroup.rotation.x = 0.61; // ~55° from closed
+	screenGroup.position.set(0, 0.058, -0.38); // hinge point: top-back of base
+	screenGroup.rotation.x = 0.78; // more closed so the lid silhouette reads immediately
 	laptop.add(screenGroup);
 
 	laptop.position.set(0.5, 0.12, -0.3);
+	laptop.rotation.y = -0.12;
 
 	return laptop;
 }
