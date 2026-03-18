@@ -8,22 +8,30 @@ const section = getSectionById("blog");
 const posts = await getPublishedPosts();
 ---
 
-<ContentPage section={section}>
-  {posts.length === 0 ? (
-    <p class="text-muted font-mono">nothing here yet :)</p>
-  ) : (
-    <div class="space-y-5">
-      {posts.map((post, i) => (
-        <div data-animate style={`transition-delay: ${i * 0.1}s`}>
-          <BlogCard
-            title={post.data.title}
-            description={post.data.description}
-            pubDate={post.data.pubDate}
-            tags={post.data.tags}
-            slug={post.id}
-          />
+<ContentPage section={section} surface={false} containerWidthClass="max-w-3xl" showIntro={false}>
+  <div class="notebook-page" data-animate>
+    <div class="notebook-cover-edge"></div>
+    <div class="notebook-paper">
+      {/* Title written on the notebook page */}
+      <h2 class="notebook-page-title">Blog</h2>
+
+      {posts.length === 0 ? (
+        <p class="notebook-empty-text">nothing here yet :)</p>
+      ) : (
+        <div class="notebook-entries">
+          {posts.map((post, i) => (
+            <div data-animate style={`transition-delay: ${i * 0.1}s`}>
+              <BlogCard
+                title={post.data.title}
+                description={post.data.description}
+                pubDate={post.data.pubDate}
+                tags={post.data.tags}
+                slug={post.id}
+              />
+            </div>
+          ))}
         </div>
-      ))}
+      )}
     </div>
-  )}
+  </div>
 </ContentPage>

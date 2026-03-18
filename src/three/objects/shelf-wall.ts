@@ -48,6 +48,10 @@ export interface ShelfWallResult {
 
 export interface ShelfSceneEntry {
 	sectionId: SectionId;
+	/** Override the section's default href (e.g. camera → /photos/camera). */
+	href?: string;
+	/** Source identifier passed to the modal (e.g. "camera"). */
+	source?: string;
 	target: Group;
 	item: Object3D;
 }
@@ -383,6 +387,8 @@ export function createShelfWall(books?: ShelfBook[]): ShelfWallResult {
 		},
 		{
 			sectionId: "photos" as const,
+			href: "/photos/camera",
+			source: "camera",
 			item: createShelfCamera(),
 			position: [SHELF_CENTER_X - 0.02, BOT_Y + SHELF_THICK / 2, WALL_Z] as const,
 			rotationY: -Math.PI / 2,
@@ -401,6 +407,8 @@ export function createShelfWall(books?: ShelfBook[]): ShelfWallResult {
 		wall.add(target);
 		entries.push({
 			sectionId: layout.sectionId,
+			href: layout.href,
+			source: layout.source,
 			target,
 			item: layout.item,
 		});

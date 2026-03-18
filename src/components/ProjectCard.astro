@@ -1,38 +1,51 @@
 ---
 import RelatedPost from "./RelatedPost.astro";
-import Tag from "./Tag.astro";
 
 interface Props {
 	title: string;
 	description: string;
 	tech: string[];
+	image?: string;
 	url?: string;
 	repo?: string;
 	post?: string;
 }
 
-const { title, description, tech, url, repo, post } = Astro.props;
+const { title, description, tech, image, url, repo, post } = Astro.props;
 ---
 
-<div class="card-base card-base-lg card-hover">
-  <h3 class="card-title mb-2">{title}</h3>
-  <p class="card-desc mb-4">{description}</p>
-  <div class="card-tags mb-4">
-    {tech.map((t) => (
-      <Tag label={t} />
-    ))}
+<div class="project-window">
+  {/* Title bar — macOS-style window chrome */}
+  <div class="project-titlebar">
+    <div class="project-dots">
+      <span class="project-dot project-dot-red"></span>
+      <span class="project-dot project-dot-yellow"></span>
+      <span class="project-dot project-dot-green"></span>
+    </div>
+    <span class="project-titlebar-text">{title}</span>
   </div>
-  <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-    {url && (
-      <a href={url} target="_blank" rel="noopener noreferrer" class="font-mono text-sm text-accent hover:text-accent-hover transition-colors">
-        Live site &rarr;
-      </a>
+
+  {/* Window body */}
+  <div class="project-body">
+    {image && (
+      <div class="project-image">
+        <img src={image} alt={`Screenshot of ${title}`} loading="lazy" />
+      </div>
     )}
-    {repo && (
-      <a href={repo} target="_blank" rel="noopener noreferrer" class="font-mono text-sm text-muted hover:text-cream transition-colors">
-        Source code
-      </a>
-    )}
-    {post && <RelatedPost slug={post} />}
+    <p class="project-desc">{description}</p>
+    <span class="project-tech">{tech.join(" · ")}</span>
+    <div class="project-links">
+      {url && (
+        <a href={url} target="_blank" rel="noopener noreferrer" class="project-link project-link-primary">
+          → live site
+        </a>
+      )}
+      {repo && (
+        <a href={repo} target="_blank" rel="noopener noreferrer" class="project-link">
+          → source
+        </a>
+      )}
+      {post && <RelatedPost slug={post} />}
+    </div>
   </div>
 </div>

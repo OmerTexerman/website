@@ -2,6 +2,7 @@ import { type CollectionEntry, getCollection } from "astro:content";
 import type { ShelfBook } from "./types";
 
 export interface ReadingSection {
+	status: "reading" | "finished" | "want-to-read";
 	title: string;
 	books: CollectionEntry<"books">[];
 }
@@ -25,6 +26,7 @@ export async function getReadingSections(): Promise<ReadingSection[]> {
 
 	return readingSectionOrder
 		.map(({ status, title }) => ({
+			status,
 			title,
 			books: allBooks.filter((book) => book.data.status === status),
 		}))

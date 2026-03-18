@@ -1,32 +1,127 @@
 ---
 import BookCard from "../../components/BookCard.astro";
+import RelatedPost from "../../components/RelatedPost.astro";
 import { getSectionById } from "../../config";
 import { getReadingSections } from "../../content/selectors";
 import ContentPage from "../../layouts/ContentPage.astro";
 
 const section = getSectionById("reading");
 const readingSections = await getReadingSections();
+
+const currentlyReading = readingSections.find((s) => s.status === "reading");
+const finished = readingSections.find((s) => s.status === "finished");
+const wantToRead = readingSections.find((s) => s.status === "want-to-read");
 ---
 
-<ContentPage section={section}>
+<ContentPage section={section} surface={false} containerWidthClass="max-w-5xl">
   {readingSections.length === 0 ? (
     <p class="text-muted font-mono">nothing here yet :)</p>
   ) : (
-    readingSections.map((readingSection, si) => (
-      <div class={si > 0 ? "mt-10" : ""} data-animate style={`transition-delay: ${si * 0.15}s`}>
-        <h2 class="font-display text-2xl font-bold mb-4 text-cream">{readingSection.title}</h2>
-        <div class="space-y-3">
-          {readingSection.books.map((book) => (
-            <BookCard
-              title={book.data.title}
-              author={book.data.author}
-              spineColor={book.data.spineColor}
-              url={book.data.url}
-              post={book.data.post}
-            />
-          ))}
-        </div>
-      </div>
-    ))
+    <div class="reading-page">
+      {/* Warm overhead glow — mimics the desk lamp */}
+      <div class="reading-glow"></div>
+
+      {/* Currently Reading */}
+      {currentlyReading && currentlyReading.books.length > 0 && (
+        <section class="reading-section" data-animate>
+          <h2 class="shelf-label">Currently Reading</h2>
+          <div class="shelf-row">
+            {currentlyReading.books.length === 1 ? (
+              <div class="book-hero-section">
+                <BookCard
+                  title={currentlyReading.books[0].data.title}
+                  author={currentlyReading.books[0].data.author}
+                  spineColor={currentlyReading.books[0].data.spineColor}
+                  cover={currentlyReading.books[0].data.cover}
+                  url={currentlyReading.books[0].data.url}
+                  post={currentlyReading.books[0].data.post}
+                  size="hero"
+                />
+                <div class="book-hero-details">
+                  <p class="book-hero-title">{currentlyReading.books[0].data.title}</p>
+                  <p class="book-hero-author">{currentlyReading.books[0].data.author}</p>
+                  {currentlyReading.books[0].data.post && (
+                    <div class="mt-3">
+                      <RelatedPost slug={currentlyReading.books[0].data.post} />
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div class="shelf-books shelf-books-reading">
+                {currentlyReading.books.map((book) => (
+                  <BookCard
+                    title={book.data.title}
+                    author={book.data.author}
+                    spineColor={book.data.spineColor}
+                    cover={book.data.cover}
+                    url={book.data.url}
+                    post={book.data.post}
+                    size="shelf"
+                  />
+                ))}
+              </div>
+            )}
+            <div class="shelf-plank">
+              <div class="shelf-bracket shelf-bracket-left"></div>
+              <div class="shelf-bracket shelf-bracket-right"></div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Finished — books on the shelf */}
+      {finished && finished.books.length > 0 && (
+        <section class="reading-section" data-animate style="transition-delay: 0.15s">
+          <h2 class="shelf-label">Finished</h2>
+          <div class="shelf-row">
+            <div class="shelf-books">
+              {finished.books.map((book) => (
+                <BookCard
+                  title={book.data.title}
+                  author={book.data.author}
+                  spineColor={book.data.spineColor}
+                  cover={book.data.cover}
+                  url={book.data.url}
+                  post={book.data.post}
+                  size="shelf"
+                />
+              ))}
+            </div>
+            {/* The wooden shelf plank */}
+            <div class="shelf-plank">
+              <div class="shelf-bracket shelf-bracket-left"></div>
+              <div class="shelf-bracket shelf-bracket-right"></div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Want to Read — smaller shelf */}
+      {wantToRead && wantToRead.books.length > 0 && (
+        <section class="reading-section" data-animate style="transition-delay: 0.3s">
+          <h2 class="shelf-label">Want to Read</h2>
+          <div class="shelf-row">
+            <div class="shelf-books shelf-books-compact">
+              {wantToRead.books.map((book) => (
+                <BookCard
+                  title={book.data.title}
+                  author={book.data.author}
+                  spineColor={book.data.spineColor}
+                  cover={book.data.cover}
+                  url={book.data.url}
+                  post={book.data.post}
+                  size="compact"
+                />
+              ))}
+            </div>
+            <div class="shelf-plank">
+              <div class="shelf-bracket shelf-bracket-left"></div>
+              <div class="shelf-bracket shelf-bracket-right"></div>
+            </div>
+          </div>
+        </section>
+      )}
+    </div>
   )}
 </ContentPage>

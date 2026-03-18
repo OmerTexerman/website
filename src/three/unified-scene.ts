@@ -192,6 +192,7 @@ export function initUnifiedScene(
 	labelContainer: HTMLElement,
 	initialMode: "desktop" | "mobile",
 	books?: ShelfBook[],
+	options?: { skipIntro?: boolean },
 ): { cleanup: () => void; transition: (target: "desktop" | "mobile") => Promise<void> } {
 	const scene = new Scene();
 	scene.background = new Color(DARK);
@@ -257,7 +258,7 @@ export function initUnifiedScene(
 	let transitioning = false;
 	let dirty = true;
 	let isDragging = false;
-	let introComplete = false;
+	let introComplete = options?.skipIntro ?? false;
 	let currentHover: DeskInteraction | null = null;
 	let openSelection: OpenSelection | null = null;
 	let clickLockedUntil = 0;
@@ -613,8 +614,9 @@ export function initUnifiedScene(
 					.then(() => {
 						if (disposed || openSelection !== activeSelection) return;
 						const modal = getContentModal();
-						if (modal) modal.open(section.label, section.href);
-						else window.location.href = section.href;
+						const href = entry.href ?? section.href;
+						if (modal) modal.open(section.label, href, entry.source);
+						else window.location.href = href;
 					})
 					.catch(() => {});
 
@@ -949,6 +951,11 @@ export function initUnifiedScene(
 		const toPos = target === "desktop" ? DESKTOP_POS.clone() : mobilePosePos.clone();
 		const toLook = target === "desktop" ? DESKTOP_LOOK.clone() : mobilePoseLook.clone();
 
+		// Smoothly fade bloom to avoid render-path flicker at transition end
+		const bloomFrom = currentMode === "desktop" ? 0.6 : 0;
+		const bloomTo = target === "desktop" ? 0.6 : 0;
+		bloomPass.strength = bloomFrom;
+
 		// Animate transition
 		await new Promise<void>((resolve) => {
 			transitionResolve = resolve;
@@ -998,6 +1005,9 @@ export function initUnifiedScene(
 					lerpCameraPose(camera, fromPos, toPos, fromLook, toLook, eased);
 				}
 
+				// Fade bloom so the composer→renderer switch is invisible
+				bloomPass.strength = bloomFrom + (bloomTo - bloomFrom) * eased;
+
 				dirty = true;
 
 				if (t < 1) {
@@ -1020,6 +1030,11 @@ export function initUnifiedScene(
 		if (target === "desktop") {
 			setShelfVisible(false);
 			applyRenderSettings("desktop");
+			// setPixelRatio clears the canvas buffer — re-sync composer and
+			// render immediately so the browser never paints a black frame
+			composer.setSize(lastCanvasWidth, lastCanvasHeight);
+			bloomPass.resolution.set(lastCanvasWidth, lastCanvasHeight);
+			composer.render();
 			targetInterval = 0;
 		} else {
 			// scrollController will be created by setupModeInteractions() below
@@ -1034,6 +1049,9 @@ export function initUnifiedScene(
 			});
 			setDeskVisible(false);
 			applyRenderSettings("mobile");
+			// setPixelRatio clears the canvas buffer — render immediately
+			// so the browser never paints a black frame
+			renderer.render(scene, camera);
 			targetInterval = 1000 / 60;
 		}
 

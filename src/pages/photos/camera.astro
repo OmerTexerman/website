@@ -1,0 +1,86 @@
+---
+import { getSectionById } from "../../config";
+import { getPhotoCollections } from "../../content/selectors";
+import ContentPage from "../../layouts/ContentPage.astro";
+
+const section = getSectionById("photos");
+const collections = await getPhotoCollections();
+---
+
+<ContentPage section={section} surface={false} containerWidthClass="max-w-4xl" showIntro={false}>
+  <div class="camera-body" data-animate>
+    {/* Camera body top edge */}
+    <div class="camera-top-edge">
+      <div class="camera-mode-indicator">
+        <span class="camera-rec-dot"></span>
+        <span class="camera-mode-text">REVIEW</span>
+      </div>
+      <span class="camera-model-text">OT-1</span>
+    </div>
+
+    {/* LCD screen area */}
+    <div class="camera-lcd">
+      {collections.length === 0 ? (
+        <div class="camera-lcd-empty">
+          <p>NO IMAGES</p>
+        </div>
+      ) : (
+        <>
+          {/* Main display — featured collection */}
+          <div class="camera-lcd-main">
+            <a href={`/photos/${collections[0].id}`} class="camera-lcd-photo group">
+              <img src={collections[0].cover} alt={collections[0].title} class="camera-lcd-img" />
+              {/* Viewfinder corners */}
+              <div class="vf-corner vf-tl"></div>
+              <div class="vf-corner vf-tr"></div>
+              <div class="vf-corner vf-bl"></div>
+              <div class="vf-corner vf-br"></div>
+            </a>
+            {/* Metadata bar */}
+            <div class="camera-meta">
+              <div class="camera-meta-left">
+                <span class="camera-meta-title">{collections[0].title}</span>
+                <span class="camera-meta-detail">
+                  {collections[0].location && `${collections[0].location} · `}{collections[0].date || ""}
+                </span>
+              </div>
+              <span class="camera-meta-counter">
+                {String(collections[0].photos.length).padStart(3, "0")} frames
+              </span>
+            </div>
+          </div>
+
+          {/* Filmstrip — all collections */}
+          {collections.length > 1 && (
+            <div class="camera-filmstrip">
+              {collections.map((col, i) => (
+                <a href={`/photos/${col.id}`} class:list={["camera-filmstrip-item", i === 0 && "camera-filmstrip-active"]}>
+                  <img src={col.cover} alt={col.title} loading="lazy" />
+                  <span class="camera-filmstrip-label">{col.title}</span>
+                </a>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+
+    {/* Camera bottom controls */}
+    <div class="camera-controls">
+      <a href="/photos" class="camera-control-btn" title="Switch to gallery view">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="3" y="3" width="7" height="7" rx="1" />
+          <rect x="14" y="3" width="7" height="7" rx="1" />
+          <rect x="3" y="14" width="7" height="7" rx="1" />
+          <rect x="14" y="14" width="7" height="7" rx="1" />
+        </svg>
+      </a>
+      <div class="camera-nav-ring">
+        <div class="camera-nav-ring-inner"></div>
+      </div>
+      <span class="camera-control-label">
+        {collections.length} collection{collections.length !== 1 ? "s" : ""}
+      </span>
+    </div>
+  </div>
+</ContentPage>

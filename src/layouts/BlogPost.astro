@@ -1,6 +1,5 @@
 ---
 import ContextBackLink from "../components/ContextBackLink.astro";
-import Tag from "../components/Tag.astro";
 import { getSectionById, site } from "../config";
 import { formatDate } from "../utils";
 import ContentShell from "./ContentShell.astro";
@@ -25,36 +24,36 @@ const blogSection = getSectionById("blog");
   containerTag="article"
   containerWidthClass="max-w-3xl"
   showBackLink={false}
+  surface={false}
 >
-  <ContextBackLink
-    fallbackHref={blogSection.href}
-    fallbackLabel={blogSection.backLabel}
-    variant="inline"
-  />
+  <div class="notebook-page" data-animate>
+    <div class="notebook-cover-edge"></div>
+    <div class="notebook-paper notebook-paper-post">
+      <ContextBackLink
+        fallbackHref={blogSection.href}
+        fallbackLabel={blogSection.backLabel}
+        variant="inline"
+      />
 
-  <header class="mb-10">
-    <time datetime={pubDate.toISOString()} class="font-mono text-sm text-muted">
-      {formatDate(pubDate, "long")}
-    </time>
-    {updatedDate && (
-      <span class="font-mono text-sm text-muted ml-3">
-        (Updated {formatDate(updatedDate, "long")})
-      </span>
-    )}
-    <h1 class="font-display text-4xl sm:text-5xl font-bold mt-3 mb-4 tracking-tight text-cream">
-      {title}
-    </h1>
-    <p class="text-lg text-cream-dark">{description}</p>
-    {tags && tags.length > 0 && (
-      <div class="flex flex-wrap gap-2 mt-4">
-        {tags.map((tag) => (
-          <Tag label={tag} />
-        ))}
+      <header class="notebook-post-header">
+        <time datetime={pubDate.toISOString()} class="notebook-entry-date">
+          {formatDate(pubDate, "long")}
+        </time>
+        {updatedDate && (
+          <span class="notebook-entry-date ml-3">
+            (Updated {formatDate(updatedDate, "long")})
+          </span>
+        )}
+        <h1 class="notebook-post-title">{title}</h1>
+        <p class="notebook-post-desc">{description}</p>
+        {tags && tags.length > 0 && (
+          <span class="notebook-entry-tags">{tags.join(" · ")}</span>
+        )}
+      </header>
+
+      <div class="blog-prose blog-prose-notebook">
+        <slot />
       </div>
-    )}
-  </header>
-
-  <div class="blog-prose">
-    <slot />
+    </div>
   </div>
 </ContentShell>

@@ -5,27 +5,56 @@ interface Props {
 	title: string;
 	author: string;
 	spineColor: string;
+	cover?: string;
 	url?: string;
 	post?: string;
+	size?: "hero" | "shelf" | "compact";
 }
 
-const { title, author, spineColor, url, post } = Astro.props;
+const { title, author, spineColor, cover, url, post, size = "shelf" } = Astro.props;
+
+const Tag = url ? "a" : "div";
+const linkProps = url ? { href: url, target: "_blank", rel: "noopener noreferrer" } : {};
 ---
 
-<div class="flex items-center gap-4 card-base card-hover-subtle">
-  <!-- Spine color indicator -->
-  <div class="w-3 h-14 rounded-sm shrink-0" style={`background-color: ${spineColor}`}></div>
-  <div class="flex-1 min-w-0">
-    {url ? (
-      <a href={url} target="_blank" rel="noopener noreferrer" class="font-display text-lg font-bold text-cream hover:text-accent transition-colors block truncate">
-        {title}
-      </a>
-    ) : (
-      <p class="font-display text-lg font-bold text-cream truncate">{title}</p>
-    )}
-    <div class="flex items-center gap-3">
-      <p class="text-cream-dark text-sm truncate">{author}</p>
-      {post && <RelatedPost slug={post} />}
+<Tag
+  {...linkProps}
+  class:list={[
+    "book-card group",
+    `book-card-${size}`,
+    url && "cursor-pointer",
+  ]}
+>
+  {/* The physical book — cover + spine edge */}
+  <div class="book-physical">
+    <div class="book-spine-edge" style={`background-color: ${spineColor}`}></div>
+    <div class="book-cover">
+      {cover ? (
+        <img
+          src={cover}
+          alt={`Cover of ${title}`}
+          loading="lazy"
+          class="book-cover-img"
+        />
+      ) : (
+        <div class="book-placeholder" style={`background-color: ${spineColor}`}>
+          <span class="book-placeholder-title">{title}</span>
+          <span class="book-placeholder-author">{author}</span>
+        </div>
+      )}
     </div>
   </div>
-</div>
+  {/* Book shadow on the shelf */}
+  <div class="book-shadow"></div>
+  {size !== "hero" && (
+    <div class="book-info">
+      <p class="book-title">{title}</p>
+      <p class="book-author">{author}</p>
+      {post && (
+        <div class="mt-1.5">
+          <RelatedPost slug={post} />
+        </div>
+      )}
+    </div>
+  )}
+</Tag>

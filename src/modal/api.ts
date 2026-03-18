@@ -1,5 +1,5 @@
 export interface ContentModalApi {
-	open: (label: string, href: string) => void;
+	open: (label: string, href: string, source?: string) => void;
 	close: () => void;
 	onClose: (cb: () => void) => () => void;
 }

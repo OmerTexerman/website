@@ -8,23 +8,29 @@ const section = getSectionById("projects");
 const projects = await getOrderedProjects();
 ---
 
-<ContentPage section={section}>
-  {projects.length === 0 ? (
-    <p class="text-muted font-mono">nothing here yet :)</p>
-  ) : (
-    <div class="space-y-5">
-      {projects.map((project, i) => (
-        <div data-animate style={`transition-delay: ${i * 0.1}s`}>
-          <ProjectCard
-            title={project.data.title}
-            description={project.data.description}
-            tech={project.data.tech}
-            url={project.data.url}
-            repo={project.data.repo}
-            post={project.data.post}
-          />
-        </div>
-      ))}
-    </div>
-  )}
+<ContentPage section={section} surface={false} containerWidthClass="max-w-4xl">
+  <div class="projects-page">
+    {/* Blue screen glow */}
+    <div class="projects-glow"></div>
+
+    {projects.length === 0 ? (
+      <p class="text-muted font-mono">nothing here yet :)</p>
+    ) : (
+      <div class="projects-list">
+        {projects.map((project, i) => (
+          <div data-animate style={`transition-delay: ${i * 0.1}s`}>
+            <ProjectCard
+              title={project.data.title}
+              description={project.data.description}
+              tech={project.data.tech}
+              image={project.data.image}
+              url={project.data.url}
+              repo={project.data.repo}
+              post={project.data.post}
+            />
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
 </ContentPage>

@@ -6,15 +6,20 @@ import ContentShell from "./ContentShell.astro";
 
 interface Props {
 	section: SiteSection;
+	surface?: boolean;
+	containerWidthClass?: string;
+	showIntro?: boolean;
 }
 
-const { section } = Astro.props;
+const { section, surface, containerWidthClass, showIntro = true } = Astro.props;
 ---
 
 <ContentShell
   title={getSectionPageTitle(section)}
   description={section.description}
+  surface={surface}
+  containerWidthClass={containerWidthClass}
 >
-  <PageIntro title={section.label} description={section.description} />
+  {showIntro && <PageIntro title={section.label} description={section.description} />}
   <slot />
 </ContentShell>

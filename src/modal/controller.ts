@@ -261,7 +261,7 @@ function createContentModalController(elements: ContentModalElements): {
 		return requestId !== previewRequestId || modalState !== "open";
 	}
 
-	async function openModal(label: string, href: string): Promise<void> {
+	async function openModal(label: string, href: string, source?: string): Promise<void> {
 		const requestId = ++previewRequestId;
 		activeRequest?.abort();
 		const request = new AbortController();
@@ -269,6 +269,12 @@ function createContentModalController(elements: ContentModalElements): {
 
 		titleEl.textContent = label;
 		linkEl.href = href;
+		rootEl.dataset.section = href.replace(/^\/|\/$/g, "").split("/")[0];
+		if (source) {
+			rootEl.dataset.source = source;
+		} else {
+			delete rootEl.dataset.source;
+		}
 		activeView = { label, href };
 		renderLoading();
 
@@ -398,8 +404,8 @@ function createContentModalController(elements: ContentModalElements): {
 
 	return {
 		api: {
-			open: (label, href) => {
-				void openModal(label, href);
+			open: (label, href, source) => {
+				void openModal(label, href, source);
 			},
 			close: requestCloseHandler,
 			onClose,

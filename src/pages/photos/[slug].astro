@@ -19,38 +19,42 @@ const { collection } = Astro.props;
   title={`${collection.title} | Photos`}
   description={collection.description}
   containerWidthClass="max-w-6xl"
+  surface={false}
 >
-  <div class="mb-10" data-animate>
+  {/* Header as a pinned note card */}
+  <div class="collection-header" data-animate>
+    <div class="collection-header-pin" aria-hidden="true"></div>
     <a
       href="/photos"
-      class="inline-flex items-center gap-1.5 font-mono text-sm text-muted transition-colors hover:text-cream mb-5"
+      class="collection-back-link"
     >
-      <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+      <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
       </svg>
       All photos
     </a>
 
-    <h1 class="font-display text-4xl sm:text-5xl font-bold tracking-tight text-cream">
+    <h1 class="collection-header-title">
       {collection.title}
     </h1>
 
-    <div class="mt-3 flex items-center gap-2 font-mono text-sm text-muted">
+    <div class="collection-header-meta">
       {collection.location && <span>{collection.location}</span>}
-      {collection.location && collection.date && <span class="text-muted/40">/</span>}
+      {collection.location && collection.date && <span>/</span>}
       {collection.date && <span>{collection.date}</span>}
-      <span class="text-muted/40">/</span>
+      <span>/</span>
       <span>{collection.photos.length} photos</span>
     </div>
 
     {collection.description && (
-      <p class="mt-4 text-cream-dark text-lg max-w-2xl">{collection.description}</p>
+      <p class="collection-header-desc">{collection.description}</p>
     )}
 
-    {collection.post && <RelatedPost slug={collection.post} class="mt-4" />}
+    {collection.post && <RelatedPost slug={collection.post} class="mt-3" />}
   </div>
 
-  <div data-animate style="transition-delay: 0.15s">
+  {/* Photos as pinned prints on the board */}
+  <div class="corkboard-gallery" data-animate style="transition-delay: 0.15s">
     <PhotoGallery photos={collection.photos} />
   </div>
 </ContentShell>

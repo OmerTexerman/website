@@ -18,6 +18,24 @@ function parseBooks(sceneRoot: HTMLElement): ShelfBook[] | undefined {
 	}
 }
 
+const SCENE_VISITED_KEY = "sceneIntroPlayed";
+
+function hasPlayedIntro(): boolean {
+	try {
+		return sessionStorage.getItem(SCENE_VISITED_KEY) === "1";
+	} catch {
+		return false;
+	}
+}
+
+function markIntroPlayed(): void {
+	try {
+		sessionStorage.setItem(SCENE_VISITED_KEY, "1");
+	} catch {
+		/* storage unavailable */
+	}
+}
+
 /** Tracks the active mount's cleanup so HMR re-execution tears down the old instance first. */
 let activeCleanup: (() => void) | null = null;
 
@@ -63,7 +81,9 @@ export function mountSceneApp(): () => void {
 			const { initUnifiedScene } = await import("../three/unified-scene");
 			// If cleanup ran while the import was in flight, abandon this mount
 			if (gen !== generation) return;
-			sceneHandle = initUnifiedScene(canvas, labels, mode, parseBooks(root));
+			const skipIntro = hasPlayedIntro();
+			sceneHandle = initUnifiedScene(canvas, labels, mode, parseBooks(root), { skipIntro });
+			markIntroPlayed();
 			(window as Window & { __sceneHandle?: SceneHandle }).__sceneHandle = sceneHandle;
 			window.clearTimeout(fallbackTimer);
 			delete document.documentElement.dataset.sceneFallback;
