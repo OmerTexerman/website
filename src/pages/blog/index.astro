@@ -13,9 +13,9 @@ const posts = await getPublishedPosts();
   <PageIntro title="Blog" description={nav?.description} />
 
   {posts.length === 0 ? (
-    <p class="text-muted font-mono">No posts yet. Check back soon!</p>
+    <p class="font-mono text-muted">No posts yet. Check back soon!</p>
   ) : (
-    <div class="space-y-5">
+    <div class="content-card-grid">
       {posts.map((post, i) => (
         <div data-animate style={`transition-delay: ${i * 0.1}s`}>
           <BlogCard

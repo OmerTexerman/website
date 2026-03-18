@@ -5,23 +5,29 @@ const year = new Date().getFullYear();
 const activeSocials = socials.filter((s) => s.url);
 ---
 
-<footer class="border-t border-white/10 bg-dark">
-  <div class="max-w-6xl mx-auto px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-    <p class="font-mono text-sm text-muted">&copy; {year} {site.name}</p>
-    {activeSocials.length > 0 && (
-      <div class="flex items-center gap-5">
-        {activeSocials.map((social) => (
-          <a
-            href={social.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            class="text-muted hover:text-cream transition-colors"
-            aria-label={`${social.label} (opens in a new window)`}
-          >
-            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" set:html={social.icon} />
-          </a>
-        ))}
-      </div>
-    )}
+<footer class="border-t border-white/10 bg-[#161514]">
+  <div class="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-8 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <p class="font-display text-lg font-semibold tracking-tight text-cream">{site.name}</p>
+      <p class="mt-1 font-mono text-xs uppercase tracking-[0.24em] text-muted">Built like the same desk, just flatter.</p>
+    </div>
+    <div class="flex flex-col gap-4 sm:items-end">
+      <p class="font-mono text-sm text-muted">&copy; {year} {site.name}</p>
+      {activeSocials.length > 0 && (
+        <div class="flex items-center gap-3">
+          {activeSocials.map((social) => (
+            <a
+              href={social.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/3 text-muted transition-colors hover:border-accent/40 hover:text-cream"
+              aria-label={`${social.label} (opens in a new window)`}
+            >
+              <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" set:html={social.icon} />
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
   </div>
 </footer>

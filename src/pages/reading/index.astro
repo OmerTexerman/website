@@ -22,19 +22,27 @@ const sections = [
 <ContentPage title={`Reading | ${site.name}`} description={nav?.description}>
   <PageIntro title="Reading" description={nav?.description} />
 
-  {sections.map((section, si) => (
-    <div class={si > 0 ? "mt-10" : ""} data-animate style={`transition-delay: ${si * 0.15}s`}>
-      <h2 class="font-display text-2xl font-bold mb-4 text-cream">{section.title}</h2>
-      <div class="space-y-3">
-        {section.books.map((book) => (
-          <BookCard
-            title={book.data.title}
-            author={book.data.author}
-            spineColor={book.data.spineColor}
-            url={book.data.url}
-          />
-        ))}
-      </div>
-    </div>
-  ))}
+  <div class="space-y-8 sm:space-y-10">
+    {sections.map((section, si) => (
+      <section class="content-card p-5 sm:p-6" data-animate style={`transition-delay: ${si * 0.15}s`}>
+        <div class="mb-5 flex flex-wrap items-end justify-between gap-3 border-b border-white/10 pb-4">
+          <div>
+            <p class="section-label mb-2">Shelf section</p>
+            <h2 class="font-display text-2xl font-bold text-cream">{section.title}</h2>
+          </div>
+          <p class="font-mono text-sm text-muted">{section.books.length} {section.books.length === 1 ? "title" : "titles"}</p>
+        </div>
+        <div class="content-card-grid">
+          {section.books.map((book) => (
+            <BookCard
+              title={book.data.title}
+              author={book.data.author}
+              spineColor={book.data.spineColor}
+              url={book.data.url}
+            />
+          ))}
+        </div>
+      </section>
+    ))}
+  </div>
 </ContentPage>

@@ -12,7 +12,14 @@ const photos = (await getCollection("photos")).map((p) => p.data);
 <ContentPage title={`Photos | ${site.name}`} description={nav?.description}>
   <PageIntro title="Photos" description={nav?.description} />
 
-  <div data-animate style="transition-delay: 0.15s">
+  <section class="content-card p-5 sm:p-6" data-animate style="transition-delay: 0.15s">
+    <div class="mb-5 flex flex-wrap items-end justify-between gap-3 border-b border-white/10 pb-4">
+      <div>
+        <p class="section-label mb-2">Pinned frames</p>
+        <h2 class="font-display text-2xl font-bold text-cream">Recent stills</h2>
+      </div>
+      <p class="font-mono text-sm text-muted">{photos.length} moments</p>
+    </div>
     <PhotoGallery photos={photos} />
-  </div>
+  </section>
 </ContentPage>

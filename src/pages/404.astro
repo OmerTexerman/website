@@ -6,19 +6,21 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
 <BaseLayout title={`404 — Not Found | ${site.name}`}>
   <ContentHeader />
-  <main id="page-content" class="pt-14 min-h-screen flex items-center justify-center content-page-bg px-4 sm:px-6">
-    <div class="content-surface text-center px-6 py-10 sm:px-10 sm:py-12 max-w-xl w-full">
-      <h1 class="font-display text-6xl sm:text-8xl font-bold text-accent mb-4">404</h1>
-      <p class="text-cream-dark text-lg mb-8">This page doesn't exist. Maybe it fell off the desk.</p>
-      <a
-        href="/"
-        class="inline-flex items-center gap-2 px-6 py-3 bg-accent text-white font-mono text-sm rounded-lg hover:bg-accent-hover transition-colors"
-      >
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-        </svg>
-        Back to desk
-      </a>
+  <main id="page-content" class="content-page-bg flex min-h-screen items-center justify-center px-4 pt-14 sm:px-6">
+    <div class="content-shell w-full max-w-2xl">
+      <div class="content-surface px-6 py-10 text-center sm:px-10 sm:py-14">
+        <p class="page-kicker mx-auto mb-5 w-fit">Desk view / lost item</p>
+        <h1 class="font-display text-6xl font-bold text-accent sm:text-8xl">404</h1>
+        <p class="mx-auto mt-4 max-w-lg text-lg text-cream-dark">This page doesn't exist. Maybe it slid behind the monitor or got tucked between the books.</p>
+        <div class="mt-8 flex justify-center">
+          <a href="/" class="desk-link">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            Back to desk
+          </a>
+        </div>
+      </div>
     </div>
   </main>
 </BaseLayout>
