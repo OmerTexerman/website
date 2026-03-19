@@ -17,7 +17,9 @@
 		"@astrojs/rss": "^4.0.0",
 		"@astrojs/sitemap": "^3.3.0",
 		"@astrojs/vercel": "^10.0.0",
+		"@iconify-json/simple-icons": "^1.2.74",
 		"astro": "^6.0.0",
+		"astro-icon": "^1.1.5",
 		"posthog-js": "^1.236.0",
 		"three": "^0.175.0"
 	},
