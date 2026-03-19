@@ -11,7 +11,7 @@ const pathname = Astro.url.pathname;
         {site.initials}
       </span>
     </a>
-    <ul class="flex items-center gap-3 sm:gap-6 overflow-x-auto whitespace-nowrap no-scrollbar max-w-[75vw] sm:max-w-none">
+    <ul class="flex items-center gap-3 sm:gap-6 overflow-x-auto whitespace-nowrap no-scrollbar max-w-[75vw] sm:max-w-none" data-nav-links>
       {orderedSections.map(({ href, label }) => (
         <li>
           <a
@@ -31,3 +31,26 @@ const pathname = Astro.url.pathname;
     </ul>
   </nav>
 </header>
+
+<script>
+  function syncNavHighlight(): void {
+    const path = window.location.pathname;
+    const links = document.querySelectorAll<HTMLAnchorElement>("[data-nav-links] a[href]");
+    for (const link of links) {
+      const active = path.startsWith(link.getAttribute("href")!);
+      link.setAttribute("aria-current", active ? "page" : "false");
+      link.classList.toggle("text-cream", active);
+      link.classList.toggle("font-medium", active);
+      link.classList.toggle("text-muted", !active);
+      link.classList.toggle("hover:text-cream", !active);
+    }
+  }
+
+  window.addEventListener("pageshow", (e) => {
+    if (e.persisted) syncNavHighlight();
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") syncNavHighlight();
+  });
+</script>
