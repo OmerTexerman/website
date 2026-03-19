@@ -1,5 +1,5 @@
 import { defineCollection } from "astro:content";
-import { file, glob } from "astro/loaders";
+import { glob } from "astro/loaders";
 import { z } from "astro/zod";
 
 const hexColor = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
@@ -32,7 +32,7 @@ const projects = defineCollection({
 });
 
 const books = defineCollection({
-	loader: file("./src/content/books/books.yaml"),
+	loader: glob({ pattern: "**/*.yaml", base: "./src/content/books" }),
 	schema: z.object({
 		title: z.string(),
 		author: z.string(),

@@ -42,19 +42,38 @@ collections:
 
   - name: books
     label: Reading List
-    files:
-      - name: books
-        label: Books
-        file: src/content/books/books.yaml
+    label_singular: Book
+    folder: src/content/books
+    create: true
+    extension: yaml
+    format: yaml
+    fields:
+      - { label: Title, name: title, widget: string }
+      - { label: Author, name: author, widget: string }
+      - { label: Spine Color, name: spineColor, widget: color, default: "#2a4a6a" }
+      - { label: Cover URL, name: cover, widget: string, required: false }
+      - { label: Status, name: status, widget: select, options: [reading, finished, want-to-read] }
+      - { label: URL, name: url, widget: string, required: false }
+      - { label: Related Post, name: post, widget: string, required: false }
+
+  - name: photos
+    label: Photo Collections
+    label_singular: Photo Collection
+    folder: src/content/photos
+    create: true
+    extension: yaml
+    format: yaml
+    fields:
+      - { label: Title, name: title, widget: string }
+      - { label: Location, name: location, widget: string, required: false }
+      - { label: Date, name: date, widget: string, required: false }
+      - { label: Description, name: description, widget: text, required: false }
+      - { label: Cover Image, name: cover, widget: image }
+      - { label: Related Post, name: post, widget: string, required: false }
+      - label: Photos
+        name: photos
+        widget: list
         fields:
-          - label: Books
-            name: books
-            widget: list
-            fields:
-              - { label: Title, name: title, widget: string }
-              - { label: Author, name: author, widget: string }
-              - { label: Spine Color, name: spineColor, widget: color, default: "#2a4a6a" }
-              - { label: Cover URL, name: cover, widget: string, required: false }
-              - { label: Status, name: status, widget: select, options: [reading, finished, want-to-read] }
-              - { label: URL, name: url, widget: string, required: false }
-              - { label: Related Post, name: post, widget: string, required: false }
+          - { label: Image, name: src, widget: image }
+          - { label: Alt Text, name: alt, widget: string }
+          - { label: Caption, name: caption, widget: string, required: false }
