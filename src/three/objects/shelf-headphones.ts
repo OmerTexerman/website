@@ -30,20 +30,20 @@ export function createShelfHeadphones(): Group {
 	const body = new Group();
 	hp.add(body);
 
-	const bandRadius = 0.08;
+	const bandRadius = 0.16;
 	const cupRadius = 0.065;
+	const bandTube = 0.016;
 
-	// Headband — half-torus in XY plane.
+	// Headband — wide half-torus arch that extends well above the cups.
 	// Endpoints at (±bandRadius, 0, 0), peak at (0, bandRadius, 0).
 	// Lift so endpoints align with cup centers.
-	const band = new Mesh(new TorusGeometry(bandRadius, 0.013, 8, 24, Math.PI), bandMaterial);
+	const band = new Mesh(new TorusGeometry(bandRadius, bandTube, 8, 24, Math.PI), bandMaterial);
 	band.position.y = cupRadius;
 	band.castShadow = true;
 	body.add(band);
 
-	// Ear cups — cylinder axis rotated to Z so flat faces point forward/back.
-	// Positioned at band endpoints, lifted so bottom of cup circle sits at y=0.
-	const cupGeo = new CylinderGeometry(cupRadius, cupRadius, 0.03, 16);
+	// Ear cups — positioned at the band endpoints, flat faces outward.
+	const cupGeo = new CylinderGeometry(cupRadius, cupRadius, 0.035, 16);
 	const cushionGeo = new CylinderGeometry(cupRadius - 0.006, cupRadius - 0.006, 0.006, 16);
 
 	function makeCup(): Group {
@@ -54,7 +54,7 @@ export function createShelfHeadphones(): Group {
 		cup.add(pad);
 		const cushion = new Mesh(cushionGeo, cushionMaterial);
 		cushion.rotation.x = Math.PI / 2;
-		cushion.position.z = 0.018;
+		cushion.position.z = 0.02;
 		cup.add(cushion);
 		return cup;
 	}
