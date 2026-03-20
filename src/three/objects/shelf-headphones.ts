@@ -30,22 +30,23 @@ export function createShelfHeadphones(): Group {
 	const body = new Group();
 	hp.add(body);
 
-	const bandRadius = 0.11;
-	const cupRadius = 0.08;
-	const bandTube = 0.013;
+	const bandRadius = 0.14;
+	const cupRadius = 0.1;
+	const bandTube = 0.016;
 
-	// Headband — half-torus arch. Endpoints at (±bandRadius, 0, 0).
-	// Lift above cup center so band attaches near cup tops, not through center.
+	// Headband — half-torus arch stretched vertically for an oval shape.
+	// Endpoints at (±bandRadius, 0, 0), peak at (0, bandRadius * scaleY, 0).
 	const band = new Mesh(new TorusGeometry(bandRadius, bandTube, 8, 24, Math.PI), bandMaterial);
-	band.position.y = cupRadius + 0.018;
+	band.scale.y = 1.45; // stretch upward for taller oval arch
+	band.position.y = cupRadius + 0.02;
 	band.castShadow = true;
 	body.add(band);
 
 	// Ear cups — large cylinders with flat faces outward.
 	// Inset slightly from band endpoints so cups overlap naturally.
-	const cupGeo = new CylinderGeometry(cupRadius, cupRadius, 0.035, 16);
+	const cupGeo = new CylinderGeometry(cupRadius, cupRadius, 0.04, 16);
 	const cushionGeo = new CylinderGeometry(cupRadius - 0.006, cupRadius - 0.006, 0.006, 16);
-	const cupX = bandRadius - 0.003;
+	const cupX = bandRadius - 0.005;
 
 	function makeCup(): Group {
 		const cup = new Group();
