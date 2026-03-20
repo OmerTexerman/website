@@ -488,40 +488,42 @@ export function animateFrameClose(frame: PhotoFrameObject): Promise<void> {
 }
 
 // ─── DICTIONARY (Word of the Day) ────────────────────────────────
-// Unique animation: cover opens, then pages flip rapidly one after
-// another like someone thumbing through to find a word. Each page
-// flips with a slight arc and flutter. No other object does this.
+// Spine is on the LEFT side. Cover and pages rotate around Z axis,
+// swinging open to the right — a sideways open that looks completely
+// different from the notebook's vertical open.
 const DICT_OPEN_MS = 1000;
 const DICT_CLOSE_MS = 600;
-const DICT_COVER_ANGLE = -2.8;
+// Positive Z rotation swings the cover from flat to open-right
+const DICT_COVER_ANGLE = Math.PI * 0.85;
 
 export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
 	const { coverPivot, pageFlips } = dict.parts;
 
-	saveRest(coverPivot, "rx", coverPivot.rotation.x);
+	saveRest(coverPivot, "rz", coverPivot.rotation.z);
 	for (const page of pageFlips) {
-		saveRest(page, "rx", page.rotation.x);
+		saveRest(page, "rz", page.rotation.z);
 	}
 
-	const restCover = getRest(coverPivot, "rx");
+	const restCover = getRest(coverPivot, "rz");
 
 	return animate(`dict-${dict.root.uuid}`, DICT_OPEN_MS, (p) => {
-		// Phase 1 (0–0.35): Cover swings open
+		// Phase 1 (0–0.35): Cover swings open to the right
 		const coverP = easeInOutCubic(clamp(p / 0.35, 0, 1));
-		coverPivot.rotation.x = lerp(restCover, restCover + DICT_COVER_ANGLE, coverP);
+		coverPivot.rotation.z = lerp(restCover, restCover + DICT_COVER_ANGLE, coverP);
 
-		// Phase 2 (0.25–0.95): Pages flip one by one — rapid thumbing
+		// Phase 2 (0.25–0.95): Pages flip one by one to the right
 		const flipStart = 0.25;
 		const flipWindow = 0.7;
 		for (let i = 0; i < pageFlips.length; i++) {
 			const page = pageFlips[i];
-			const restRX = getRest(page, "rx");
+			const restRZ = getRest(page, "rz");
 			const delay = flipStart + (i / pageFlips.length) * flipWindow * 0.65;
 			const duration = flipWindow * 0.35;
 			const pageP = clamp((p - delay) / duration, 0, 1);
-			const flipAngle = -Math.PI * 0.85;
-			const arcLift = Math.sin(pageP * Math.PI) * 0.15;
-			page.rotation.x = lerp(restRX, restRX + flipAngle, pageP) - arcLift;
+			const flipAngle = Math.PI * 0.8;
+			// Arc lift — page rises slightly as it flips over
+			const arcLift = Math.sin(pageP * Math.PI) * 0.12;
+			page.rotation.z = lerp(restRZ, restRZ + flipAngle, pageP) + arcLift;
 		}
 	});
 }
@@ -529,22 +531,24 @@ export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
 export function animateDictionaryClose(dict: DictionaryObject): Promise<void> {
 	const { coverPivot, pageFlips } = dict.parts;
 
-	const curCover = coverPivot.rotation.x;
-	const restCover = getRest(coverPivot, "rx");
+	const curCover = coverPivot.rotation.z;
+	const restCover = getRest(coverPivot, "rz");
 	const pageStates = pageFlips.map((page) => ({
 		page,
-		cur: page.rotation.x,
-		rest: getRest(page, "rx"),
+		cur: page.rotation.z,
+		rest: getRest(page, "rz"),
 	}));
 
 	return animate(`dict-${dict.root.uuid}`, DICT_CLOSE_MS, (p) => {
+		// Pages flip back (0–0.5)
 		const pageP = easeInOutCubic(clamp(p / 0.5, 0, 1));
 		for (const { page, cur, rest } of pageStates) {
-			page.rotation.x = lerp(cur, rest, pageP);
+			page.rotation.z = lerp(cur, rest, pageP);
 		}
 
+		// Cover closes (0.2–0.9)
 		const coverP = easeInOutCubic(clamp((p - 0.2) / 0.7, 0, 1));
-		coverPivot.rotation.x = lerp(curCover, restCover, coverP);
+		coverPivot.rotation.z = lerp(curCover, restCover, coverP);
 	});
 }
 
