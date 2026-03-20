@@ -73,7 +73,7 @@ export function setupDeskLighting(roomGroup: Group): void {
 
 /** Shelf-specific lighting — tighter key/fill so the shelf reads with stronger shadows */
 export function setupShelfLighting(roomGroup: Group): void {
-	const shelfKey = new SpotLight(new Color(LIGHT_SHELF_KEY), 4.8, 16, Math.PI / 6, 0.45, 1.7);
+	const shelfKey = new SpotLight(new Color(LIGHT_SHELF_KEY), 5.6, 16, Math.PI / 6, 0.45, 1.6);
 	shelfKey.position.set(SHELF_WALL_X - 1.2, SHELF_TOP_Y + 1.35, SHELF_WALL_Z + 1.4);
 	shelfKey.target.position.set(SHELF_WALL_X - 0.15, SHELF_MID_Y + 0.25, SHELF_WALL_Z);
 	configureShadowLight(shelfKey);
@@ -84,7 +84,7 @@ export function setupShelfLighting(roomGroup: Group): void {
 	notebookAccent.position.set(SHELF_WALL_X - 0.55, SHELF_MID_Y + 0.7, SHELF_WALL_Z - 1.1);
 	roomGroup.add(notebookAccent);
 
-	const bottomFill = new PointLight(new Color(LIGHT_BOTTOM_FILL), 0.9, 10, 1.8);
+	const bottomFill = new PointLight(new Color(LIGHT_BOTTOM_FILL), 1.2, 10, 1.7);
 	bottomFill.position.set(SHELF_WALL_X - 1.0, SHELF_BOT_Y + 0.75, SHELF_WALL_Z + 0.9);
 	roomGroup.add(bottomFill);
 }

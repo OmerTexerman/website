@@ -30,16 +30,16 @@ export const TRACE_GOLD = "#8a7a2a";
 // ─── Wood & material tones ──────────────────────────────────────
 export const WOOD = "#5c3a1e";
 export const DARK_WOOD = "#3a2210";
-export const SHELF_WOOD = "#4a3520";
+export const SHELF_WOOD = "#5c422a";
 export const CORK = "#c4a46c";
 export const CERAMIC = "#e8e0d4";
 export const PCB_GREEN = "#1a472a";
 
 // ─── Shell / room colors ────────────────────────────────────────
-export const SHELL_WALL = "#2b2620";
-export const SHELL_RETURN = "#211d19";
-export const SHELL_FLOOR = "#23211f";
-export const SHELL_SHADOW = "#171412";
+export const SHELL_WALL = "#3d3530";
+export const SHELL_RETURN = "#302a24";
+export const SHELL_FLOOR = "#2b2825";
+export const SHELL_SHADOW = "#1c1815";
 
 // ─── Photo frame colors ─────────────────────────────────────────
 export const PHOTO_WARM = "#d4c5a9";
@@ -68,4 +68,4 @@ export const LIGHT_BOTTOM_FILL = "#f4d7bb";
 
 // ─── Book spine colors ───────────────────────────────────────────
 /** Full palette — shelf-wall uses the first 4, book-stack uses all 5 */
-export const BOOK_COLORS = ["#2a4a6a", "#6a3a3a", "#3a5a3a", "#5a4a3a", "#4a3a6a"] as const;
+export const BOOK_COLORS = ["#3a5f85", "#854a4a", "#4a704a", "#6e5c45", "#5a4a7a"] as const;
