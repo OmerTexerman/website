@@ -128,6 +128,8 @@ export function createDictionary(): DictionaryObject {
 		const leaf = new Mesh(new BoxGeometry(PAGE_W, LEAF_THICK, PAGE_D), leafMat);
 		// Offset so the left edge is at the pivot (hinge)
 		leaf.position.set(PAGE_W / 2, LEAF_THICK / 2, 0);
+		leaf.castShadow = true;
+		leaf.receiveShadow = true;
 		pagePivot.add(leaf);
 
 		pagePivots.push(pagePivot);
