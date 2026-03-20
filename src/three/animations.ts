@@ -529,13 +529,10 @@ export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
 			// Each page flips quickly
 			const dur = 0.18;
 			const flipP = easeInOutCubic(clamp((p - delay) / dur, 0, 1));
-			// Pages spread across the cover angle so they don't bunch up.
-			// Earlier pages land near the cover; later pages stay closer
-			// to the spine. Last 4 stop partway — the page you landed on.
-			const isTail = i >= n - 4;
-			const target = isTail
-				? lerp(DICT_PAGE_MAX * 0.15, DICT_PAGE_MAX * 0.4, (i - (n - 4)) / 3)
-				: lerp(DICT_PAGE_MAX * 0.7, DICT_PAGE_MAX, i / Math.max(n - 5, 1));
+			// Pages form a continuous fan from near-spine to near-cover.
+			// Each page lands at an evenly spaced angle across the arc.
+			const t = i / (n - 1);
+			const target = lerp(DICT_PAGE_MAX * 0.08, DICT_PAGE_MAX, t);
 			page.rotation.z = lerp(restRZ, restRZ + target, flipP);
 			// Stack: each flipped page sits higher than the last so you
 			// can see them piling up on the cover side

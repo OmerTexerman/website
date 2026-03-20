@@ -46,8 +46,8 @@ const PAGE_D = DEPTH - 0.024;
 // Page packet sitting on top of the base page block
 const BASE_PAGE_THICK = 0.1;
 const LEAF_COUNT = 20;
-const LEAF_THICK = 0.001;
-const LEAF_STEP = 0.0006;
+const LEAF_THICK = 0.003;
+const LEAF_STEP = 0.0008;
 const PACKET_THICK = LEAF_THICK + (LEAF_COUNT - 1) * LEAF_STEP;
 
 const TAB_COUNT = 8;
