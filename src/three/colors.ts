@@ -48,6 +48,7 @@ export const PHOTO_BLUE = "#b8c4d4";
 
 // ─── Dictionary colors ──────────────────────────────────────────
 export const DICTIONARY_LEATHER = "#4a3228";
+export const DICTIONARY_SPINE = "#3d2820";
 export const DICTIONARY_GOLD = "#c9a94e";
 export const DICTIONARY_PAGES = "#e8e0d0";
 

@@ -488,71 +488,91 @@ export function animateFrameClose(frame: PhotoFrameObject): Promise<void> {
 }
 
 // ─── DICTIONARY (Word of the Day) ────────────────────────────────
-// Spine is on the LEFT side. Cover and pages rotate around Z axis,
-// swinging open to the right — a sideways open that looks completely
-// different from the notebook's vertical open.
-const DICT_OPEN_MS = 1000;
-const DICT_CLOSE_MS = 600;
-// Positive Z rotation swings the cover from flat to open-right
-const DICT_COVER_ANGLE = Math.PI * 0.85;
+// 4-phase animation unique to the dictionary:
+//   1. Tilt up on spine edge (rotation.z on tiltPivot)
+//   2. Covers fall open symmetrically (rotation.x on cover pivots)
+//   3. Pages riffle rapidly (rotation.x on page pivots, staggered)
+//   4. Settle — flutter damps out
+const DICT_OPEN_MS = 1200;
+const DICT_CLOSE_MS = 800;
+const DICT_TILT_ANGLE = 1.15; // ~66° — book stands up on spine
+const DICT_COVER_OPEN = -1.3; // front cover swings toward viewer
+const DICT_COVER_BACK = 0.4; // back cover swings slightly away
 
 export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
-	const { coverPivot, pageFlips } = dict.parts;
+	const { tiltPivot, frontCoverPivot, backCoverPivot, rifflePages } = dict.parts;
 
-	saveRest(coverPivot, "rz", coverPivot.rotation.z);
-	for (const page of pageFlips) {
-		saveRest(page, "rz", page.rotation.z);
+	saveRest(tiltPivot, "rz", tiltPivot.rotation.z);
+	saveRest(frontCoverPivot, "rx", frontCoverPivot.rotation.x);
+	saveRest(backCoverPivot, "rx", backCoverPivot.rotation.x);
+	for (const page of rifflePages) {
+		saveRest(page, "rx", page.rotation.x);
 	}
 
-	const restCover = getRest(coverPivot, "rz");
+	const restTilt = getRest(tiltPivot, "rz");
+	const restFront = getRest(frontCoverPivot, "rx");
+	const restBack = getRest(backCoverPivot, "rx");
 
 	return animate(`dict-${dict.root.uuid}`, DICT_OPEN_MS, (p) => {
-		// Phase 1 (0–0.35): Cover swings open to the right
-		const coverP = easeInOutCubic(clamp(p / 0.35, 0, 1));
-		coverPivot.rotation.z = lerp(restCover, restCover + DICT_COVER_ANGLE, coverP);
+		// Phase 1 (0–0.22): Tilt up on spine edge
+		const tiltP = easeInOutCubic(clamp(p / 0.22, 0, 1));
+		tiltPivot.rotation.z = lerp(restTilt, restTilt + DICT_TILT_ANGLE, tiltP);
 
-		// Phase 2 (0.25–0.95): Pages flip one by one to the right
-		// Each page settles at a staggered angle WITHIN the cover range
-		const flipStart = 0.25;
-		const flipWindow = 0.7;
-		for (let i = 0; i < pageFlips.length; i++) {
-			const page = pageFlips[i];
-			const restRZ = getRest(page, "rz");
-			const delay = flipStart + (i / pageFlips.length) * flipWindow * 0.65;
-			const duration = flipWindow * 0.35;
-			const pageP = clamp((p - delay) / duration, 0, 1);
-			// Pages fan out within the cover angle, not past it
-			const maxAngle = DICT_COVER_ANGLE * 0.75;
-			const t = pageFlips.length <= 1 ? 1 : i / (pageFlips.length - 1);
-			const targetAngle = lerp(maxAngle * 0.15, maxAngle, t);
-			// Small arc during flip, but doesn't exceed target
-			const overshoot = Math.sin(pageP * Math.PI) * 0.08 * (1 - pageP);
-			page.rotation.z = lerp(restRZ, restRZ + targetAngle, pageP) + overshoot;
+		// Phase 2 (0.15–0.45): Covers fall open
+		const coverP = easeInOutCubic(clamp((p - 0.15) / 0.3, 0, 1));
+		frontCoverPivot.rotation.x = lerp(restFront, restFront + DICT_COVER_OPEN, coverP);
+		backCoverPivot.rotation.x = lerp(restBack, restBack + DICT_COVER_BACK, coverP);
+
+		// Phase 3 (0.4–0.85): Pages riffle — rapid thumb-through
+		const riffleStart = 0.4;
+		const riffleWindow = 0.45;
+		for (let i = 0; i < rifflePages.length; i++) {
+			const page = rifflePages[i];
+			const restRX = getRest(page, "rx");
+			// Stagger each page
+			const delay = riffleStart + (i / rifflePages.length) * riffleWindow * 0.7;
+			const dur = riffleWindow * 0.3;
+			const pageP = clamp((p - delay) / dur, 0, 1);
+			// Target: fan across the open spread
+			const t = rifflePages.length <= 1 ? 0.5 : i / (rifflePages.length - 1);
+			const target = lerp(DICT_COVER_BACK * 0.8, DICT_COVER_OPEN * 0.7, t);
+			// Flutter during flip
+			const flutter = Math.sin(pageP * Math.PI * 3) * 0.06 * (1 - pageP);
+			page.rotation.x = lerp(restRX, restRX + target, easeInOutCubic(pageP)) + flutter;
 		}
 	});
 }
 
 export function animateDictionaryClose(dict: DictionaryObject): Promise<void> {
-	const { coverPivot, pageFlips } = dict.parts;
+	const { tiltPivot, frontCoverPivot, backCoverPivot, rifflePages } = dict.parts;
 
-	const curCover = coverPivot.rotation.z;
-	const restCover = getRest(coverPivot, "rz");
-	const pageStates = pageFlips.map((page) => ({
+	const curTilt = tiltPivot.rotation.z;
+	const restTilt = getRest(tiltPivot, "rz");
+	const curFront = frontCoverPivot.rotation.x;
+	const restFront = getRest(frontCoverPivot, "rx");
+	const curBack = backCoverPivot.rotation.x;
+	const restBack = getRest(backCoverPivot, "rx");
+	const pageStates = rifflePages.map((page) => ({
 		page,
-		cur: page.rotation.z,
-		rest: getRest(page, "rz"),
+		cur: page.rotation.x,
+		rest: getRest(page, "rx"),
 	}));
 
 	return animate(`dict-${dict.root.uuid}`, DICT_CLOSE_MS, (p) => {
-		// Pages flip back (0–0.5)
-		const pageP = easeInOutCubic(clamp(p / 0.5, 0, 1));
+		// Pages settle (0–0.4)
+		const pageP = easeInOutCubic(clamp(p / 0.4, 0, 1));
 		for (const { page, cur, rest } of pageStates) {
-			page.rotation.z = lerp(cur, rest, pageP);
+			page.rotation.x = lerp(cur, rest, pageP);
 		}
 
-		// Cover closes (0.2–0.9)
-		const coverP = easeInOutCubic(clamp((p - 0.2) / 0.7, 0, 1));
-		coverPivot.rotation.z = lerp(curCover, restCover, coverP);
+		// Covers close (0.15–0.55)
+		const coverP = easeInOutCubic(clamp((p - 0.15) / 0.4, 0, 1));
+		frontCoverPivot.rotation.x = lerp(curFront, restFront, coverP);
+		backCoverPivot.rotation.x = lerp(curBack, restBack, coverP);
+
+		// Tilt back flat (0.4–1.0)
+		const tiltP = easeInOutCubic(clamp((p - 0.4) / 0.6, 0, 1));
+		tiltPivot.rotation.z = lerp(curTilt, restTilt, tiltP);
 	});
 }
 

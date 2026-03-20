@@ -10,6 +10,7 @@ import {
 	DICTIONARY_GOLD,
 	DICTIONARY_LEATHER,
 	DICTIONARY_PAGES,
+	DICTIONARY_SPINE,
 	METAL,
 	NOTEBOOK_RED,
 	PCB_GREEN,
@@ -135,5 +136,11 @@ export const dictionaryGoldMaterial = new MeshStandardMaterial({
 export const dictionaryPagesMaterial = new MeshStandardMaterial({
 	color: new Color(DICTIONARY_PAGES),
 	roughness: 1.0,
+	metalness: 0.0,
+});
+
+export const dictionarySpineMaterial = new MeshStandardMaterial({
+	color: new Color(DICTIONARY_SPINE),
+	roughness: 0.7,
 	metalness: 0.0,
 });
