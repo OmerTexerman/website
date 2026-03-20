@@ -488,15 +488,25 @@ export function animateFrameClose(frame: PhotoFrameObject): Promise<void> {
 }
 
 // ─── DICTIONARY (Word of the Day) ────────────────────────────────
-// Bold animation: cover opens wide, then pages TURN one by one like
-// rapidly flipping through a dictionary with your thumb. Each page
-// does a full turn from right side to left side (rotation.z ≈ π).
-// This creates a visible cascading wave of pages — unmistakable.
+// Cover opens wide, pages cascade with "spine shoulder" arc —
+// each page's pivot temporarily lifts (+Y) and pushes out (+X)
+// at mid-turn so it appears to curve around the spine binding.
 const DICT_OPEN_MS = 1100;
 const DICT_CLOSE_MS = 650;
-const DICT_COVER_ANGLE = 2.9; // ~166° — cover opens nearly flat
-// Pages must stay INSIDE the cover envelope
+const DICT_COVER_ANGLE = 2.9;
 const DICT_PAGE_MAX = DICT_COVER_ANGLE - 0.08;
+
+// Spine-wrap: pages arc over the spine at mid-turn.
+// X push moves pivot outward, Y lift clears the spine block.
+const DICT_SPINE_WRAP_X = 0.01;
+const DICT_SPINE_WRAP_Y = 0.04;
+
+function getDictSpineWrap(flipP: number, targetAngle: number): { x: number; y: number } {
+	const mid = Math.sin(Math.PI * flipP); // 0→1→0 peaking at mid-turn
+	const travel = clamp(targetAngle / (Math.PI * 0.5), 0, 1);
+	const k = mid * travel;
+	return { x: DICT_SPINE_WRAP_X * k, y: DICT_SPINE_WRAP_Y * k };
+}
 
 export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
 	const { frontCoverPivot, pagePivots, basePageBlock } = dict.parts;
@@ -506,6 +516,7 @@ export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
 	saveRest(basePageBlock, "y", basePageBlock.position.y);
 	for (const page of pagePivots) {
 		saveRest(page, "rz", page.rotation.z);
+		saveRest(page, "x", page.position.x);
 		saveRest(page, "y", page.position.y);
 	}
 
@@ -515,44 +526,37 @@ export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
 	const n = pagePivots.length;
 
 	return animate(`dict-${dict.root.uuid}`, DICT_OPEN_MS, (p) => {
-		// Cover opens FIRST (0–0.25) — fully open before pages start
 		const coverP = easeInOutCubic(clamp(p / 0.25, 0, 1));
 		frontCoverPivot.rotation.z = lerp(restCover, restCover + DICT_COVER_ANGLE, coverP);
 
-		// Pages flip in REVERSE order (top of stack first, peeling down).
-		// Track how many pages have flipped to shrink the base block.
 		let flippedWeight = 0;
 		for (let i = 0; i < n; i++) {
-			// Flip from top (index n-1) to bottom (index 0)
 			const flipIndex = n - 1 - i;
 			const page = pagePivots[flipIndex];
 			const restRZ = getRest(page, "rz");
+			const restX = getRest(page, "x");
 			const restY = getRest(page, "y");
+
 			const delay = 0.28 + (i / n) * 0.4;
 			const dur = 0.18;
 			const flipP = easeInOutCubic(clamp((p - delay) / dur, 0, 1));
-			// Fan angle: first flipped page lands near cover, last near spine
+
 			const t = i / (n - 1);
 			const target = lerp(DICT_PAGE_MAX, DICT_PAGE_MAX * 0.08, t);
 			page.rotation.z = lerp(restRZ, restRZ + target, flipP);
 
-			// Flipped pages stack with minimal offset — just enough
-			// to avoid z-fighting, not enough to lift off the book
-			page.position.y = lerp(restY, restY + i * 0.0008, flipP);
-
-			// Subtle arc during flip
-			const arc = Math.sin(flipP * Math.PI) * 0.06;
-			page.position.y += arc;
+			// Spine-wrap arc: pivot lifts and pushes out at mid-turn
+			const wrap = getDictSpineWrap(flipP, target);
+			const stackY = lerp(restY, restY + i * 0.0008, flipP);
+			page.position.x = restX + wrap.x;
+			page.position.y = stackY + wrap.y;
 
 			flippedWeight += flipP;
 		}
 
-		// Shrink the base page block as pages leave it
 		const shrinkRatio = 1 - (flippedWeight / n) * 0.7;
 		basePageBlock.scale.y = restBlockScaleY * shrinkRatio;
-		// Keep the bottom edge anchored
-		const halfH = restBlockY;
-		basePageBlock.position.y = halfH * shrinkRatio;
+		basePageBlock.position.y = restBlockY * shrinkRatio;
 	});
 }
 
@@ -569,23 +573,23 @@ export function animateDictionaryClose(dict: DictionaryObject): Promise<void> {
 		page,
 		curRZ: page.rotation.z,
 		restRZ: getRest(page, "rz"),
+		curX: page.position.x,
+		restX: getRest(page, "x"),
 		curY: page.position.y,
 		restY: getRest(page, "y"),
 	}));
 
 	return animate(`dict-${dict.root.uuid}`, DICT_CLOSE_MS, (p) => {
-		// Pages flip back and unstack (0–0.45)
 		const pageP = easeInOutCubic(clamp(p / 0.45, 0, 1));
-		for (const { page, curRZ, restRZ, curY, restY } of pageStates) {
+		for (const { page, curRZ, restRZ, curX, restX, curY, restY } of pageStates) {
 			page.rotation.z = lerp(curRZ, restRZ, pageP);
+			page.position.x = lerp(curX, restX, pageP);
 			page.position.y = lerp(curY, restY, pageP);
 		}
 
-		// Base page block grows back (0–0.45)
 		basePageBlock.scale.y = lerp(curBlockScaleY, restBlockScaleY, pageP);
 		basePageBlock.position.y = lerp(curBlockY, restBlockY, pageP);
 
-		// Cover closes (0.3–0.9)
 		const coverP = easeInOutCubic(clamp((p - 0.3) / 0.6, 0, 1));
 		frontCoverPivot.rotation.z = lerp(curCover, restCover, coverP);
 	});
