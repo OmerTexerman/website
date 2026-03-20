@@ -711,28 +711,10 @@ export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
 }
 
 export function animateDictionaryClose(dict: DictionaryObject): Promise<void> {
-	const {
-		frontCoverPivot,
-		leftPageBlockPivot,
-		leftPageBlockGroup,
-		leftPageBlockCurveJoints,
-		pageLeaves,
-		basePageBlock,
-	} = dict.parts;
+	const { frontCoverPivot, leftPageBlockPivot, pageLeaves, basePageBlock } = dict.parts;
 
 	const curCover = frontCoverPivot.rotation.z;
 	const restCover = getRest(frontCoverPivot, "rz");
-	const curLeftPivotRZ = leftPageBlockPivot.rotation.z;
-	const restLeftPivotRZ = getRest(leftPageBlockPivot, "rz");
-	const curLeftBlockScaleY = leftPageBlockGroup.scale.y;
-	const restLeftBlockScaleY = getRest(leftPageBlockGroup, "sy");
-	const curLeftBlockY = leftPageBlockGroup.position.y;
-	const restLeftBlockY = getRest(leftPageBlockGroup, "y");
-	const leftBlockCurveStates = leftPageBlockCurveJoints.map((joint) => ({
-		joint,
-		curRZ: joint.rotation.z,
-		restRZ: getRest(joint, "rz"),
-	}));
 	const curBlockScaleY = basePageBlock.scale.y;
 	const restBlockScaleY = getRest(basePageBlock, "sy");
 	const curBlockY = basePageBlock.position.y;
@@ -758,7 +740,6 @@ export function animateDictionaryClose(dict: DictionaryObject): Promise<void> {
 		// Pages close in reverse stagger — last opened page closes first
 		for (let i = 0; i < nLeaves; i++) {
 			const s = leafStates[i];
-			// Reverse stagger: page i closes at a delay proportional to (n-1-i)
 			const reverseT = nLeaves <= 1 ? 0 : (nLeaves - 1 - i) / (nLeaves - 1);
 			const delay = reverseT * 0.3;
 			const pageP = easeInOutCubic(clamp((p - delay) / 0.5, 0, 1));
@@ -769,7 +750,6 @@ export function animateDictionaryClose(dict: DictionaryObject): Promise<void> {
 			for (const jointState of s.jointStates) {
 				jointState.joint.rotation.z = lerp(jointState.curRZ, jointState.restRZ, pageP);
 			}
-			// Hide once fully returned to rest
 			if (pageP >= 0.99) s.flipPivot.visible = false;
 		}
 
