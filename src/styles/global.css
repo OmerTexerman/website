@@ -841,205 +841,194 @@ html[data-scene-ready="true"] #scene-fallback {
 	margin-top: 0.375rem;
 }
 
-/* ── Word of the Day — The Dictionary ────────── */
+/* ── Word of the Day — Desk Calendar ─────────── */
 
-.dictionary-page {
+.wotd-page {
 	position: relative;
-	border-radius: 6px;
-	box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
-	overflow: hidden;
-	display: flex;
-	flex-direction: column;
-	min-height: calc(100vh - 10rem);
 }
 
-.dictionary-spine-edge {
-	height: 8px;
-	background: linear-gradient(90deg, #3a2418, #4a3228, #3a2418);
-	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
-}
-
-.dictionary-paper {
-	flex: 1;
-	background:
-		repeating-linear-gradient(
-			transparent,
-			transparent 3rem,
-			rgba(180, 170, 155, 0.06) 3rem,
-			rgba(180, 170, 155, 0.06) calc(3rem + 1px)
-		),
-		linear-gradient(180deg, #f0ead8, #e8e0cc);
-	color: #2a2520;
-	padding: 2rem 1.5rem;
-}
-
-@media (min-width: 48rem) {
-	.dictionary-paper {
-		padding: 2.5rem 3rem;
-	}
-}
-
-.dictionary-empty {
+.wotd-empty {
 	font-family: var(--font-mono);
 	font-size: 0.8125rem;
-	color: #8a7e70;
+	color: var(--color-muted);
 	text-align: center;
-	padding: 2rem 0;
+	padding: 3rem 0;
 }
 
-/* Hero entry */
-.dictionary-hero {
-	padding-bottom: 2rem;
+/* Hero card — dark surface, not paper */
+.wotd-card {
+	position: relative;
+	border-radius: 10px;
+	overflow: hidden;
+	box-shadow:
+		0 8px 32px rgba(0, 0, 0, 0.4),
+		0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
-.dictionary-header {
+.wotd-card-tab {
 	display: flex;
 	justify-content: space-between;
-	align-items: baseline;
-	margin-bottom: 0.5rem;
+	align-items: center;
+	padding: 0.75rem 1.5rem;
+	background: var(--color-accent);
+	color: #fff;
 }
 
-.dictionary-guide-word {
+.wotd-tab-label {
 	font-family: var(--font-mono);
 	font-size: 0.6875rem;
 	letter-spacing: 0.15em;
 	text-transform: uppercase;
-	color: #8a7e70;
+	font-weight: 600;
 }
 
-.dictionary-date {
+.wotd-tab-date {
 	font-family: var(--font-mono);
 	font-size: 0.6875rem;
-	color: #8a7e70;
+	opacity: 0.85;
 }
 
-.dictionary-word {
-	font-family: var(--font-display);
-	font-weight: 700;
-	font-size: 3rem;
-	line-height: 1.1;
-	color: #1a1512;
-	margin-bottom: 0.25rem;
+.wotd-card-body {
+	background: var(--color-dark-surface-elevated);
+	padding: 2.5rem 2rem;
 }
 
 @media (min-width: 48rem) {
-	.dictionary-word {
-		font-size: 4rem;
+	.wotd-card-body {
+		padding: 3rem 2.5rem;
 	}
 }
 
-.dictionary-pos {
+.wotd-word {
+	font-family: var(--font-display);
+	font-weight: 700;
+	font-size: 3.5rem;
+	line-height: 1.05;
+	color: var(--color-cream);
+	margin-bottom: 0.5rem;
+}
+
+@media (min-width: 48rem) {
+	.wotd-word {
+		font-size: 5rem;
+	}
+}
+
+.wotd-pos {
+	display: inline-block;
 	font-family: var(--font-mono);
 	font-size: 0.875rem;
 	font-style: italic;
-	color: #6b5e50;
-	margin-bottom: 0.75rem;
+	color: var(--color-muted-light);
+	margin-bottom: 1rem;
 }
 
-.dictionary-divider {
+.wotd-accent-line {
 	height: 2px;
-	background: linear-gradient(90deg, #c9a94e, #c9a94e33, transparent);
+	width: 4rem;
+	background: var(--color-accent);
 	margin-bottom: 1.25rem;
 }
 
-.dictionary-quip {
+.wotd-quip {
 	font-size: 1.125rem;
-	line-height: 1.65;
-	color: #3a3228;
+	line-height: 1.7;
+	color: var(--color-cream-dark);
 	max-width: 36rem;
 }
 
-.dictionary-image {
+.wotd-image {
 	margin-top: 1.5rem;
-	border-radius: 4px;
+	border-radius: 6px;
 	overflow: hidden;
-	border: 1px solid rgba(0, 0, 0, 0.08);
+	border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.dictionary-image img {
+.wotd-image img {
 	width: 100%;
 	height: auto;
 	display: block;
 }
 
-/* Archive section */
-.dictionary-archive {
-	border-top: 1px solid rgba(180, 170, 155, 0.3);
-	padding-top: 1.5rem;
+/* Archive */
+.wotd-archive {
+	margin-top: 2.5rem;
 }
 
-.dictionary-archive-title {
+.wotd-archive-heading {
 	font-family: var(--font-mono);
 	font-size: 0.6875rem;
 	letter-spacing: 0.15em;
 	text-transform: uppercase;
-	color: #8a7e70;
+	color: var(--color-muted);
 	margin-bottom: 1rem;
+	padding-bottom: 0.5rem;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.dictionary-entries {
+.wotd-archive-list {
 	display: flex;
 	flex-direction: column;
-	gap: 0;
 }
 
-.dictionary-entry {
+.wotd-archive-item {
 	padding: 1rem 0;
-	border-bottom: 1px solid rgba(180, 170, 155, 0.15);
+	border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
-.dictionary-entry:last-child {
+.wotd-archive-item:last-child {
 	border-bottom: none;
 }
 
-.dictionary-entry-header {
+.wotd-archive-word-row {
 	display: flex;
 	align-items: baseline;
 	gap: 0.5rem;
+	flex-wrap: wrap;
 	margin-bottom: 0.25rem;
 }
 
-.dictionary-entry-word {
+.wotd-archive-word {
 	font-family: var(--font-display);
 	font-weight: 600;
 	font-size: 1.25rem;
-	color: #1a1512;
+	color: var(--color-cream);
 }
 
-.dictionary-entry-pos {
+.wotd-archive-pos {
 	font-family: var(--font-mono);
 	font-size: 0.75rem;
 	font-style: italic;
-	color: #6b5e50;
+	color: var(--color-muted-light);
 }
 
-.dictionary-entry-quip {
-	font-size: 0.9375rem;
-	line-height: 1.5;
-	color: #3a3228;
-	margin-bottom: 0.25rem;
-}
-
-.dictionary-entry-date {
+.wotd-archive-date {
 	font-family: var(--font-mono);
 	font-size: 0.6875rem;
-	color: #a09080;
+	color: var(--color-muted);
+	margin-left: auto;
 }
 
-/* Dictionary page animations */
-@keyframes dictionary-page-in {
+.wotd-archive-quip {
+	font-size: 0.9375rem;
+	line-height: 1.5;
+	color: var(--color-cream-dark);
+}
+
+/* Animation */
+@keyframes wotd-page-in {
 	from {
 		opacity: 0;
-		transform: translateY(12px) scale(0.98);
+		transform: translateY(16px);
 	}
 	to {
 		opacity: 1;
-		transform: translateY(0) scale(1);
+		transform: translateY(0);
 	}
 }
 
-.dictionary-page[data-animate].is-visible {
-	animation: dictionary-page-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+.wotd-page[data-animate].is-visible {
+	animation: wotd-page-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 /* ── Projects — The Laptop ───────────────────── */
@@ -1394,20 +1383,17 @@ html[data-scene-ready="true"] #scene-fallback {
 
 /* ── Modal overrides — Word of the Day ───────── */
 
-#content-modal-body .dictionary-page {
-	margin: -1.5rem;
+#content-modal-body .wotd-card {
 	border-radius: 0;
 	box-shadow: none;
-	min-height: 100%;
 }
 
-#content-modal-body .dictionary-spine-edge {
-	border-radius: 0;
-}
-
-#content-modal-body .dictionary-paper {
+#content-modal-body .wotd-card-body {
 	padding: 1.5rem;
-	border-radius: 0;
+}
+
+#content-modal-body .wotd-archive {
+	margin-top: 1.5rem;
 }
 
 /* ── Photo Collection Detail — pinned note card ── */

@@ -11,59 +11,58 @@ const archive = words.slice(1);
 ---
 
 <ContentPage section={section} surface={false} containerWidthClass="max-w-3xl" showIntro={false}>
-  <div class="dictionary-page" data-animate>
-    <div class="dictionary-spine-edge"></div>
-    <div class="dictionary-paper">
-      {!todaysWord ? (
-        <p class="dictionary-empty">no words yet :)</p>
-      ) : (
-        <>
-          {/* Today's word — hero entry */}
-          <div class="dictionary-hero">
-            <div class="dictionary-header">
-              <span class="dictionary-guide-word">Today's Word</span>
-              <span class="dictionary-date">{formatDate(todaysWord.date, "long")}</span>
-            </div>
+  <div class="wotd-page" data-animate>
+    {!todaysWord ? (
+      <p class="wotd-empty">no words yet :)</p>
+    ) : (
+      <>
+        {/* Today's word — calendar card */}
+        <div class="wotd-card">
+          <div class="wotd-card-tab">
+            <span class="wotd-tab-label">Word of the Day</span>
+            <span class="wotd-tab-date">{formatDate(todaysWord.date, "long")}</span>
+          </div>
 
-            <h1 class="dictionary-word">{todaysWord.word}</h1>
+          <div class="wotd-card-body">
+            <h1 class="wotd-word">{todaysWord.word}</h1>
 
             {todaysWord.partOfSpeech && (
-              <p class="dictionary-pos">{todaysWord.partOfSpeech}</p>
+              <span class="wotd-pos">/{todaysWord.partOfSpeech}/</span>
             )}
 
-            <div class="dictionary-divider"></div>
+            <div class="wotd-accent-line"></div>
 
-            <p class="dictionary-quip">{todaysWord.quip}</p>
+            <p class="wotd-quip">{todaysWord.quip}</p>
 
             {todaysWord.image && (
-              <div class="dictionary-image">
+              <div class="wotd-image">
                 <img src={todaysWord.image} alt={todaysWord.word} loading="lazy" />
               </div>
             )}
           </div>
+        </div>
 
-          {/* Archive */}
-          {archive.length > 0 && (
-            <div class="dictionary-archive">
-              <h2 class="dictionary-archive-title">Archive</h2>
-              <div class="dictionary-entries">
-                {archive.map((entry, i) => (
-                  <div class="dictionary-entry" data-animate style={`transition-delay: ${i * 0.06}s`}>
-                    <div class="dictionary-entry-header">
-                      <span class="dictionary-entry-word">{entry.word}</span>
-                      {entry.partOfSpeech && (
-                        <span class="dictionary-entry-pos">{entry.partOfSpeech}</span>
-                      )}
-                    </div>
-                    <p class="dictionary-entry-quip">{entry.quip}</p>
-                    <span class="dictionary-entry-date">{formatDate(entry.date)}</span>
+        {/* Archive */}
+        {archive.length > 0 && (
+          <div class="wotd-archive">
+            <h2 class="wotd-archive-heading">Previous Words</h2>
+            <div class="wotd-archive-list">
+              {archive.map((entry, i) => (
+                <div class="wotd-archive-item" data-animate style={`transition-delay: ${i * 0.06}s`}>
+                  <div class="wotd-archive-word-row">
+                    <span class="wotd-archive-word">{entry.word}</span>
+                    {entry.partOfSpeech && (
+                      <span class="wotd-archive-pos">/{entry.partOfSpeech}/</span>
+                    )}
+                    <span class="wotd-archive-date">{formatDate(entry.date)}</span>
                   </div>
-                ))}
-              </div>
+                  <p class="wotd-archive-quip">{entry.quip}</p>
+                </div>
+              ))}
             </div>
-          )}
-        </>
-      )}
-    </div>
+          </div>
+        )}
+      </>
+    )}
   </div>
 </ContentPage>

@@ -274,10 +274,11 @@ function createShelfCamera(): Group {
 function createShelfDictionary(): Group {
 	const g = new Group();
 
-	const w = 0.35;
-	const h = 0.14;
-	const d = 0.28;
-	const coverThick = 0.012;
+	// Lying flat on the shelf — simple, clean
+	const w = 0.38;
+	const h = 0.1;
+	const d = 0.3;
+	const coverThick = 0.01;
 
 	// Bottom cover
 	const bottom = new Mesh(new BoxGeometry(w, coverThick, d), dictionaryLeatherMaterial);
@@ -295,42 +296,18 @@ function createShelfDictionary(): Group {
 	top.position.y = coverThick + pagesH + coverThick / 2;
 	g.add(top);
 
-	// Gold border inset on top cover
+	// Gold border on top cover
 	const border = new Mesh(new PlaneGeometry(w - 0.04, d - 0.04), dictionaryGoldMaterial);
 	border.rotation.x = -Math.PI / 2;
 	border.position.set(0, h + 0.001, 0);
 	g.add(border);
 
-	// Gold title bar
-	const titleBar = new Mesh(new PlaneGeometry(w * 0.5, 0.025), dictionaryGoldMaterial);
+	// Gold title bar on top
+	const titleBar = new Mesh(new PlaneGeometry(w * 0.5, 0.02), dictionaryGoldMaterial);
 	titleBar.rotation.x = -Math.PI / 2;
-	titleBar.position.set(0, h + 0.002, d * 0.15);
+	titleBar.position.set(0, h + 0.002, d * 0.12);
 	g.add(titleBar);
 
-	// Rounded spine (cylinder)
-	const spineRadius = coverThick * 1.1;
-	const spine = new Mesh(
-		new CylinderGeometry(spineRadius, spineRadius, w - 0.01, 6, 1, false, 0, Math.PI),
-		dictionaryLeatherMaterial,
-	);
-	spine.rotation.z = Math.PI / 2;
-	spine.rotation.y = Math.PI / 2;
-	spine.position.set(0, coverThick + pagesH / 2, -d / 2 + 0.003);
-	g.add(spine);
-
-	// Ribbon bookmark peeking out
-	const ribbonMat = new MeshStandardMaterial({
-		color: new Color(0x8b1a1a),
-		roughness: 0.7,
-		side: DoubleSide,
-	});
-	const ribbon = new Mesh(new PlaneGeometry(0.012, d * 0.2), ribbonMat);
-	ribbon.rotation.x = -0.1;
-	ribbon.position.set(0.03, h + 0.002, d * 0.22);
-	g.add(ribbon);
-
-	// Stand upright, leaning slightly
-	g.rotation.z = 0.04;
 	return g;
 }
 
