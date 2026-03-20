@@ -608,11 +608,18 @@ export function createMobileScrollController(
 		return changed;
 	}
 
+	function hasHorizontalContent(): boolean {
+		const stopIdx = nearestStopIndex(verticalT);
+		const points = panSnapPoints[stopIdx];
+		return !!points && points.length > 1;
+	}
+
 	function onWheelContinuous(rawY: number, rawX: number): boolean {
 		wheelGestureStart();
 
 		const deltaY = wheelAxisLock === "h" ? 0 : rawY;
-		const deltaX = wheelAxisLock === "v" ? 0 : rawX;
+		// Only allow horizontal pan on rows that actually have multiple snap points
+		const deltaX = wheelAxisLock === "v" || !hasHorizontalContent() ? 0 : rawX;
 		let changed = false;
 
 		if (deltaY !== 0) {
