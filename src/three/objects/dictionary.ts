@@ -111,25 +111,30 @@ export function createDictionary(): DictionaryObject {
 	basePages.position.set(HINGE_X + PAGE_W / 2, COVER_THICK + BASE_PAGE_THICK / 2, 0);
 	dictionary.add(basePages);
 
-	// ─── Page packet root (movable group for thumb catch) ────────
+	// ─── Page packet root — pivot at spine center height ─────────
+	// Pages pivot from the same Y as the spine center so the hinge
+	// looks correct. Leaf meshes are offset upward to sit at the
+	// top surface when flat (rotation.z = 0).
 	const pagePacketRoot = new Group();
-	pagePacketRoot.position.set(HINGE_X, COVER_THICK + BASE_PAGE_THICK, 0);
+	const spineCenter = totalThickness / 2;
+	const leafRestOffset = COVER_THICK + BASE_PAGE_THICK - spineCenter;
+	pagePacketRoot.position.set(HINGE_X, spineCenter, 0);
 	dictionary.add(pagePacketRoot);
 
 	// Individual thin page leaves (opaque boxes, not transparent planes)
 	const pagePivots: Group[] = [];
 	for (let i = 0; i < LEAF_COUNT; i++) {
 		const pagePivot = new Group();
-		// Stack pages upward with small gaps
-		pagePivot.position.set(0, i * LEAF_STEP, 0);
+		// Pivot Y is at spine center; stack offset is relative
+		pagePivot.position.set(0, 0, 0);
 		pagePacketRoot.add(pagePivot);
 
 		const t = i / (LEAF_COUNT - 1);
 		const leafColor = new Color().lerpColors(new Color("#f0e8d8"), new Color("#e4dcc8"), t);
 		const leafMat = new MeshStandardMaterial({ color: leafColor, roughness: 1.0 });
 		const leaf = new Mesh(new BoxGeometry(PAGE_W, LEAF_THICK, PAGE_D), leafMat);
-		// Offset so the left edge is at the pivot (hinge)
-		leaf.position.set(PAGE_W / 2, LEAF_THICK / 2, 0);
+		// Offset right for hinge, and UP to sit at the top surface when flat
+		leaf.position.set(PAGE_W / 2, leafRestOffset + i * LEAF_STEP, 0);
 		leaf.castShadow = true;
 		leaf.receiveShadow = true;
 		pagePivot.add(leaf);
