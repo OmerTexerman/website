@@ -1059,6 +1059,12 @@ export function initUnifiedScene(
 			// so the browser never paints a black frame
 			renderer.render(scene, camera);
 			targetInterval = 0;
+			setDeskVisible(false);
+			applyRenderSettings("mobile");
+			// setPixelRatio clears the canvas buffer — render immediately
+			// so the browser never paints a black frame
+			renderer.render(scene, camera);
+			targetInterval = 0;
 		}
 
 		transitioning = false;
