@@ -118,23 +118,27 @@ export function createDictionary(): DictionaryObject {
 	basePages.position.set(HINGE_X + PAGE_W / 2, COVER_THICK + BASE_PAGE_THICK / 2, 0);
 	dictionary.add(basePages);
 
-	// ─── Page packet root — pivot at top of base page block ──────
-	// Pages pivot from the top surface so they clear the spine when
-	// rotating. Each leaf sits flat at its stack position when closed.
+	// ─── Page packet root (kept for interface compat) ────────────
 	const pagePacketRoot = new Group();
-	pagePacketRoot.position.set(HINGE_X, COVER_THICK + BASE_PAGE_THICK, 0);
+	pagePacketRoot.position.set(0, 0, 0);
 	dictionary.add(pagePacketRoot);
 
+	// ─── Page leaves — each pivots at its actual Y in the stack ──
+	// Page 0 is at the TOP of the page block (flips first).
+	// Page N-1 is near the bottom. Each originates from a different
+	// height so the fan looks like pages peeling from the stack.
 	const pageLeaves: PageLeaf[] = [];
 	for (let i = 0; i < LEAF_COUNT; i++) {
 		const t = i / (LEAF_COUNT - 1);
 		const leafColor = new Color().lerpColors(new Color("#f0e8d8"), new Color("#e4dcc8"), t);
 		const leafMat = new MeshStandardMaterial({ color: leafColor, roughness: 1.0 });
 
-		// Outer pivot at the spine hinge — controls the main flip
+		// Each page's Y: spread across the top 60% of the page block
+		// (bottom 40% stays as the solid base that doesn't move)
+		const pageY = COVER_THICK + BASE_PAGE_THICK * (1 - t * 0.6);
 		const flipPivot = new Group();
-		flipPivot.position.set(0, i * LEAF_STEP, 0);
-		pagePacketRoot.add(flipPivot);
+		flipPivot.position.set(HINGE_X, pageY, 0);
+		dictionary.add(flipPivot);
 
 		// Root strip — narrow piece right at the spine
 		const rootMesh = new Mesh(new BoxGeometry(ROOT_STRIP_W, LEAF_THICK, PAGE_D), leafMat);
