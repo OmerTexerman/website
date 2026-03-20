@@ -251,7 +251,7 @@ export function initUnifiedScene(
 
 	// Scene-level lighting (direction-independent)
 	setupSceneLighting(scene);
-	setupRoomLighting(room);
+	setupRoomLighting(room, isInitiallyMobile);
 
 	// ─── State ───────────────────────────────────────────────────
 	let currentMode: "desktop" | "mobile" = initialMode;
@@ -473,7 +473,7 @@ export function initUnifiedScene(
 		if (shelfCreated) return;
 		shelfCreated = true;
 
-		setupShelfLighting(room);
+		setupShelfLighting(room, currentMode === "mobile");
 		const shelf = createShelfWall(books);
 		shelfScene = {
 			...shelf,

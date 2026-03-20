@@ -22,10 +22,10 @@ import {
 } from "./colors";
 import { SHELF_BOT_Y, SHELF_MID_Y, SHELF_TOP_Y, SHELF_WALL_X, SHELF_WALL_Z } from "./shelf-layout";
 
-function configureShadowLight(light: SpotLight | PointLight): void {
+function configureShadowLight(light: SpotLight | PointLight, mapSize = 1024): void {
 	light.castShadow = true;
-	light.shadow.mapSize.width = 1024;
-	light.shadow.mapSize.height = 1024;
+	light.shadow.mapSize.width = mapSize;
+	light.shadow.mapSize.height = mapSize;
 	light.shadow.bias = -0.0002;
 }
 
@@ -39,17 +39,19 @@ export function setupSceneLighting(scene: Scene): void {
 }
 
 /** Shared room lights so desk and shelf read as the same physical space */
-export function setupRoomLighting(roomGroup: Group): void {
+export function setupRoomLighting(roomGroup: Group, mobile = false): void {
+	const shadowRes = mobile ? 512 : 1024;
+
 	const ceilingKey = new SpotLight(new Color(LIGHT_CEILING_KEY), 4.6, 28, Math.PI / 5, 0.35, 1.4);
 	ceilingKey.position.set(2.6, 7.2, 4.3);
 	ceilingKey.target.position.set(3.3, 0.9, 3.9);
-	configureShadowLight(ceilingKey);
+	configureShadowLight(ceilingKey, shadowRes);
 	roomGroup.add(ceilingKey);
 	roomGroup.add(ceilingKey.target);
 
 	const shelfSideFill = new PointLight(new Color(LIGHT_SHELF_SIDE_FILL), 0.9, 20, 1.6);
 	shelfSideFill.position.set(7.4, 4.9, 6.8);
-	configureShadowLight(shelfSideFill);
+	configureShadowLight(shelfSideFill, shadowRes);
 	roomGroup.add(shelfSideFill);
 }
 
@@ -72,11 +74,13 @@ export function setupDeskLighting(roomGroup: Group): void {
 }
 
 /** Shelf-specific lighting — tighter key/fill so the shelf reads with stronger shadows */
-export function setupShelfLighting(roomGroup: Group): void {
+export function setupShelfLighting(roomGroup: Group, mobile = false): void {
+	const shadowRes = mobile ? 512 : 1024;
+
 	const shelfKey = new SpotLight(new Color(LIGHT_SHELF_KEY), 5.6, 16, Math.PI / 6, 0.45, 1.6);
 	shelfKey.position.set(SHELF_WALL_X - 1.2, SHELF_TOP_Y + 1.35, SHELF_WALL_Z + 1.4);
 	shelfKey.target.position.set(SHELF_WALL_X - 0.15, SHELF_MID_Y + 0.25, SHELF_WALL_Z);
-	configureShadowLight(shelfKey);
+	configureShadowLight(shelfKey, shadowRes);
 	roomGroup.add(shelfKey);
 	roomGroup.add(shelfKey.target);
 
