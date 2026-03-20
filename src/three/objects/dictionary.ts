@@ -20,8 +20,10 @@ import { DESK_SURFACE_Y } from "../math-utils";
 export interface PageLeaf {
 	/** Outer pivot at the spine hinge — controls the main flip rotation. */
 	flipPivot: Group;
-	/** Inner joint where the root strip meets the body — bends during flip. */
-	bendJoint: Group;
+	/** Joint between segment 1 (root) and segment 2 (mid). */
+	joint1: Group;
+	/** Joint between segment 2 (mid) and segment 3 (tip). */
+	joint2: Group;
 }
 
 export interface DictionaryObject {
@@ -51,9 +53,10 @@ const PAGE_D = DEPTH - 0.024;
 
 // Page packet sitting on top of the base page block
 const BASE_PAGE_THICK = 0.1;
-// 2-piece page: narrow root strip at spine + main body
-const ROOT_STRIP_W = 0.05;
-const BODY_W = PAGE_W - ROOT_STRIP_W;
+// 3-segment page: root + mid + tip, each with a bend joint
+const SEG1_W = PAGE_W * 0.2; // root (at spine)
+const SEG2_W = PAGE_W * 0.35; // mid
+const SEG3_W = PAGE_W * 0.45; // tip (longest, most visible)
 const LEAF_COUNT = 20;
 const LEAF_THICK = 0.003;
 const LEAF_STEP = 0.0008;
@@ -138,29 +141,39 @@ export function createDictionary(): DictionaryObject {
 		const pageY = COVER_THICK + BASE_PAGE_THICK * (1 - t * 0.6);
 		const flipPivot = new Group();
 		flipPivot.position.set(HINGE_X, pageY, 0);
-		flipPivot.visible = false; // hidden until animation flips them out
+		flipPivot.visible = false;
 		dictionary.add(flipPivot);
 
-		// Root strip — narrow piece right at the spine
-		const rootMesh = new Mesh(new BoxGeometry(ROOT_STRIP_W, LEAF_THICK, PAGE_D), leafMat);
-		rootMesh.position.set(ROOT_STRIP_W / 2, LEAF_THICK / 2, 0);
-		rootMesh.castShadow = true;
-		flipPivot.add(rootMesh);
+		// Segment 1: root (at spine)
+		const seg1 = new Mesh(new BoxGeometry(SEG1_W, LEAF_THICK, PAGE_D), leafMat);
+		seg1.position.set(SEG1_W / 2, LEAF_THICK / 2, 0);
+		seg1.castShadow = true;
+		flipPivot.add(seg1);
 
-		// Bend joint at the end of the root strip — pivots at sheet
-		// mid-thickness so the body rotates around the center, not edge
-		const bendJoint = new Group();
-		bendJoint.position.set(ROOT_STRIP_W, LEAF_THICK / 2, 0);
-		flipPivot.add(bendJoint);
+		// Joint 1: between root and mid
+		const joint1 = new Group();
+		joint1.position.set(SEG1_W, LEAF_THICK / 2, 0);
+		flipPivot.add(joint1);
 
-		// Main page body extends from the bend joint
-		const bodyMesh = new Mesh(new BoxGeometry(BODY_W, LEAF_THICK, PAGE_D), leafMat);
-		bodyMesh.position.set(BODY_W / 2, 0, 0);
-		bodyMesh.castShadow = true;
-		bodyMesh.receiveShadow = true;
-		bendJoint.add(bodyMesh);
+		// Segment 2: mid
+		const seg2 = new Mesh(new BoxGeometry(SEG2_W, LEAF_THICK, PAGE_D), leafMat);
+		seg2.position.set(SEG2_W / 2, 0, 0);
+		seg2.castShadow = true;
+		joint1.add(seg2);
 
-		pageLeaves.push({ flipPivot, bendJoint });
+		// Joint 2: between mid and tip
+		const joint2 = new Group();
+		joint2.position.set(SEG2_W, 0, 0);
+		joint1.add(joint2);
+
+		// Segment 3: tip
+		const seg3 = new Mesh(new BoxGeometry(SEG3_W, LEAF_THICK, PAGE_D), leafMat);
+		seg3.position.set(SEG3_W / 2, 0, 0);
+		seg3.castShadow = true;
+		seg3.receiveShadow = true;
+		joint2.add(seg3);
+
+		pageLeaves.push({ flipPivot, joint1, joint2 });
 	}
 
 	// ─── Front cover — pivots at left-spine hinge ────────────────

@@ -507,10 +507,11 @@ export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
 	saveRest(frontCoverPivot, "rz", frontCoverPivot.rotation.z);
 	saveRest(basePageBlock, "sy", basePageBlock.scale.y);
 	saveRest(basePageBlock, "y", basePageBlock.position.y);
-	for (const { flipPivot, bendJoint } of pageLeaves) {
+	for (const { flipPivot, joint1, joint2 } of pageLeaves) {
 		saveRest(flipPivot, "rz", flipPivot.rotation.z);
 		saveRest(flipPivot, "y", flipPivot.position.y);
-		saveRest(bendJoint, "rz", bendJoint.rotation.z);
+		saveRest(joint1, "rz", joint1.rotation.z);
+		saveRest(joint2, "rz", joint2.rotation.z);
 	}
 
 	const restCover = getRest(frontCoverPivot, "rz");
@@ -525,30 +526,33 @@ export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
 		let flippedWeight = 0;
 		for (let i = 0; i < n; i++) {
 			const flipIndex = n - 1 - i;
-			const { flipPivot, bendJoint } = pageLeaves[flipIndex];
+			const { flipPivot, joint1, joint2 } = pageLeaves[flipIndex];
 			const restRZ = getRest(flipPivot, "rz");
 			const restY = getRest(flipPivot, "y");
-			const restBend = getRest(bendJoint, "rz");
+			const restJ1 = getRest(joint1, "rz");
+			const restJ2 = getRest(joint2, "rz");
 
 			const delay = 0.28 + (i / n) * 0.4;
 			const dur = 0.18;
 			const flipP = easeInOutCubic(clamp((p - delay) / dur, 0, 1));
 
-			// Hide page until it's meaningfully flipped (prevents base block clipping)
+			// Hide page until meaningfully flipped
 			flipPivot.visible = flipP > 0.15;
 
 			const t = i / (n - 1);
 			const target = lerp(DICT_PAGE_MAX, DICT_PAGE_MAX * 0.08, t);
 			flipPivot.rotation.z = lerp(restRZ, restRZ + target, flipP);
 
-			// Variable bend: pages lower in the stack (higher i = flipped later)
-			// are inner pages that bend MORE tightly. Top pages (flipped first,
-			// low i) are outer and bend less.
-			const innerT = i / (n - 1); // 0 = first flipped (outer), 1 = last flipped (inner)
-			const bendAmount = lerp(DICT_BEND_PEAK * 0.5, DICT_BEND_PEAK * 1.4, innerT);
+			// 3-segment bend: distribute the curve across both joints.
+			// Inner pages (later in flip order) bend more tightly.
+			const innerT = i / (n - 1);
+			const totalBend = lerp(DICT_BEND_PEAK * 0.5, DICT_BEND_PEAK * 1.4, innerT);
 			const bendMid = Math.sin(Math.PI * flipP);
 			const travel = clamp(target / (Math.PI * 0.5), 0, 1);
-			bendJoint.rotation.z = restBend + bendAmount * bendMid * travel;
+			const bend = totalBend * bendMid * travel;
+			// Joint 1 (root→mid) takes 60% of the bend, joint 2 (mid→tip) takes 40%
+			joint1.rotation.z = restJ1 + bend * 0.6;
+			joint2.rotation.z = restJ2 + bend * 0.4;
 
 			flipPivot.position.y = lerp(restY, restY + i * 0.0008, flipP);
 			flippedWeight += flipP;
@@ -569,15 +573,18 @@ export function animateDictionaryClose(dict: DictionaryObject): Promise<void> {
 	const restBlockScaleY = getRest(basePageBlock, "sy");
 	const curBlockY = basePageBlock.position.y;
 	const restBlockY = getRest(basePageBlock, "y");
-	const leafStates = pageLeaves.map(({ flipPivot, bendJoint }) => ({
+	const leafStates = pageLeaves.map(({ flipPivot, joint1, joint2 }) => ({
 		flipPivot,
-		bendJoint,
+		joint1,
+		joint2,
 		curRZ: flipPivot.rotation.z,
 		restRZ: getRest(flipPivot, "rz"),
 		curY: flipPivot.position.y,
 		restY: getRest(flipPivot, "y"),
-		curBend: bendJoint.rotation.z,
-		restBend: getRest(bendJoint, "rz"),
+		curJ1: joint1.rotation.z,
+		restJ1: getRest(joint1, "rz"),
+		curJ2: joint2.rotation.z,
+		restJ2: getRest(joint2, "rz"),
 	}));
 
 	return animate(`dict-${dict.root.uuid}`, DICT_CLOSE_MS, (p) => {
@@ -585,8 +592,9 @@ export function animateDictionaryClose(dict: DictionaryObject): Promise<void> {
 		for (const s of leafStates) {
 			s.flipPivot.rotation.z = lerp(s.curRZ, s.restRZ, pageP);
 			s.flipPivot.position.y = lerp(s.curY, s.restY, pageP);
-			s.bendJoint.rotation.z = lerp(s.curBend, s.restBend, pageP);
-			// Hide page once it's nearly back to rest (re-enters base block)
+			s.joint1.rotation.z = lerp(s.curJ1, s.restJ1, pageP);
+			s.joint2.rotation.z = lerp(s.curJ2, s.restJ2, pageP);
+			// Hide page once it's nearly back to rest
 			const returnedRZ = Math.abs(s.flipPivot.rotation.z - s.restRZ);
 			s.flipPivot.visible = returnedRZ > 0.05;
 		}
