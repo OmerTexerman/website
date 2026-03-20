@@ -718,7 +718,6 @@ export function animateDictionaryClose(dict: DictionaryObject): Promise<void> {
 		leftPageBlockCurveJoints,
 		pageLeaves,
 		basePageBlock,
-		staticEdgeDetailGroup,
 	} = dict.parts;
 
 	const curCover = frontCoverPivot.rotation.z;
