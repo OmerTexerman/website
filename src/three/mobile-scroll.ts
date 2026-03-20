@@ -79,6 +79,7 @@ const WHEEL_COOLDOWN_MS = 200;
 const WHEEL_SETTLE_DELAY_MS = 150;
 const WHEEL_CONTINUOUS_VERTICAL_SPEED = 0.0006;
 const WHEEL_CONTINUOUS_PAN_SPEED = 0.0006;
+const WHEEL_INERTIA_THRESHOLD = 2;
 const DRAG_VERTICAL_SPEED = 0.003;
 const DRAG_PAN_SPEED = 0.003;
 
@@ -630,6 +631,13 @@ export function createMobileScrollController(
 	}
 
 	function onWheelContinuous(rawY: number, rawX: number): boolean {
+		const magnitude = Math.hypot(rawY, rawX);
+
+		// Skip tiny inertial events — don't let them delay the settle snap
+		if (magnitude < WHEEL_INERTIA_THRESHOLD) {
+			return false;
+		}
+
 		wheelGestureStart();
 
 		const deltaY = wheelAxisLock === "h" ? 0 : rawY;
