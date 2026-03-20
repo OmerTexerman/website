@@ -203,7 +203,7 @@ export function initUnifiedScene(
 	const renderer = new WebGLRenderer({
 		canvas,
 		antialias: !isInitiallyMobile,
-		powerPreference: isInitiallyMobile ? "low-power" : "high-performance",
+		powerPreference: "high-performance",
 	});
 
 	function applyRenderSettings(mode: "desktop" | "mobile"): void {
@@ -736,7 +736,7 @@ export function initUnifiedScene(
 	const startTime = performance.now();
 	let animationId: number;
 	let lastFrame = 0;
-	let targetInterval = isInitiallyMobile ? 1000 / 60 : 0;
+	let targetInterval = 0;
 
 	function render(now: number): void {
 		if (disposed || contextLost) return;
@@ -1050,7 +1050,7 @@ export function initUnifiedScene(
 			// setPixelRatio clears the canvas buffer — render immediately
 			// so the browser never paints a black frame
 			renderer.render(scene, camera);
-			targetInterval = 1000 / 60;
+			targetInterval = 0;
 		}
 
 		transitioning = false;

@@ -48,7 +48,9 @@ const VELOCITY_WINDOW_MS = 100;
 const WHEEL_LINE_PIXELS = 16;
 const WHEEL_PAGE_THRESHOLD = 40;
 const WHEEL_COOLDOWN_MS = 200;
-const WHEEL_AXIS_LOCK_MS = 150;
+const WHEEL_SETTLE_DELAY_MS = 150;
+const WHEEL_CONTINUOUS_VERTICAL_SPEED = 0.0015;
+const WHEEL_CONTINUOUS_PAN_SPEED = 0.0015;
 const DRAG_VERTICAL_SPEED = 0.003;
 const DRAG_PAN_SPEED = 0.003;
 
@@ -173,7 +175,8 @@ export function createMobileScrollController(
 	let lastWheelPageTimeY = 0;
 	let lastWheelPageTimeX = 0;
 	let wheelAxisLock: "v" | "h" | null = null;
-	let wheelAxisLockTime = 0;
+	let wheelGestureActive = false;
+	let wheelSettleTimer = 0;
 
 	function markChanged(): true {
 		inputDirty = true;
@@ -354,6 +357,11 @@ export function createMobileScrollController(
 		wheelAccumY = 0;
 		wheelAccumX = 0;
 		wheelAxisLock = null;
+		wheelGestureActive = false;
+		if (wheelSettleTimer) {
+			clearTimeout(wheelSettleTimer);
+			wheelSettleTimer = 0;
+		}
 	}
 
 	function captureOrigins(): void {
@@ -498,32 +506,49 @@ export function createMobileScrollController(
 	}
 
 	function cancelActiveGesture(): boolean {
-		if (activePointerId === null) return false;
+		const hadWheel = wheelGestureActive;
+		resetWheelState();
+		if (activePointerId === null && !hadWheel) return false;
 		clearPointerTracking();
 		pendingTap = null;
 		return settleAll();
 	}
 
-	function onWheel(e: WheelEvent): boolean {
-		e.preventDefault();
+	function wheelGestureStart(): void {
+		if (wheelGestureActive) return;
+		wheelGestureActive = true;
+		state = State.IDLE;
+		stopAllAnimations();
+		captureOrigins();
+	}
 
-		const now = performance.now();
-		const rawY = normalizeWheelDelta(e.deltaY, e.deltaMode);
-		const rawX = normalizeWheelDelta(e.deltaX, e.deltaMode);
-
-		if (wheelAxisLock && now - wheelAxisLockTime > WHEEL_AXIS_LOCK_MS) {
-			wheelAxisLock = null;
+	function wheelGestureEnd(): void {
+		const wasContinuous = wheelGestureActive;
+		wheelGestureActive = false;
+		wheelAxisLock = null;
+		wheelAccumY = 0;
+		wheelAccumX = 0;
+		if (wasContinuous) {
+			settleAll();
+			inputDirty = true;
 		}
-		if (!wheelAxisLock && (Math.abs(rawX) > 1 || Math.abs(rawY) > 1)) {
-			wheelAxisLock = Math.abs(rawY) >= Math.abs(rawX) ? "v" : "h";
-			wheelAxisLockTime = now;
-			if (wheelAxisLock === "v") wheelAccumX = 0;
-			else wheelAccumY = 0;
-		}
+	}
 
+	function armWheelSettle(): void {
+		if (wheelSettleTimer) clearTimeout(wheelSettleTimer);
+		wheelSettleTimer = window.setTimeout(() => {
+			wheelSettleTimer = 0;
+			wheelGestureEnd();
+		}, WHEEL_SETTLE_DELAY_MS);
+	}
+
+	function onWheelDiscrete(rawY: number, rawX: number, now: number): boolean {
 		const deltaY = wheelAxisLock === "h" ? 0 : rawY;
 		const deltaX = wheelAxisLock === "v" ? 0 : rawX;
 		let changed = false;
+
+		// Arm settle timer so axis lock clears when the wheel burst ends
+		armWheelSettle();
 
 		if (deltaY !== 0) {
 			wheelAccumY += deltaY;
@@ -579,6 +604,46 @@ export function createMobileScrollController(
 				lastWheelPageTimeX = now;
 			}
 		}
+
+		return changed;
+	}
+
+	function onWheelContinuous(rawY: number, rawX: number): boolean {
+		wheelGestureStart();
+
+		const deltaY = wheelAxisLock === "h" ? 0 : rawY;
+		const deltaX = wheelAxisLock === "v" ? 0 : rawX;
+		let changed = false;
+
+		if (deltaY !== 0) {
+			const rawT = getRawVertical();
+			changed = setVerticalWithRubberBand(rawT - deltaY * WHEEL_CONTINUOUS_VERTICAL_SPEED);
+		}
+
+		if (deltaX !== 0) {
+			changed = applyPanDelta(-deltaX * WHEEL_CONTINUOUS_PAN_SPEED) || changed;
+		}
+
+		armWheelSettle();
+		return changed;
+	}
+
+	function onWheel(e: WheelEvent): boolean {
+		e.preventDefault();
+
+		const now = performance.now();
+		const rawY = normalizeWheelDelta(e.deltaY, e.deltaMode);
+		const rawX = normalizeWheelDelta(e.deltaX, e.deltaMode);
+
+		// Axis lock: determine dominant direction from first significant delta
+		if (!wheelAxisLock && (Math.abs(rawX) > 1 || Math.abs(rawY) > 1)) {
+			wheelAxisLock = Math.abs(rawY) >= Math.abs(rawX) ? "v" : "h";
+		}
+
+		// deltaMode !== 0 means line or page units (discrete mouse wheel)
+		// deltaMode === 0 with pixel values is trackpad/continuous input
+		const discrete = e.deltaMode !== 0;
+		const changed = discrete ? onWheelDiscrete(rawY, rawX, now) : onWheelContinuous(rawY, rawX);
 
 		return changed ? markChanged() : false;
 	}
