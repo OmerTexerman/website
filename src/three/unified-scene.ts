@@ -585,10 +585,8 @@ export function initUnifiedScene(
 				panSnapPoints: MOBILE_SHELF_SCROLL.panSnapPoints,
 				panLimit: MOBILE_SHELF_SCROLL.panLimit,
 				numRows: MOBILE_SHELF_STOPS.length,
-				wheelSpeed: MOBILE_SHELF_SCROLL.wheelSpeed,
-				wheelPanSpeed: MOBILE_SHELF_SCROLL.wheelPanSpeed,
 			});
-			scrollController.resetTo(0.5);
+			if (scrollController.resetTo(0.5)) dirty = true;
 
 			const sc = scrollController;
 			const shelf = shelfScene;
@@ -626,17 +624,16 @@ export function initUnifiedScene(
 
 			function onPointerDown(e: PointerEvent): void {
 				if (currentMode !== "mobile" || transitioning || !introComplete) return;
-				sc.onPointerDown(e);
+				if (sc.onPointerDown(e)) dirty = true;
 			}
 
 			function onPointerMove(e: PointerEvent): void {
 				if (currentMode !== "mobile") return;
-				sc.onPointerMove(e);
-				dirty = true;
+				if (sc.onPointerMove(e)) dirty = true;
 			}
 
 			function onPointerUp(e: PointerEvent): void {
-				sc.onPointerUp(e);
+				if (sc.onPointerUp(e)) dirty = true;
 				const tap = sc.consumeTap();
 				if (tap) {
 					const interaction = interactionPicker.getInteractionAt(tap.clientX, tap.clientY);
@@ -646,30 +643,25 @@ export function initUnifiedScene(
 			}
 
 			function onPointerCancel(e: PointerEvent): void {
-				sc.onPointerCancel(e);
-				dirty = true;
+				if (sc.onPointerCancel(e)) dirty = true;
 			}
 
 			function onLostPointerCapture(): void {
-				sc.cancelActiveGesture();
-				dirty = true;
+				if (sc.cancelActiveGesture()) dirty = true;
 			}
 
 			function onWindowBlur(): void {
-				sc.cancelActiveGesture();
-				dirty = true;
+				if (sc.cancelActiveGesture()) dirty = true;
 			}
 
 			function onVisibilityChange(): void {
 				if (document.visibilityState !== "hidden") return;
-				sc.cancelActiveGesture();
-				dirty = true;
+				if (sc.cancelActiveGesture()) dirty = true;
 			}
 
 			function onWheel(e: WheelEvent): void {
 				if (currentMode !== "mobile" || transitioning || !introComplete) return;
-				sc.onWheel(e);
-				dirty = true;
+				if (sc.onWheel(e)) dirty = true;
 			}
 
 			canvas.addEventListener("wheel", onWheel, { passive: false });
