@@ -51,21 +51,21 @@ enum State {
 
 const TAP_DISTANCE_THRESHOLD = 10; // px — larger than old 6px for high-DPI
 const DIRECTION_LOCK_THRESHOLD = 8; // px before locking V or H
-const DECELERATION_RATE = 8.0; // velocity halves every ~87ms
-const DECELERATION_STOP = 0.0008; // velocity magnitude to stop decelerating
-const SNAP_STIFFNESS = 60;
-const SNAP_DAMPING = 12;
-const SNAP_SETTLE = 0.0003; // position + velocity threshold to settle
+const DECELERATION_RATE = 6.0; // velocity halves every ~115ms (smoother coast)
+const DECELERATION_STOP = 0.001; // velocity magnitude to stop decelerating
+const SNAP_STIFFNESS = 55;
+const SNAP_DAMPING = 16; // slightly overdamped — no oscillation
+const SNAP_SETTLE = 0.0005; // position + velocity threshold to settle
 const RUBBER_BAND_FACTOR = 0.35;
 const VELOCITY_WINDOW_MS = 100;
-const PAN_DECELERATION_RATE = 8.0;
-const PAN_SNAP_STIFFNESS = 60;
-const PAN_SNAP_DAMPING = 12;
-const PAN_SNAP_SETTLE = 0.0003;
-const PAN_SNAP_SEARCH_RADIUS = 0.4;
+const PAN_DECELERATION_RATE = 6.0;
+const PAN_SNAP_STIFFNESS = 55;
+const PAN_SNAP_DAMPING = 16;
+const PAN_SNAP_SETTLE = 0.0005;
 const WHEEL_LINE_PIXELS = 16;
 const WHEEL_DELTA_CAP = 80;
 const WHEEL_RESPONSE_CURVE = 0.82;
+const WHEEL_VELOCITY_BOOST = 0.6; // scale wheel delta into velocity units
 
 // ─── Helpers ─────────────────────────────────────────────────────
 
@@ -311,11 +311,9 @@ export function createMobileScrollController(
 			const points = panSnapPoints[i];
 			if (!points || points.length === 0) continue;
 			const nearest = nearestSnapPoint(panByRow[i], points);
-			if (Math.abs(panByRow[i] - nearest) < PAN_SNAP_SEARCH_RADIUS) {
-				panSnapping[i] = true;
-				panSnapTargets[i] = nearest;
-				panSnapVelocities[i] = panVelocityByRow[i];
-			}
+			panSnapping[i] = true;
+			panSnapTargets[i] = nearest;
+			panSnapVelocities[i] = panVelocityByRow[i];
 		}
 	}
 
@@ -427,7 +425,8 @@ export function createMobileScrollController(
 			state = State.DECELERATING;
 		} else if (lockedDirection === "h") {
 			applyPanVelocity(-vel.vx * DRAG_PAN_SPEED);
-			state = State.IDLE;
+			// Also snap vertically so we don't stay floating between rows
+			beginVerticalSnapping();
 		} else {
 			state = State.IDLE;
 		}
@@ -450,22 +449,21 @@ export function createMobileScrollController(
 
 	function onWheel(e: WheelEvent): void {
 		e.preventDefault();
-		stopAllMotion();
 		const deltaY = dampWheelDelta(e.deltaY, e.deltaMode);
 		const deltaX = dampWheelDelta(e.deltaX, e.deltaMode);
 
-		// Vertical scroll
-		verticalT = clamp(verticalT - deltaY * wheelSpeed, 0, 1);
-
-		// Horizontal pan
-		if (Math.abs(deltaX) > 0.1) {
-			applyPanDelta(-deltaX * wheelPanSpeed);
+		// Accumulate vertical velocity (adds to existing momentum)
+		verticalVelocity -= deltaY * wheelSpeed * WHEEL_VELOCITY_BOOST;
+		if (state !== State.DECELERATING) {
+			state = State.DECELERATING;
 		}
 
-		// Snap pan toward nearest points gently
-		snapPanGently();
+		// Horizontal pan — apply directly with gentle snap
+		if (Math.abs(deltaX) > 0.1) {
+			applyPanDelta(-deltaX * wheelPanSpeed);
+			snapPanGently();
+		}
 
-		state = State.IDLE;
 		inputDirty = true;
 	}
 
@@ -486,9 +484,7 @@ export function createMobileScrollController(
 			const points = panSnapPoints[i];
 			if (!points || points.length === 0) continue;
 			const nearest = nearestSnapPoint(panByRow[i], points);
-			if (Math.abs(panByRow[i] - nearest) < PAN_SNAP_SEARCH_RADIUS) {
-				panByRow[i] = lerp(panByRow[i], nearest, 0.15);
-			}
+			panByRow[i] = lerp(panByRow[i], nearest, 0.3);
 		}
 	}
 
@@ -576,15 +572,13 @@ export function createMobileScrollController(
 			if (Math.abs(panVelocityByRow[i]) < DECELERATION_STOP) {
 				if (panVelocityByRow[i] !== 0) {
 					panVelocityByRow[i] = 0;
-					// Start snapping this row
+					// Start snapping this row to nearest point
 					const points = panSnapPoints[i];
 					if (points && points.length > 0) {
 						const nearest = nearestSnapPoint(panByRow[i], points);
-						if (Math.abs(panByRow[i] - nearest) < PAN_SNAP_SEARCH_RADIUS) {
-							panSnapping[i] = true;
-							panSnapTargets[i] = nearest;
-							panSnapVelocities[i] = 0;
-						}
+						panSnapping[i] = true;
+						panSnapTargets[i] = nearest;
+						panSnapVelocities[i] = 0;
 					}
 					changed = true;
 				}
