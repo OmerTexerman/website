@@ -440,7 +440,7 @@ export function createShelfWall(books?: ShelfBook[]): ShelfWallResult {
 		{
 			sectionId: "wordOfTheDay" as const,
 			item: createShelfDictionary(),
-			position: [SHELF_CENTER_X - 0.04, BOT_Y + SHELF_THICK / 2, WALL_Z + 0.6] as const,
+			position: [SHELF_CENTER_X - 0.04, BOT_Y + SHELF_THICK / 2, WALL_Z + 0.35] as const,
 			rotationY: -Math.PI / 2,
 			hitboxPadding: 0.1,
 		},
