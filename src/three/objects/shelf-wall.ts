@@ -20,7 +20,6 @@ import {
 	DARK_METAL,
 	SCREEN_BLUE,
 	SCREEN_GLOW,
-	SHELL_FLOOR,
 	SHELL_RETURN,
 	SHELL_SHADOW,
 	SHELL_WALL,
@@ -61,8 +60,6 @@ const WALL_H = 5.2;
 const FLOOR_Y = -2;
 const BLEND_WALL_W = 7.4;
 const BLEND_WALL_H = WALL_H - FLOOR_Y + 0.7;
-const FLOOR_W = 7.4;
-const FLOOR_D = 7.2;
 const RETURN_W = 4.2;
 const SHELF_W = 3.8;
 const SHELF_DEPTH = 0.55;
@@ -289,15 +286,6 @@ function createShelfShell(): Group {
 		depthWrite: false,
 		side: DoubleSide,
 	});
-	const floorMaterial = new MeshStandardMaterial({
-		color: new Color(SHELL_FLOOR),
-		roughness: 0.98,
-		metalness: 0.0,
-		transparent: true,
-		opacity: 0.92,
-		depthWrite: false,
-	});
-
 	const wallPlane = new Mesh(new PlaneGeometry(BLEND_WALL_W, BLEND_WALL_H), wallMaterial);
 	wallPlane.position.set(WALL_X + 0.04, FLOOR_Y + BLEND_WALL_H / 2, WALL_Z);
 	wallPlane.rotation.y = -Math.PI / 2;
@@ -312,12 +300,6 @@ function createShelfShell(): Group {
 	);
 	returnWall.receiveShadow = true;
 	shell.add(returnWall);
-
-	const floor = new Mesh(new PlaneGeometry(FLOOR_W, FLOOR_D), floorMaterial);
-	floor.rotation.x = -Math.PI / 2;
-	floor.position.set(WALL_X - FLOOR_W / 2 + 1.1, FLOOR_Y, WALL_Z);
-	floor.receiveShadow = true;
-	shell.add(floor);
 
 	const wallShadow = new Mesh(
 		new PlaneGeometry(WALL_W + 1.8, WALL_H + 0.6),

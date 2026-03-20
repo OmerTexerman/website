@@ -2,7 +2,10 @@ import {
 	Color,
 	FogExp2,
 	Group,
+	Mesh,
+	MeshStandardMaterial,
 	type Object3D,
+	PlaneGeometry,
 	Scene,
 	Vector2,
 	Vector3,
@@ -42,7 +45,7 @@ import {
 	MOBILE_LOOK,
 	MOBILE_POS,
 } from "./camera";
-import { DARK } from "./colors";
+import { DARK, GROUND_DARK } from "./colors";
 import {
 	CLICK_COOLDOWN_MS,
 	DESKTOP_TO_SHELF_TRANSITION_DURATION,
@@ -248,6 +251,18 @@ export function initUnifiedScene(
 	// ─── Room group ──────────────────────────────────────────────
 	const room = new Group();
 	scene.add(room);
+
+	// Shared ground plane — single floor for both desk and shelf scenes
+	const groundMat = new MeshStandardMaterial({
+		color: new Color(GROUND_DARK),
+		roughness: 0.95,
+		metalness: 0.0,
+	});
+	const ground = new Mesh(new PlaneGeometry(20, 20), groundMat);
+	ground.rotation.x = -Math.PI / 2;
+	ground.position.y = -2;
+	ground.receiveShadow = true;
+	room.add(ground);
 
 	// Scene-level lighting (direction-independent)
 	setupSceneLighting(scene);

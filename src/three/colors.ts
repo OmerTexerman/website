@@ -38,7 +38,6 @@ export const PCB_GREEN = "#1a472a";
 // ─── Shell / room colors ────────────────────────────────────────
 export const SHELL_WALL = "#3d3530";
 export const SHELL_RETURN = "#302a24";
-export const SHELL_FLOOR = "#2b2825";
 export const SHELL_SHADOW = "#1c1815";
 
 // ─── Photo frame colors ─────────────────────────────────────────
