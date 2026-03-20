@@ -541,7 +541,7 @@ export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
 
 			// Arc lift during flip — page curls up then settles down,
 			// like a real page turning with air resistance
-			const arc = Math.sin(flipP * Math.PI) * 0.04;
+			const arc = Math.sin(flipP * Math.PI) * 0.15;
 			page.position.y += arc;
 
 			flippedWeight += flipP;
