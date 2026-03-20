@@ -442,7 +442,7 @@ export function initUnifiedScene(
 				hitboxPadding: 0.1,
 				obstacleRadius: 0.45,
 				hoverScale: true,
-				modalDelayMs: 400,
+				modalDelayMs: 850,
 				open: () => animateDictionaryOpen(dictionary),
 				close: () => animateDictionaryClose(dictionary),
 			},
