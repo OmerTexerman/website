@@ -1,7 +1,7 @@
 import { type CollectionEntry, getCollection } from "astro:content";
 import type { ShelfBook } from "./types";
 
-export interface WordEntry {
+interface WordEntry {
 	id: string;
 	word: string;
 	partOfSpeech?: string;

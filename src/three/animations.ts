@@ -488,230 +488,103 @@ export function animateFrameClose(frame: PhotoFrameObject): Promise<void> {
 }
 
 // ─── DICTIONARY (Word of the Day) ────────────────────────────────
-// Cover opens wide, pages cascade with "spine shoulder" arc —
-// each page's pivot temporarily lifts (+Y) and pushes out (+X)
-// at mid-turn so it appears to curve around the spine binding.
+// Elastica-inspired page animation using rational angle remap.
+// θ(t) = θ_A + (θ_B - θ_A) * h(t) where h(t) = βt/(βt + 1-t).
+// Pages leave spine horizontally, curve up and over, droop onto cover.
 const DICT_OPEN_MS = 1100;
 const DICT_CLOSE_MS = 550;
 const DICT_COVER_ANGLE = 2.9;
-const DICT_LEFT_BLOCK_SWEEP = 0;
-const DICT_LEFT_BLOCK_CURVE = 0.52;
-const DICT_LEFT_BLOCK_MAX_SCALE = 0.56;
-const DICT_RIGHT_BLOCK_MIN_SCALE = 0.68;
+const DICT_BLOCK_MIN_SCALE = 0.68;
 const DICT_LEAF_OPEN_START = 0.25;
 const DICT_LEAF_STAGGER = 0.04;
 const DICT_LEAF_DURATION = 0.45;
-const DICT_LEFT_PACKET_START = 0.44;
-const DICT_LEFT_PACKET_DURATION = 0.28;
-// Elastica-inspired page shape using rational angle remap.
-// θ(t) = θ_A + (θ_B - θ_A) * (β*t)/(β*t + (1-t))
-// β controls spine sharpness: higher = sharper departure at spine.
-// θ_A = departure angle from spine, θ_B = cover surface angle.
-// Pages leave the spine HORIZONTALLY (pointing right, along the page
-// surface). θ_A ≈ 0 means pointing right. They then curve up and over
-// to θ_B = 2.9 rad (the open cover direction) — a ~166° sweep.
-const DICT_THETA_A = 0; // horizontal — perpendicular to spine
-const DICT_BETA_INNER = 3.5; // inner pages: sharp curve at spine
-const DICT_BETA_OUTER = 1.8; // outer pages: gentle curve
+const DICT_BETA_INNER = 3.5;
+const DICT_BETA_OUTER = 1.8;
+const DICT_OVERSHOOT = 1.0; // how far past cover angle pages droop
+const DICT_BLEND_START = 0.65; // where droop-back begins (0–1 along page)
 
-function getDictionaryPacketCurveProfile(jointCount: number): number[] {
-	if (jointCount <= 0) return [];
+/** Compute the page angle at position t (0=spine, 1=tip) using
+ *  rational remap with overshoot and blend-back to cover angle. */
+function dictPageAngle(t: number, beta: number, coverAngle: number, overshoot: number): number {
+	const h = (beta * t) / (beta * t + (1 - t));
+	const overshootAngle = (coverAngle + overshoot) * h;
 
-	const profile: number[] = [];
-	let maxAbs = 0;
-	let prevTangent = 0;
-	for (let i = 0; i < jointCount; i++) {
-		const t = jointCount <= 1 ? 1 : i / Math.max(jointCount - 1, 1);
-		let tangent = 0;
-		if (t < 0.24) {
-			tangent = Math.sin((t / 0.24) * (Math.PI / 2)) * 1.08;
-		} else if (t < 0.58) {
-			tangent = Math.cos(((t - 0.24) / 0.34) * (Math.PI / 2)) * 1.08;
-		}
-		const delta = tangent - prevTangent;
-		profile.push(delta);
-		maxAbs = Math.max(maxAbs, Math.abs(delta));
-		prevTangent = tangent;
-	}
+	if (t <= DICT_BLEND_START) return overshootAngle;
 
-	return maxAbs > 0 ? profile.map((value) => value / maxAbs) : profile;
+	// Blend back to cover angle in the last section
+	const remapAtBlend =
+		(beta * DICT_BLEND_START) / (beta * DICT_BLEND_START + (1 - DICT_BLEND_START));
+	const peakAngle = (coverAngle + overshoot) * remapAtBlend;
+	const blendT = (t - DICT_BLEND_START) / (1 - DICT_BLEND_START);
+	const eased = blendT * blendT * (3 - 2 * blendT); // smoothstep
+	return lerp(peakAngle, coverAngle, eased);
 }
 
 export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
-	const {
-		frontCoverPivot,
-		leftPageBlockPivot,
-		leftPageBlockGroup,
-		leftPageBlockCurveJoints,
-		pageLeaves,
-		basePageBlock,
-		staticEdgeDetailGroup,
-	} = dict.parts;
+	const { frontCoverPivot, pageLeaves, basePageBlock } = dict.parts;
 
 	saveRest(frontCoverPivot, "rz", frontCoverPivot.rotation.z);
-	saveRest(leftPageBlockPivot, "rz", leftPageBlockPivot.rotation.z);
-	saveRest(leftPageBlockGroup, "sy", leftPageBlockGroup.scale.y);
-	saveRest(leftPageBlockGroup, "y", leftPageBlockGroup.position.y);
-	for (const joint of leftPageBlockCurveJoints) {
-		saveRest(joint, "rz", joint.rotation.z);
-	}
 	saveRest(basePageBlock, "sy", basePageBlock.scale.y);
 	saveRest(basePageBlock, "y", basePageBlock.position.y);
 	for (const { flipPivot, curveJoints } of pageLeaves) {
 		saveRest(flipPivot, "rz", flipPivot.rotation.z);
-		saveRest(flipPivot, "x", flipPivot.position.x);
-		saveRest(flipPivot, "y", flipPivot.position.y);
 		for (const joint of curveJoints) {
 			saveRest(joint, "rz", joint.rotation.z);
 		}
 	}
 
 	const restCover = getRest(frontCoverPivot, "rz");
-	const restLeftPivotRZ = getRest(leftPageBlockPivot, "rz");
-	const restLeftBlockScaleY = getRest(leftPageBlockGroup, "sy");
-	const restLeftBlockY = getRest(leftPageBlockGroup, "y");
-	const leftBlockCurveProfile = getDictionaryPacketCurveProfile(leftPageBlockCurveJoints.length);
 	const restBlockScaleY = getRest(basePageBlock, "sy");
 	const restBlockY = getRest(basePageBlock, "y");
 	const n = pageLeaves.length;
 
 	return animate(`dict-${dict.root.uuid}`, DICT_OPEN_MS, (p) => {
+		// Cover opens
 		const coverP = easeInOutCubic(clamp(p / 0.55, 0, 1));
-		const riffleP = easeInOutCubic(clamp((p - 0.22) / 0.68, 0, 1));
-		const leftPacketP = easeInOutCubic(
-			clamp((p - DICT_LEFT_PACKET_START) / DICT_LEFT_PACKET_DURATION, 0, 1),
-		);
 		frontCoverPivot.rotation.z = lerp(restCover, restCover + DICT_COVER_ANGLE, coverP);
 
-		leftPageBlockPivot.visible = false; // disabled — individual pages handle the left side now
-		leftPageBlockPivot.rotation.z = lerp(
-			restLeftPivotRZ,
-			restLeftPivotRZ + DICT_LEFT_BLOCK_SWEEP,
-			leftPacketP,
-		);
-		const leftScale = Math.max(
-			0.02,
-			restLeftBlockScaleY * lerp(0.02, DICT_LEFT_BLOCK_MAX_SCALE, leftPacketP),
-		);
-		leftPageBlockGroup.scale.y = leftScale;
-		leftPageBlockGroup.position.y = restLeftBlockY;
-		for (let jointIndex = 0; jointIndex < leftPageBlockCurveJoints.length; jointIndex++) {
-			const joint = leftPageBlockCurveJoints[jointIndex];
-			const restRZ = getRest(joint, "rz");
-			joint.rotation.z = lerp(
-				restRZ,
-				restRZ + DICT_LEFT_BLOCK_CURVE * leftBlockCurveProfile[jointIndex],
-				leftPacketP,
-			);
-		}
-
-		// ── Straight → Arc → Straight model ─────────────────────────
-		// Each page is modeled as: straight rise from pivot P toward
-		// the spine arc, circular arc of radius R_i around the spine,
-		// then straight flat in the cover direction.
-		//
-		// R_i = R_0 + i * t — inner pages wrap tighter, outer pages gentler.
-		// The tangent direction at any arc-length position s is computed
-		// from the continuous path, then discretized onto segment joints.
+		// Pages flip with staggered timing
 		for (let i = 0; i < n; i++) {
 			const { flipPivot, curveJoints } = pageLeaves[i];
 			const restRZ = getRest(flipPivot, "rz");
-			const restX = getRest(flipPivot, "x");
-			const restY = getRest(flipPivot, "y");
 
 			const t = n <= 1 ? 0.5 : i / (n - 1);
 			const delay = DICT_LEAF_OPEN_START + t * DICT_LEAF_STAGGER * (n - 1);
 			const leafPhase = clamp((p - delay) / DICT_LEAF_DURATION, 0, 1);
 			const leafTravel = easeInOutCubic(clamp((leafPhase - 0.06) / 0.8, 0, 1));
 
-			if (leafPhase <= 0.001) {
-				continue;
-			}
+			if (leafPhase <= 0.001) continue;
 
-			// Show page once it starts flipping
 			flipPivot.visible = true;
+			// flipPivot stays at rest rotation (pages depart horizontally)
+			flipPivot.rotation.z = restRZ;
 
-			// ── Elastica-inspired rational angle remap ───────────────
-			// θ(t) = θ_A + (θ_B - θ_A) * h(t)
-			// h(t) = (β*t) / (β*t + (1-t))
-			//
-			// This smoothly interpolates the page angle from spine
-			// departure (θ_A) to cover surface (θ_B). The parameter β
-			// controls how sharply the page curves at the spine:
-			// higher β = more curvature concentrated near spine.
-			// Inner pages get higher β (sharper), outer get lower.
-			const pageT = n <= 1 ? 0.5 : i / (n - 1);
-			const beta = lerp(DICT_BETA_INNER, DICT_BETA_OUTER, pageT);
-			// θ_B overshoots past cover angle so pages droop dramatically
-			// down onto it — the tip section curves down to rest on the cover
-			const thetaB = DICT_COVER_ANGLE + 1.0;
-
-			// flipPivot sets the departure angle — horizontal (0)
-			flipPivot.rotation.z = restRZ + DICT_THETA_A * leafTravel;
-
-			// Compute per-joint angles. The page angle follows the rational
-			// remap from θ_A toward the overshoot θ_B, but the LAST portion
-			// of the page curves BACK to the cover angle — creating the
-			// drape shape: up, over, down past cover, then tip rests flat.
+			// Per-joint angles from rational remap
+			const beta = lerp(DICT_BETA_INNER, DICT_BETA_OUTER, t);
 			const jCount = curveJoints.length;
-			const coverAngleRel = DICT_COVER_ANGLE - DICT_THETA_A;
-			const overshootRel = thetaB - DICT_THETA_A;
 
 			for (let j = 0; j < jCount; j++) {
 				const joint = curveJoints[j];
 				const restJRZ = getRest(joint, "rz");
-
 				const tHere = (j + 1) / jCount;
 				const tPrev = j / jCount;
-
-				// Rational remap gives the main curve (spine → overshoot)
-				const hHere = (beta * tHere) / (beta * tHere + (1 - tHere));
-				const hPrev = (beta * tPrev) / (beta * tPrev + (1 - tPrev));
-
-				// Blend: remap drives the first 70%, then we ease back
-				// to the cover angle for the last 30% (the tip rests flat)
-				const blendStart = 0.65;
-				let angleHere: number;
-				let anglePrev: number;
-
-				if (tHere <= blendStart) {
-					angleHere = overshootRel * hHere;
-				} else {
-					const remapAt = (beta * blendStart) / (beta * blendStart + (1 - blendStart));
-					const peakAngle = overshootRel * remapAt;
-					const blendT = (tHere - blendStart) / (1 - blendStart);
-					// Ease from peak back to cover angle
-					const eased = blendT * blendT * (3 - 2 * blendT); // smoothstep
-					angleHere = lerp(peakAngle, coverAngleRel, eased);
-				}
-
-				if (tPrev <= blendStart) {
-					anglePrev = overshootRel * hPrev;
-				} else {
-					const remapAt = (beta * blendStart) / (beta * blendStart + (1 - blendStart));
-					const peakAngle = overshootRel * remapAt;
-					const blendT = (tPrev - blendStart) / (1 - blendStart);
-					const eased = blendT * blendT * (3 - 2 * blendT);
-					anglePrev = lerp(peakAngle, coverAngleRel, eased);
-				}
-
-				const bend = angleHere - anglePrev;
+				const bend =
+					dictPageAngle(tHere, beta, DICT_COVER_ANGLE, DICT_OVERSHOOT) -
+					dictPageAngle(tPrev, beta, DICT_COVER_ANGLE, DICT_OVERSHOOT);
 				joint.rotation.z = restJRZ + bend * leafTravel;
 			}
-
-			flipPivot.position.x = restX;
-			flipPivot.position.y = restY;
 		}
 
-		const rightScale = restBlockScaleY * lerp(1, DICT_RIGHT_BLOCK_MIN_SCALE, riffleP);
+		// Base page block shrinks
+		const riffleP = easeInOutCubic(clamp((p - 0.22) / 0.68, 0, 1));
+		const rightScale = restBlockScaleY * lerp(1, DICT_BLOCK_MIN_SCALE, riffleP);
 		basePageBlock.scale.y = rightScale;
 		basePageBlock.position.y = restBlockY * rightScale;
-		staticEdgeDetailGroup.visible = false;
 	});
 }
 
 export function animateDictionaryClose(dict: DictionaryObject): Promise<void> {
-	const { frontCoverPivot, leftPageBlockPivot, pageLeaves, basePageBlock } = dict.parts;
+	const { frontCoverPivot, pageLeaves, basePageBlock } = dict.parts;
 
 	const curCover = frontCoverPivot.rotation.z;
 	const restCover = getRest(frontCoverPivot, "rz");
@@ -719,14 +592,12 @@ export function animateDictionaryClose(dict: DictionaryObject): Promise<void> {
 	const restBlockScaleY = getRest(basePageBlock, "sy");
 	const curBlockY = basePageBlock.position.y;
 	const restBlockY = getRest(basePageBlock, "y");
+
+	// Pre-capture all current values (avoids per-frame getRest lookups)
 	const leafStates = pageLeaves.map(({ flipPivot, curveJoints }) => ({
 		flipPivot,
 		curRZ: flipPivot.rotation.z,
 		restRZ: getRest(flipPivot, "rz"),
-		curX: flipPivot.position.x,
-		restX: getRest(flipPivot, "x"),
-		curY: flipPivot.position.y,
-		restY: getRest(flipPivot, "y"),
 		jointStates: curveJoints.map((joint) => ({
 			joint,
 			curRZ: joint.rotation.z,
@@ -737,26 +608,24 @@ export function animateDictionaryClose(dict: DictionaryObject): Promise<void> {
 	const nLeaves = leafStates.length;
 
 	return animate(`dict-${dict.root.uuid}`, DICT_CLOSE_MS, (p) => {
-		// Pages close in reverse stagger — last opened page closes first
+		// Pages close in reverse stagger
 		for (let i = 0; i < nLeaves; i++) {
 			const s = leafStates[i];
 			const reverseT = nLeaves <= 1 ? 0 : (nLeaves - 1 - i) / (nLeaves - 1);
-			const delay = reverseT * 0.3;
-			const pageP = easeInOutCubic(clamp((p - delay) / 0.5, 0, 1));
+			const pageP = easeInOutCubic(clamp((p - reverseT * 0.3) / 0.5, 0, 1));
 
 			s.flipPivot.rotation.z = lerp(s.curRZ, s.restRZ, pageP);
-			s.flipPivot.position.x = lerp(s.curX, s.restX, pageP);
-			s.flipPivot.position.y = lerp(s.curY, s.restY, pageP);
-			for (const jointState of s.jointStates) {
-				jointState.joint.rotation.z = lerp(jointState.curRZ, jointState.restRZ, pageP);
+			for (const js of s.jointStates) {
+				js.joint.rotation.z = lerp(js.curRZ, js.restRZ, pageP);
 			}
 			if (pageP >= 0.99) s.flipPivot.visible = false;
 		}
 
-		leftPageBlockPivot.visible = false;
+		// Base block grows back
 		basePageBlock.scale.y = lerp(curBlockScaleY, restBlockScaleY, easeInOutCubic(p));
 		basePageBlock.position.y = lerp(curBlockY, restBlockY, easeInOutCubic(p));
 
+		// Cover closes
 		const coverP = easeInOutCubic(clamp((p - 0.4) / 0.55, 0, 1));
 		frontCoverPivot.rotation.z = lerp(curCover, restCover, coverP);
 	});
