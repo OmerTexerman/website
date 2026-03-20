@@ -488,77 +488,63 @@ export function animateFrameClose(frame: PhotoFrameObject): Promise<void> {
 }
 
 // ─── DICTIONARY (Word of the Day) ────────────────────────────────
-// Unique animation: the dictionary stands upright, then tips forward
-// and slams flat on the desk. Loose pages cascade out from the impact.
-// Completely distinct from every other animation.
-const DICT_SLAM_MS = 900;
-const DICT_STANDUP_MS = 800;
-// The bodyPivot is at the bottom-front edge. Rotating -PI/2 around X
-// tips the book forward to lie flat on the desk.
-const DICT_TIP_ANGLE = -Math.PI / 2;
+// Unique animation: cover opens, then pages flip rapidly one after
+// another like someone thumbing through to find a word. Each page
+// flips with a slight arc and flutter. No other object does this.
+const DICT_OPEN_MS = 1000;
+const DICT_CLOSE_MS = 600;
+const DICT_COVER_ANGLE = -2.8;
 
 export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
-	const { bodyPivot, loosePages } = dict.parts;
+	const { coverPivot, pageFlips } = dict.parts;
 
-	saveRest(bodyPivot, "rx", bodyPivot.rotation.x);
-	for (const page of loosePages) {
-		saveRest(page, "ry", page.rotation.y);
+	saveRest(coverPivot, "rx", coverPivot.rotation.x);
+	for (const page of pageFlips) {
+		saveRest(page, "rx", page.rotation.x);
 	}
 
-	const restRX = getRest(bodyPivot, "rx");
+	const restCover = getRest(coverPivot, "rx");
 
-	return animate(`dict-${dict.root.uuid}`, DICT_SLAM_MS, (p) => {
-		// Phase 1 (0–0.4): Tip forward — starts slow, accelerates
-		// like gravity pulling it down
-		const tipProgress = clamp(p / 0.4, 0, 1);
-		const tipEase = tipProgress * tipProgress; // quadratic ease-in (gravity)
-		bodyPivot.rotation.x = lerp(restRX, DICT_TIP_ANGLE, tipEase);
+	return animate(`dict-${dict.root.uuid}`, DICT_OPEN_MS, (p) => {
+		// Phase 1 (0–0.35): Cover swings open
+		const coverP = easeInOutCubic(clamp(p / 0.35, 0, 1));
+		coverPivot.rotation.x = lerp(restCover, restCover + DICT_COVER_ANGLE, coverP);
 
-		// Phase 2 (0.4–0.55): Bounce — slight overshoot and settle
-		if (p > 0.4) {
-			const bounceT = clamp((p - 0.4) / 0.15, 0, 1);
-			const bounce = Math.sin(bounceT * Math.PI) * 0.06;
-			bodyPivot.rotation.x = DICT_TIP_ANGLE - bounce;
-		}
-
-		// Phase 3 (0.45–1.0): Pages cascade out — each page fans open
-		// from the spine side with staggered timing, like they splayed
-		// from the impact
-		for (let i = 0; i < loosePages.length; i++) {
-			const page = loosePages[i];
-			const restRY = getRest(page, "ry");
-			const pageDelay = 0.45 + (i / loosePages.length) * 0.3;
-			const pageProgress = easeInOutCubic(clamp((p - pageDelay) / 0.25, 0, 1));
-			// Fan out from spine — each page at a slightly different angle
-			const targetAngle = lerp(0.05, 0.6, i / (loosePages.length - 1));
-			// Small flutter on arrival
-			const flutter = Math.sin(pageProgress * Math.PI * 2) * 0.03 * (1 - pageProgress);
-			page.rotation.y = lerp(restRY, restRY + targetAngle + flutter, pageProgress);
+		// Phase 2 (0.25–0.95): Pages flip one by one — rapid thumbing
+		const flipStart = 0.25;
+		const flipWindow = 0.7;
+		for (let i = 0; i < pageFlips.length; i++) {
+			const page = pageFlips[i];
+			const restRX = getRest(page, "rx");
+			const delay = flipStart + (i / pageFlips.length) * flipWindow * 0.65;
+			const duration = flipWindow * 0.35;
+			const pageP = clamp((p - delay) / duration, 0, 1);
+			const flipAngle = -Math.PI * 0.85;
+			const arcLift = Math.sin(pageP * Math.PI) * 0.15;
+			page.rotation.x = lerp(restRX, restRX + flipAngle, pageP) - arcLift;
 		}
 	});
 }
 
 export function animateDictionaryClose(dict: DictionaryObject): Promise<void> {
-	const { bodyPivot, loosePages } = dict.parts;
+	const { coverPivot, pageFlips } = dict.parts;
 
-	const curRX = bodyPivot.rotation.x;
-	const restRX = getRest(bodyPivot, "rx");
-	const pageStates = loosePages.map((page) => ({
+	const curCover = coverPivot.rotation.x;
+	const restCover = getRest(coverPivot, "rx");
+	const pageStates = pageFlips.map((page) => ({
 		page,
-		curRY: page.rotation.y,
-		restRY: getRest(page, "ry"),
+		cur: page.rotation.x,
+		rest: getRest(page, "rx"),
 	}));
 
-	return animate(`dict-${dict.root.uuid}`, DICT_STANDUP_MS, (p) => {
-		// Phase 1 (0–0.5): Pages slide back in
-		const pageReturn = easeInOutCubic(clamp(p / 0.5, 0, 1));
-		for (const { page, curRY, restRY } of pageStates) {
-			page.rotation.y = lerp(curRY, restRY, pageReturn);
+	return animate(`dict-${dict.root.uuid}`, DICT_CLOSE_MS, (p) => {
+		const pageP = easeInOutCubic(clamp(p / 0.5, 0, 1));
+		for (const { page, cur, rest } of pageStates) {
+			page.rotation.x = lerp(cur, rest, pageP);
 		}
 
-		// Phase 2 (0.3–1.0): Stand back up
-		const standUp = easeInOutCubic(clamp((p - 0.3) / 0.7, 0, 1));
-		bodyPivot.rotation.x = lerp(curRX, restRX, standUp);
+		const coverP = easeInOutCubic(clamp((p - 0.2) / 0.7, 0, 1));
+		coverPivot.rotation.x = lerp(curCover, restCover, coverP);
 	});
 }
 

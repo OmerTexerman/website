@@ -8,7 +8,7 @@ import {
 	MeshStandardMaterial,
 	PlaneGeometry,
 } from "three";
-import { DICTIONARY_GOLD, DICTIONARY_LEATHER } from "../colors";
+import { DICTIONARY_GOLD } from "../colors";
 import { applySectionInteraction } from "../interactive-section";
 import {
 	dictionaryGoldMaterial,
@@ -16,201 +16,199 @@ import {
 	dictionaryPagesMaterial,
 } from "../materials";
 import { DESK_SURFACE_Y } from "../math-utils";
-import { createSpineTexture } from "../spine-texture";
 
 export interface DictionaryObject {
 	root: Group;
 	parts: {
-		/** The whole body group that tips forward. Pivot is at the bottom-front edge. */
-		bodyPivot: Group;
-		/** Individual loose pages that cascade after the slam. */
-		loosePages: Group[];
+		/** Cover pivots at the spine (back edge, z = -DEPTH/2). */
+		coverPivot: Group;
+		/** Individual page pivots at the spine for flip animation. */
+		pageFlips: Group[];
 	};
 }
 
-// Standing upright dimensions
-const WIDTH = 0.5; // X — left to right
-const HEIGHT = 0.65; // Y — how tall it stands
-const THICKNESS = 0.14; // Z — how thick the book is
-const COVER_THICK = 0.014;
-const PAGES_DEPTH = THICKNESS - COVER_THICK * 2;
-const SPINE_RADIUS = COVER_THICK * 1.4;
-const LOOSE_PAGE_COUNT = 10;
+// Lying flat dimensions
+const WIDTH = 0.6; // X — left to right
+const THICKNESS = 0.16; // Y — how thick (tall when flat)
+const DEPTH = 0.75; // Z — front to back
+const COVER_THICK = 0.015;
+const PAGES_H = THICKNESS - COVER_THICK * 2;
+const PAGE_FLIP_COUNT = 8;
+const TAB_LETTERS = ["A", "D", "G", "K", "N", "R", "T", "W"];
 
 /** Dictionary → links to /word-of-the-day
  *
- *  Stands upright on the desk like a book on display.
- *  Animation: tips forward, slams flat, pages cascade from the impact.
+ *  Lies flat on the desk — thick leather-bound dictionary with thumb
+ *  index tabs along the fore-edge (the detail that says "dictionary").
+ *  Cover opens at the spine, pages flip rapidly like looking up a word.
  */
 export function createDictionary(): DictionaryObject {
 	const dictionary = new Group();
 	applySectionInteraction(dictionary, "wordOfTheDay");
 
-	// The body pivot sits at the bottom-front edge of the book
-	// so the book tips forward (toward +Z) when rotated around X.
-	const bodyPivot = new Group();
-	bodyPivot.position.set(0, 0, THICKNESS / 2);
-	dictionary.add(bodyPivot);
-
-	// Everything inside bodyPivot is positioned relative to the pivot
-	// (bottom-front edge). The book extends upward (+Y) and backward (-Z).
-	const body = new Group();
-	bodyPivot.add(body);
-
-	// ─── Back cover (the one facing away from viewer) ────────────
-	const backCover = new Mesh(
-		new BoxGeometry(WIDTH, HEIGHT, COVER_THICK),
+	// ─── Bottom cover ────────────────────────────────────────────
+	const bottomCover = new Mesh(
+		new BoxGeometry(WIDTH, COVER_THICK, DEPTH),
 		dictionaryLeatherMaterial,
 	);
-	backCover.position.set(0, HEIGHT / 2, -THICKNESS + COVER_THICK / 2);
-	backCover.castShadow = true;
-	body.add(backCover);
+	bottomCover.position.set(0, COVER_THICK / 2, 0);
+	bottomCover.castShadow = true;
+	dictionary.add(bottomCover);
 
 	// ─── Page block ──────────────────────────────────────────────
 	const pageBlock = new Mesh(
-		new BoxGeometry(WIDTH - 0.02, HEIGHT - 0.02, PAGES_DEPTH),
+		new BoxGeometry(WIDTH - 0.02, PAGES_H, DEPTH - 0.02),
 		dictionaryPagesMaterial,
 	);
-	pageBlock.position.set(0, HEIGHT / 2, -THICKNESS / 2);
-	body.add(pageBlock);
+	pageBlock.position.set(0, COVER_THICK + PAGES_H / 2, 0);
+	dictionary.add(pageBlock);
 
-	// Page-edge lines visible on top and right side
-	const edgeLineMat = new MeshStandardMaterial({
-		color: new Color("#d8d0c0"),
-		roughness: 1.0,
-	});
-	for (let i = 0; i < 10; i++) {
-		const t = (i + 1) / 11;
-		const z = -THICKNESS + COVER_THICK + PAGES_DEPTH * t;
-		// Top edge lines
-		const topEdge = new Mesh(new BoxGeometry(WIDTH - 0.03, 0.001, 0.001), edgeLineMat);
-		topEdge.position.set(0, HEIGHT - 0.01, z);
-		body.add(topEdge);
-		// Right side edge lines
-		const rightEdge = new Mesh(new BoxGeometry(0.001, HEIGHT - 0.03, 0.001), edgeLineMat);
-		rightEdge.position.set(WIDTH / 2 - 0.01, HEIGHT / 2, z);
-		body.add(rightEdge);
+	// ─── Thumb index tabs along the fore-edge (+Z side) ──────────
+	// These half-circle notches with letters are the iconic dictionary detail
+	const tabHeight = PAGES_H / TAB_LETTERS.length;
+	const tabRadius = 0.025;
+	for (let i = 0; i < TAB_LETTERS.length; i++) {
+		const y = COVER_THICK + tabHeight * i + tabHeight / 2;
+
+		// Small protruding tab
+		const tabGeo = new CylinderGeometry(tabRadius, tabRadius, 0.006, 8);
+		const tabMat = new MeshStandardMaterial({
+			color: new Color("#c4b898"),
+			roughness: 0.9,
+		});
+		const tab = new Mesh(tabGeo, tabMat);
+		tab.rotation.x = Math.PI / 2;
+		tab.position.set(0, y, DEPTH / 2 - 0.005);
+		dictionary.add(tab);
+
+		// Letter label on each tab
+		const labelGeo = new PlaneGeometry(0.02, 0.015);
+		const labelMat = new MeshStandardMaterial({
+			color: new Color("#3a3020"),
+			roughness: 1.0,
+			side: DoubleSide,
+		});
+		const label = new Mesh(labelGeo, labelMat);
+		label.position.set(0, y, DEPTH / 2 + 0.001);
+		dictionary.add(label);
 	}
 
-	// ─── Front cover (facing viewer) ─────────────────────────────
-	const frontCover = new Mesh(
-		new BoxGeometry(WIDTH, HEIGHT, COVER_THICK),
-		dictionaryLeatherMaterial,
-	);
-	frontCover.position.set(0, HEIGHT / 2, -COVER_THICK / 2);
-	frontCover.castShadow = true;
-	body.add(frontCover);
+	// ─── Page-edge lines on the fore-edge and right edge ─────────
+	const edgeMat = new MeshStandardMaterial({ color: new Color("#d8d0c0"), roughness: 1.0 });
+	for (let i = 0; i < 10; i++) {
+		const t = (i + 1) / 11;
+		const y = COVER_THICK + PAGES_H * t;
+		// Fore-edge (front, +Z)
+		const foreEdge = new Mesh(new BoxGeometry(WIDTH - 0.04, 0.0008, 0.001), edgeMat);
+		foreEdge.position.set(0, y, DEPTH / 2 - 0.012);
+		dictionary.add(foreEdge);
+		// Right edge (+X)
+		const rightEdge = new Mesh(new BoxGeometry(0.001, 0.0008, DEPTH - 0.04), edgeMat);
+		rightEdge.position.set(WIDTH / 2 - 0.012, y, 0);
+		dictionary.add(rightEdge);
+	}
 
-	// Gold border frame on front cover
+	// ─── Top cover — pivots at spine (back edge) ─────────────────
+	const coverPivot = new Group();
+	coverPivot.position.set(0, COVER_THICK + PAGES_H, -DEPTH / 2);
+	dictionary.add(coverPivot);
+
+	const topCover = new Mesh(new BoxGeometry(WIDTH, COVER_THICK, DEPTH), dictionaryLeatherMaterial);
+	topCover.position.set(0, COVER_THICK / 2, DEPTH / 2);
+	topCover.castShadow = true;
+	coverPivot.add(topCover);
+
+	// Gold border frame on top cover
 	const borderMat = new MeshStandardMaterial({
 		color: new Color(DICTIONARY_GOLD),
 		roughness: 0.3,
 		metalness: 0.55,
 		transparent: true,
-		opacity: 0.5,
+		opacity: 0.45,
 		side: DoubleSide,
 	});
-	const frontBorder = new Mesh(new PlaneGeometry(WIDTH - 0.05, HEIGHT - 0.05), borderMat);
-	frontBorder.position.set(0, HEIGHT / 2, -0.0001);
-	body.add(frontBorder);
+	const border = new Mesh(new PlaneGeometry(WIDTH - 0.06, DEPTH - 0.06), borderMat);
+	border.rotation.x = -Math.PI / 2;
+	border.position.set(0, COVER_THICK + 0.001, DEPTH / 2);
+	coverPivot.add(border);
 
-	// Gold title text area on front cover
-	const titleBlock = new Mesh(new PlaneGeometry(WIDTH * 0.6, 0.06), dictionaryGoldMaterial);
-	titleBlock.position.set(0, HEIGHT * 0.65, -0.0002);
-	body.add(titleBlock);
+	// Gold title bar
+	const titleBar = new Mesh(new PlaneGeometry(WIDTH * 0.5, 0.04), dictionaryGoldMaterial);
+	titleBar.rotation.x = -Math.PI / 2;
+	titleBar.position.set(0, COVER_THICK + 0.002, DEPTH * 0.55);
+	coverPivot.add(titleBar);
 
-	// Second gold line (subtitle)
-	const subtitleBlock = new Mesh(new PlaneGeometry(WIDTH * 0.35, 0.025), dictionaryGoldMaterial);
-	subtitleBlock.position.set(0, HEIGHT * 0.55, -0.0002);
-	body.add(subtitleBlock);
+	// Subtitle line
+	const subtitle = new Mesh(new PlaneGeometry(WIDTH * 0.3, 0.015), dictionaryGoldMaterial);
+	subtitle.rotation.x = -Math.PI / 2;
+	subtitle.position.set(0, COVER_THICK + 0.002, DEPTH * 0.42);
+	coverPivot.add(subtitle);
 
-	// ─── Spine (left side, rounded) ──────────────────────────────
+	// Gold corner ornaments (small squares at each corner of the cover)
+	const cornerSize = 0.03;
+	const cornerGeo = new PlaneGeometry(cornerSize, cornerSize);
+	for (const [cx, cz] of [
+		[-WIDTH / 2 + 0.04, 0.04],
+		[WIDTH / 2 - 0.04, 0.04],
+		[-WIDTH / 2 + 0.04, DEPTH - 0.04],
+		[WIDTH / 2 - 0.04, DEPTH - 0.04],
+	]) {
+		const corner = new Mesh(cornerGeo, dictionaryGoldMaterial);
+		corner.rotation.x = -Math.PI / 2;
+		corner.rotation.z = Math.PI / 4;
+		corner.position.set(cx, COVER_THICK + 0.0015, cz);
+		coverPivot.add(corner);
+	}
+
+	// ─── Page flip groups (pivot at spine for flip animation) ─────
+	const pageFlips: Group[] = [];
+	for (let i = 0; i < PAGE_FLIP_COUNT; i++) {
+		const pagePivot = new Group();
+		// Pivot at the spine (back edge)
+		pagePivot.position.set(0, COVER_THICK + PAGES_H * 0.5, -DEPTH / 2 + 0.01);
+		dictionary.add(pagePivot);
+
+		const pageMat = new MeshStandardMaterial({
+			color: new Color("#f0e8d8"),
+			roughness: 1.0,
+			side: DoubleSide,
+			transparent: true,
+			opacity: 0.85,
+		});
+		const page = new Mesh(new PlaneGeometry(WIDTH - 0.04, DEPTH - 0.04), pageMat);
+		// Page extends forward from spine (+Z)
+		page.rotation.x = -Math.PI / 2;
+		page.position.set(0, 0, (DEPTH - 0.04) / 2);
+		pagePivot.add(page);
+
+		pageFlips.push(pagePivot);
+	}
+
+	// ─── Rounded spine along back edge ───────────────────────────
+	const spineRadius = COVER_THICK * 1.2;
 	const spineGeo = new CylinderGeometry(
-		SPINE_RADIUS,
-		SPINE_RADIUS,
-		HEIGHT - 0.01,
+		spineRadius,
+		spineRadius,
+		WIDTH - 0.01,
 		8,
 		1,
 		false,
 		0,
 		Math.PI,
 	);
-	const spineMesh = new Mesh(spineGeo, dictionaryLeatherMaterial);
-	spineMesh.rotation.z = Math.PI;
-	spineMesh.position.set(-WIDTH / 2, HEIGHT / 2, -THICKNESS / 2);
-	body.add(spineMesh);
-
-	// Gold bands on spine
-	for (const yOff of [HEIGHT * 0.2, HEIGHT * 0.5, HEIGHT * 0.8]) {
-		const band = new Mesh(
-			new CylinderGeometry(
-				SPINE_RADIUS + 0.001,
-				SPINE_RADIUS + 0.001,
-				0.015,
-				8,
-				1,
-				false,
-				0,
-				Math.PI,
-			),
-			dictionaryGoldMaterial,
-		);
-		band.rotation.z = Math.PI;
-		band.position.set(-WIDTH / 2, yOff, -THICKNESS / 2);
-		body.add(band);
-	}
-
-	// Spine label text
-	const spineLabelMat = createSpineTexture("DICTIONARY", DICTIONARY_LEATHER, HEIGHT * 0.6, 0.05, {
-		fontSize: (cw) => Math.round(cw * 0.5),
-		maxTextWidth: (_cw, ch) => ch * 5,
-		textRotation: -Math.PI / 2,
-		material: { roughness: 0.6, metalness: 0.15 },
-	});
-	const spineLabel = new Mesh(new PlaneGeometry(HEIGHT * 0.5, 0.04), spineLabelMat);
-	spineLabel.rotation.y = -Math.PI / 2;
-	spineLabel.position.set(-WIDTH / 2 - SPINE_RADIUS * 0.7, HEIGHT / 2, -THICKNESS / 2);
-	body.add(spineLabel);
-
-	// ─── Loose pages for cascade animation ───────────────────────
-	// These are initially flat inside the book (invisible), and fan out
-	// during the slam animation.
-	const loosePages: Group[] = [];
-	for (let i = 0; i < LOOSE_PAGE_COUNT; i++) {
-		const pagePivot = new Group();
-		// Pivot at the spine side of the page block
-		pagePivot.position.set(-WIDTH / 2 + 0.02, HEIGHT / 2, -THICKNESS / 2);
-		// Initially rotated to lie flat inside the book (no visible effect)
-		pagePivot.rotation.y = 0;
-		body.add(pagePivot);
-
-		const pageMat = new MeshStandardMaterial({
-			color: new Color("#f2ece0"),
-			roughness: 1.0,
-			side: DoubleSide,
-			transparent: true,
-			opacity: 0.8,
-		});
-		const page = new Mesh(new PlaneGeometry(WIDTH - 0.06, HEIGHT - 0.04), pageMat);
-		// Offset from pivot so the page extends rightward (+X)
-		page.position.set((WIDTH - 0.06) / 2, 0, 0);
-		pagePivot.add(page);
-
-		loosePages.push(pagePivot);
-	}
+	const spine = new Mesh(spineGeo, dictionaryLeatherMaterial);
+	spine.rotation.z = Math.PI / 2;
+	spine.rotation.y = Math.PI / 2;
+	spine.position.set(0, COVER_THICK + PAGES_H / 2, -DEPTH / 2 + 0.003);
+	dictionary.add(spine);
 
 	// ─── Position on desk ────────────────────────────────────────
-	// Front area of desk, slightly left of center, angled toward viewer
-	// Between notebook (-1.5, z=0.5) and laptop (0.5, z=-0.3),
-	// behind the mug (-0.6, z=0.9)
+	// Between notebook and laptop, behind the mug
 	dictionary.position.set(-0.5, DESK_SURFACE_Y, -0.4);
 	dictionary.rotation.y = 0.2;
 
 	return {
 		root: dictionary,
-		parts: {
-			bodyPivot,
-			loosePages,
-		},
+		parts: { coverPivot, pageFlips },
 	};
 }
