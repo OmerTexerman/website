@@ -287,23 +287,28 @@ export function initUnifiedScene(
 	const mobilePosePos = new Vector3();
 	const mobilePoseLook = new Vector3();
 
-	function getMobileShelfResponsiveLayout(): {
-		cameraX: number;
-		lookX: number;
-		cameraZRange: number;
-		lookZRange: number;
-	} {
+	let cachedResponsive = {
+		cameraX: 0,
+		lookX: 0,
+		cameraZRange: 0.4,
+		lookZRange: 0.65,
+	};
+
+	function updateResponsiveLayout(): void {
 		const narrowness = clamp((430 - lastCanvasWidth) / 150, 0, 1);
-		return {
+		cachedResponsive = {
 			cameraX: lerp(0, -0.95, narrowness),
 			lookX: lerp(0, -0.22, narrowness),
 			cameraZRange: lerp(0.4, 1.1, narrowness),
 			lookZRange: lerp(0.65, 1.55, narrowness),
 		};
 	}
+	updateResponsiveLayout();
 
-	function sampleMobileShelfPan(t: number, pans: readonly number[]): number {
-		const sample = sampleMobileShelfTrack(t);
+	function interpolatePan(
+		sample: { index: number; nextIndex: number; localT: number },
+		pans: readonly number[],
+	): number {
 		if (sample.index === sample.nextIndex) return pans[sample.index] ?? 0;
 		return lerp(pans[sample.index] ?? 0, pans[sample.nextIndex] ?? 0, sample.localT);
 	}
@@ -311,34 +316,35 @@ export function initUnifiedScene(
 	function syncMobileShelfCamera(t: number, pans?: readonly number[]): void {
 		const sample = sampleMobileShelfTrack(t, { allowOverflow: true });
 		const panSource = pans ?? scrollController?.panByRow ?? [0, 0, 0];
-		const pan = sampleMobileShelfPan(t, panSource);
-		const responsive = getMobileShelfResponsiveLayout();
+		// Clamp t for pan so rubber-band overscroll doesn't extrapolate lateral pan
+		const panSample = sampleMobileShelfTrack(clamp(t, 0, 1));
+		const pan = interpolatePan(panSample, panSource);
 		camera.position.set(
-			MOBILE_POS.x + responsive.cameraX,
+			MOBILE_POS.x + cachedResponsive.cameraX,
 			sample.cameraY,
-			MOBILE_POS.z + pan * responsive.cameraZRange,
+			MOBILE_POS.z + pan * cachedResponsive.cameraZRange,
 		);
 		camera.lookAt(
-			MOBILE_LOOK.x + responsive.lookX,
+			MOBILE_LOOK.x + cachedResponsive.lookX,
 			sample.lookY,
-			MOBILE_LOOK.z + pan * responsive.lookZRange,
+			MOBILE_LOOK.z + pan * cachedResponsive.lookZRange,
 		);
 	}
 
 	function writeMobilePose(t: number, pos: Vector3, look: Vector3): void {
 		const sample = sampleMobileShelfTrack(t, { allowOverflow: true });
 		const panSource = scrollController?.panByRow ?? [0, 0, 0];
-		const pan = sampleMobileShelfPan(t, panSource);
-		const responsive = getMobileShelfResponsiveLayout();
+		const panSample = sampleMobileShelfTrack(clamp(t, 0, 1));
+		const pan = interpolatePan(panSample, panSource);
 		pos.set(
-			MOBILE_POS.x + responsive.cameraX,
+			MOBILE_POS.x + cachedResponsive.cameraX,
 			sample.cameraY,
-			MOBILE_POS.z + pan * responsive.cameraZRange,
+			MOBILE_POS.z + pan * cachedResponsive.cameraZRange,
 		);
 		look.set(
-			MOBILE_LOOK.x + responsive.lookX,
+			MOBILE_LOOK.x + cachedResponsive.lookX,
 			sample.lookY,
-			MOBILE_LOOK.z + pan * responsive.lookZRange,
+			MOBILE_LOOK.z + pan * cachedResponsive.lookZRange,
 		);
 	}
 
@@ -639,7 +645,6 @@ export function initUnifiedScene(
 					const interaction = interactionPicker.getInteractionAt(tap.clientX, tap.clientY);
 					if (interaction) handleShelfInteraction(interaction);
 				}
-				dirty = true;
 			}
 
 			function onPointerCancel(e: PointerEvent): void {
@@ -815,6 +820,7 @@ export function initUnifiedScene(
 		if (width === lastCanvasWidth && height === lastCanvasHeight) return;
 		lastCanvasWidth = width;
 		lastCanvasHeight = height;
+		updateResponsiveLayout();
 
 		applyRenderSettings(currentMode);
 		renderer.setSize(width, height, false);
