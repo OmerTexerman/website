@@ -240,9 +240,9 @@ export function createMobileScrollController(
 
 		// Fast flick → advance one stop in flick direction
 		if (Math.abs(velocityPx) > FLICK_VELOCITY_THRESHOLD) {
-			// Positive velocity = dragging down = scrolling up (toward lower T)
-			const dir = velocityPx > 0 ? -1 : 1;
-			return adjacentStopIndex(dragOriginStop, dir as -1 | 1);
+			// Positive vy = finger moving down = verticalT increasing = toward higher stop
+			const dir: -1 | 1 = velocityPx > 0 ? 1 : -1;
+			return adjacentStopIndex(dragOriginStop, dir);
 		}
 
 		// Slow drag → use position to decide
