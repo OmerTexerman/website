@@ -4,6 +4,7 @@ import type { BookStackObject } from "./objects/book-stack";
 import type { LaptopObject } from "./objects/laptop";
 import type { NotebookObject } from "./objects/notebook";
 import type { PhotoFrameObject } from "./objects/photo-frame";
+import { getClockAngles } from "./objects/shelf-clock";
 
 type AnimationCallback = (progress: number) => void;
 
@@ -505,14 +506,21 @@ export function animateSpin(obj: Object3D): Promise<void> {
 	});
 }
 
-/** Spin clock hands rapidly then settle (tap interaction) */
-export function animateClockSpin(handsPivot: Object3D): Promise<void> {
-	const baseZ = handsPivot.rotation.z;
-	return animate(`clock-spin-${handsPivot.uuid}`, 800, (p) => {
-		// Fast spin that decelerates
-		const spins = 3;
-		const decay = 1 - p * p;
-		handsPivot.rotation.z = baseZ - p * Math.PI * 2 * spins * (1 - decay * 0.3);
+/** Spin clock hands rapidly then settle back to the current time. */
+export function animateClockSpin(clock: Group): Promise<void> {
+	const { minutePivot, hourPivot } = clock.userData.clockParts as {
+		minutePivot: Object3D;
+		hourPivot: Object3D;
+	};
+	const baseMin = minutePivot.rotation.z;
+	const baseHour = hourPivot.rotation.z;
+	const target = getClockAngles();
+	const minSpin = Math.PI * 2 * 3; // 3 full spins
+	const hourSpin = Math.PI * 2 * 1.5;
+	return animate(`clock-spin-${clock.uuid}`, 900, (p) => {
+		// Spin past then settle to real time
+		minutePivot.rotation.z = lerp(baseMin - minSpin, target.minute, p);
+		hourPivot.rotation.z = lerp(baseHour - hourSpin, target.hour, p);
 	});
 }
 

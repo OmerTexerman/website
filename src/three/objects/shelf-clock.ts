@@ -36,7 +36,29 @@ const tickMaterial = new MeshStandardMaterial({
 
 const CLOCK_RADIUS = 0.28;
 
-/** Small wall clock for the shelf scene. Tap to spin the hands. */
+/** Returns the rotation (in radians) for clock hands based on the current time. */
+export function getClockAngles(): { minute: number; hour: number } {
+	const now = new Date();
+	const m = now.getMinutes() + now.getSeconds() / 60;
+	const h = (now.getHours() % 12) + m / 60;
+	return {
+		minute: -(m / 60) * Math.PI * 2,
+		hour: -(h / 12) * Math.PI * 2,
+	};
+}
+
+/** Sync clock hand pivots to the current time. */
+export function syncClockToTime(clock: Group): void {
+	const { minutePivot, hourPivot } = clock.userData.clockParts as {
+		minutePivot: Group;
+		hourPivot: Group;
+	};
+	const angles = getClockAngles();
+	minutePivot.rotation.z = angles.minute;
+	hourPivot.rotation.z = angles.hour;
+}
+
+/** Wall clock for the shelf scene. Hands show the visitor's local time. */
 export function createShelfClock(): Group {
 	const clock = new Group();
 	clock.userData = { interactive: true };
@@ -69,27 +91,26 @@ export function createShelfClock(): Group {
 	center.position.z = 0.012;
 	clock.add(center);
 
-	// Hands pivot — this is what we spin on tap
-	const handsPivot = new Group();
-	handsPivot.position.z = 0.01;
-	clock.add(handsPivot);
-
-	// Minute hand (longer)
+	// Minute hand — own pivot
+	const minutePivot = new Group();
+	minutePivot.position.z = 0.01;
+	clock.add(minutePivot);
 	const minuteHand = new Mesh(new BoxGeometry(0.008, 0.11, 0.003), handMaterial);
 	minuteHand.position.y = 0.055;
-	handsPivot.add(minuteHand);
+	minutePivot.add(minuteHand);
 
-	// Hour hand (shorter, slightly wider)
+	// Hour hand — own pivot
+	const hourPivot = new Group();
+	hourPivot.position.z = 0.012;
+	clock.add(hourPivot);
 	const hourHand = new Mesh(new BoxGeometry(0.01, 0.07, 0.003), handMaterial);
 	hourHand.position.y = 0.035;
-	// Offset rotation so hands aren't overlapping at rest
-	const hourPivot = new Group();
-	hourPivot.rotation.z = -Math.PI / 3;
-	hourPivot.position.z = 0.002;
 	hourPivot.add(hourHand);
-	handsPivot.add(hourPivot);
 
-	clock.userData.handsPivot = handsPivot;
+	clock.userData.clockParts = { minutePivot, hourPivot };
+
+	// Set hands to current time
+	syncClockToTime(clock);
 
 	return clock;
 }

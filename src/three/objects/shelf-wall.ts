@@ -462,7 +462,7 @@ export function createShelfWall(books?: ShelfBook[]): ShelfWallResult {
 		label: "Clock",
 		target: clockTarget,
 		activate: () => {
-			void animateClockSpin(clock.userData.handsPivot as Group);
+			void animateClockSpin(clock);
 		},
 	});
 

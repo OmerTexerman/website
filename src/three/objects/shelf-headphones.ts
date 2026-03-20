@@ -30,21 +30,22 @@ export function createShelfHeadphones(): Group {
 	const body = new Group();
 	hp.add(body);
 
-	const bandRadius = 0.16;
-	const cupRadius = 0.065;
-	const bandTube = 0.016;
+	const bandRadius = 0.11;
+	const cupRadius = 0.08;
+	const bandTube = 0.013;
 
-	// Headband — wide half-torus arch that extends well above the cups.
-	// Endpoints at (±bandRadius, 0, 0), peak at (0, bandRadius, 0).
-	// Lift so endpoints align with cup centers.
+	// Headband — half-torus arch. Endpoints at (±bandRadius, 0, 0).
+	// Lift above cup center so band attaches near cup tops, not through center.
 	const band = new Mesh(new TorusGeometry(bandRadius, bandTube, 8, 24, Math.PI), bandMaterial);
-	band.position.y = cupRadius;
+	band.position.y = cupRadius + 0.018;
 	band.castShadow = true;
 	body.add(band);
 
-	// Ear cups — positioned at the band endpoints, flat faces outward.
+	// Ear cups — large cylinders with flat faces outward.
+	// Inset slightly from band endpoints so cups overlap naturally.
 	const cupGeo = new CylinderGeometry(cupRadius, cupRadius, 0.035, 16);
 	const cushionGeo = new CylinderGeometry(cupRadius - 0.006, cupRadius - 0.006, 0.006, 16);
+	const cupX = bandRadius - 0.003;
 
 	function makeCup(): Group {
 		const cup = new Group();
@@ -60,15 +61,15 @@ export function createShelfHeadphones(): Group {
 	}
 
 	const leftCup = makeCup();
-	leftCup.position.set(-bandRadius, cupRadius, 0);
+	leftCup.position.set(-cupX, cupRadius, 0);
 	body.add(leftCup);
 
 	const rightCup = makeCup();
-	rightCup.position.set(bandRadius, cupRadius, 0);
+	rightCup.position.set(cupX, cupRadius, 0);
 	body.add(rightCup);
 
-	// Lean back against the wall (+Z is toward wall after shelf rotation.y)
-	body.rotation.x = -0.45;
+	// Lean back against the wall
+	body.rotation.x = -0.36;
 
 	hp.userData.cups = { left: leftCup, right: rightCup };
 
