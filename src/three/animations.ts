@@ -488,72 +488,107 @@ export function animateFrameClose(frame: PhotoFrameObject): Promise<void> {
 }
 
 // ─── DICTIONARY (Word of the Day) ────────────────────────────────
-// Restrained, dictionary-specific animation. The cover cracks open
-// ~30° at the back-edge spine, then pages riffle rapidly within the
-// narrow gap — like someone thumbing through to find a word.
-// The book stays FLAT on the desk the entire time.
-const DICT_OPEN_MS = 900;
-const DICT_CLOSE_MS = 500;
-// Cover opens ~30° — just enough to see pages, not a full open
-const DICT_COVER_CRACK = -0.55;
+// Cover cracks open ~30° SIDEWAYS (rotation.z at left-spine hinge).
+// Pages riffle via rotation.z within the cover's envelope. The packet
+// root shifts slightly for a "thumb catch" feel. Book stays flat.
+const DICT_OPEN_MS = 980;
+const DICT_CLOSE_MS = 620;
+const DICT_COVER_CRACK = 0.52; // ~30° sideways open
+// Thumb catch: small shift of the page packet
+const DICT_CATCH_X = 0.012;
+const DICT_CATCH_Y = 0.004;
 
 export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
-	const { coverPivot, pageLeaves } = dict.parts;
+	const { frontCoverPivot, pagePacketRoot, pagePivots } = dict.parts;
 
-	saveRest(coverPivot, "rx", coverPivot.rotation.x);
-	for (const page of pageLeaves) {
-		saveRest(page, "rx", page.rotation.x);
+	saveRest(frontCoverPivot, "rz", frontCoverPivot.rotation.z);
+	saveRestPose(pagePacketRoot);
+	for (const page of pagePivots) {
+		saveRest(page, "rz", page.rotation.z);
 	}
 
-	const restCover = getRest(coverPivot, "rx");
+	const restCover = getRest(frontCoverPivot, "rz");
+	const restPktX = getRest(pagePacketRoot, "x");
+	const restPktY = getRest(pagePacketRoot, "y");
 
 	return animate(`dict-${dict.root.uuid}`, DICT_OPEN_MS, (p) => {
-		// Phase 1 (0–0.3): Cover cracks open
-		const coverP = easeInOutCubic(clamp(p / 0.3, 0, 1));
-		coverPivot.rotation.x = lerp(restCover, restCover + DICT_COVER_CRACK, coverP);
+		// Thumb catch (0–0.16): packet shifts slightly
+		const catchP = easeInOutCubic(clamp(p / 0.16, 0, 1));
+		pagePacketRoot.position.x = lerp(restPktX, restPktX + DICT_CATCH_X, catchP);
+		pagePacketRoot.position.y = lerp(restPktY, restPktY + DICT_CATCH_Y, catchP);
 
-		// Phase 2 (0.2–0.9): Pages riffle inside the opening
-		// Each page flips from flat to its target angle within the
-		// cover's range. Staggered timing creates the thumb-through look.
-		for (let i = 0; i < pageLeaves.length; i++) {
-			const page = pageLeaves[i];
-			const restRX = getRest(page, "rx");
-			// Stagger each page
-			const delay = 0.2 + (i / pageLeaves.length) * 0.5;
-			const dur = 0.2;
-			const pageP = clamp((p - delay) / dur, 0, 1);
-			// Each page settles at a different angle within the cover gap
-			const t = pageLeaves.length <= 1 ? 0.5 : i / (pageLeaves.length - 1);
-			// Range: from near-flat to just under the cover angle
-			const target = DICT_COVER_CRACK * 0.85 * t;
-			// Small flutter as each page settles
-			const flutter = Math.sin(pageP * Math.PI * 2.5) * 0.02 * (1 - pageP);
-			page.rotation.x = lerp(restRX, restRX + target, easeInOutCubic(pageP)) + flutter;
+		// Cover crack (0.08–0.30): cover opens sideways
+		const coverP = easeInOutCubic(clamp((p - 0.08) / 0.22, 0, 1));
+		frontCoverPivot.rotation.z = lerp(restCover, restCover + DICT_COVER_CRACK, coverP);
+
+		// Staggered riffle (0.22–0.64): pages flip one by one
+		for (let i = 0; i < pagePivots.length; i++) {
+			const page = pagePivots[i];
+			const restRZ = getRest(page, "rz");
+			const delay = 0.22 + i * 0.028;
+			const dur = 0.16;
+			const flipP = clamp((p - delay) / dur, 0, 1);
+			// Peak angle during flip, then settle to held angle
+			const t = pagePivots.length <= 1 ? 0.5 : i / (pagePivots.length - 1);
+			const peak = lerp(0.12, 0.44, t);
+			const held = lerp(0.05, 0.28, t);
+			// Settle phase (0.62–1.0)
+			const settleP = easeInOutCubic(clamp((p - 0.62) / 0.38, 0, 1));
+			const angle = lerp(
+				lerp(restRZ, restRZ + peak, easeInOutCubic(flipP)),
+				restRZ + held,
+				settleP,
+			);
+			// Flutter during flip
+			const flutter = Math.sin(flipP * Math.PI * 2.2 + i * 0.35) * 0.018 * (1 - settleP);
+			page.rotation.z = angle + flutter;
 		}
+
+		// Settle packet (0.62–1.0): relax thumb catch slightly
+		const settleP = easeInOutCubic(clamp((p - 0.62) / 0.38, 0, 1));
+		pagePacketRoot.position.x = lerp(
+			restPktX + DICT_CATCH_X,
+			restPktX + DICT_CATCH_X * 0.66,
+			settleP,
+		);
+		pagePacketRoot.position.y = lerp(
+			restPktY + DICT_CATCH_Y,
+			restPktY + DICT_CATCH_Y * 0.5,
+			settleP,
+		);
 	});
 }
 
 export function animateDictionaryClose(dict: DictionaryObject): Promise<void> {
-	const { coverPivot, pageLeaves } = dict.parts;
+	const { frontCoverPivot, pagePacketRoot, pagePivots } = dict.parts;
 
-	const curCover = coverPivot.rotation.x;
-	const restCover = getRest(coverPivot, "rx");
-	const pageStates = pageLeaves.map((page) => ({
+	const curCover = frontCoverPivot.rotation.z;
+	const restCover = getRest(frontCoverPivot, "rz");
+	const curPktX = pagePacketRoot.position.x;
+	const curPktY = pagePacketRoot.position.y;
+	const restPktX = getRest(pagePacketRoot, "x");
+	const restPktY = getRest(pagePacketRoot, "y");
+	const pageStates = pagePivots.map((page) => ({
 		page,
-		cur: page.rotation.x,
-		rest: getRest(page, "rx"),
+		cur: page.rotation.z,
+		rest: getRest(page, "rz"),
 	}));
 
 	return animate(`dict-${dict.root.uuid}`, DICT_CLOSE_MS, (p) => {
-		// Pages flatten back (0–0.4)
-		const pageP = easeInOutCubic(clamp(p / 0.4, 0, 1));
+		// Pages flatten (0–0.35)
+		const pageP = easeInOutCubic(clamp(p / 0.35, 0, 1));
 		for (const { page, cur, rest } of pageStates) {
-			page.rotation.x = lerp(cur, rest, pageP);
+			page.rotation.z = lerp(cur, rest, pageP);
 		}
 
-		// Cover closes (0.2–0.8)
-		const coverP = easeInOutCubic(clamp((p - 0.2) / 0.6, 0, 1));
-		coverPivot.rotation.x = lerp(curCover, restCover, coverP);
+		// Packet returns (0.15–0.5)
+		const pktP = easeInOutCubic(clamp((p - 0.15) / 0.35, 0, 1));
+		pagePacketRoot.position.x = lerp(curPktX, restPktX, pktP);
+		pagePacketRoot.position.y = lerp(curPktY, restPktY, pktP);
+
+		// Cover closes (0.3–0.9)
+		const coverP = easeInOutCubic(clamp((p - 0.3) / 0.6, 0, 1));
+		frontCoverPivot.rotation.z = lerp(curCover, restCover, coverP);
 	});
 }
 
