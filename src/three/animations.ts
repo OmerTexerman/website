@@ -496,34 +496,27 @@ const DICT_CLOSE_MS = 650;
 const DICT_COVER_ANGLE = 2.9;
 const DICT_PAGE_MAX = DICT_COVER_ANGLE - 0.08;
 
-// Spine-wrap: pages arc over the spine at mid-turn.
-// X push moves pivot outward, Y lift clears the spine block.
-const DICT_SPINE_WRAP_X = 0.01;
-const DICT_SPINE_WRAP_Y = 0.04;
-
-function getDictSpineWrap(flipP: number, targetAngle: number): { x: number; y: number } {
-	const mid = Math.sin(Math.PI * flipP); // 0→1→0 peaking at mid-turn
-	const travel = clamp(targetAngle / (Math.PI * 0.5), 0, 1);
-	const k = mid * travel;
-	return { x: DICT_SPINE_WRAP_X * k, y: DICT_SPINE_WRAP_Y * k };
-}
+// Bend amount at the spine joint during mid-flip.
+// Pages physically bend around the spine — the root strip stays
+// at the hinge while the body bends outward at mid-turn.
+const DICT_BEND_PEAK = 0.45; // radians of bend at the joint
 
 export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
-	const { frontCoverPivot, pagePivots, basePageBlock } = dict.parts;
+	const { frontCoverPivot, pageLeaves, basePageBlock } = dict.parts;
 
 	saveRest(frontCoverPivot, "rz", frontCoverPivot.rotation.z);
 	saveRest(basePageBlock, "sy", basePageBlock.scale.y);
 	saveRest(basePageBlock, "y", basePageBlock.position.y);
-	for (const page of pagePivots) {
-		saveRest(page, "rz", page.rotation.z);
-		saveRest(page, "x", page.position.x);
-		saveRest(page, "y", page.position.y);
+	for (const { flipPivot, bendJoint } of pageLeaves) {
+		saveRest(flipPivot, "rz", flipPivot.rotation.z);
+		saveRest(flipPivot, "y", flipPivot.position.y);
+		saveRest(bendJoint, "rz", bendJoint.rotation.z);
 	}
 
 	const restCover = getRest(frontCoverPivot, "rz");
 	const restBlockScaleY = getRest(basePageBlock, "sy");
 	const restBlockY = getRest(basePageBlock, "y");
-	const n = pagePivots.length;
+	const n = pageLeaves.length;
 
 	return animate(`dict-${dict.root.uuid}`, DICT_OPEN_MS, (p) => {
 		const coverP = easeInOutCubic(clamp(p / 0.25, 0, 1));
@@ -532,10 +525,10 @@ export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
 		let flippedWeight = 0;
 		for (let i = 0; i < n; i++) {
 			const flipIndex = n - 1 - i;
-			const page = pagePivots[flipIndex];
-			const restRZ = getRest(page, "rz");
-			const restX = getRest(page, "x");
-			const restY = getRest(page, "y");
+			const { flipPivot, bendJoint } = pageLeaves[flipIndex];
+			const restRZ = getRest(flipPivot, "rz");
+			const restY = getRest(flipPivot, "y");
+			const restBend = getRest(bendJoint, "rz");
 
 			const delay = 0.28 + (i / n) * 0.4;
 			const dur = 0.18;
@@ -543,14 +536,15 @@ export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
 
 			const t = i / (n - 1);
 			const target = lerp(DICT_PAGE_MAX, DICT_PAGE_MAX * 0.08, t);
-			page.rotation.z = lerp(restRZ, restRZ + target, flipP);
+			flipPivot.rotation.z = lerp(restRZ, restRZ + target, flipP);
 
-			// Spine-wrap arc: pivot lifts and pushes out at mid-turn
-			const wrap = getDictSpineWrap(flipP, target);
-			const stackY = lerp(restY, restY + i * 0.0008, flipP);
-			page.position.x = restX + wrap.x;
-			page.position.y = stackY + wrap.y;
+			// Bend joint: curves at mid-turn (sin peak), flat at start/end
+			const bendMid = Math.sin(Math.PI * flipP);
+			const travel = clamp(target / (Math.PI * 0.5), 0, 1);
+			bendJoint.rotation.z = restBend + DICT_BEND_PEAK * bendMid * travel;
 
+			// Minimal stacking offset
+			flipPivot.position.y = lerp(restY, restY + i * 0.0008, flipP);
 			flippedWeight += flipP;
 		}
 
@@ -561,7 +555,7 @@ export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
 }
 
 export function animateDictionaryClose(dict: DictionaryObject): Promise<void> {
-	const { frontCoverPivot, pagePivots, basePageBlock } = dict.parts;
+	const { frontCoverPivot, pageLeaves, basePageBlock } = dict.parts;
 
 	const curCover = frontCoverPivot.rotation.z;
 	const restCover = getRest(frontCoverPivot, "rz");
@@ -569,22 +563,23 @@ export function animateDictionaryClose(dict: DictionaryObject): Promise<void> {
 	const restBlockScaleY = getRest(basePageBlock, "sy");
 	const curBlockY = basePageBlock.position.y;
 	const restBlockY = getRest(basePageBlock, "y");
-	const pageStates = pagePivots.map((page) => ({
-		page,
-		curRZ: page.rotation.z,
-		restRZ: getRest(page, "rz"),
-		curX: page.position.x,
-		restX: getRest(page, "x"),
-		curY: page.position.y,
-		restY: getRest(page, "y"),
+	const leafStates = pageLeaves.map(({ flipPivot, bendJoint }) => ({
+		flipPivot,
+		bendJoint,
+		curRZ: flipPivot.rotation.z,
+		restRZ: getRest(flipPivot, "rz"),
+		curY: flipPivot.position.y,
+		restY: getRest(flipPivot, "y"),
+		curBend: bendJoint.rotation.z,
+		restBend: getRest(bendJoint, "rz"),
 	}));
 
 	return animate(`dict-${dict.root.uuid}`, DICT_CLOSE_MS, (p) => {
 		const pageP = easeInOutCubic(clamp(p / 0.45, 0, 1));
-		for (const { page, curRZ, restRZ, curX, restX, curY, restY } of pageStates) {
-			page.rotation.z = lerp(curRZ, restRZ, pageP);
-			page.position.x = lerp(curX, restX, pageP);
-			page.position.y = lerp(curY, restY, pageP);
+		for (const s of leafStates) {
+			s.flipPivot.rotation.z = lerp(s.curRZ, s.restRZ, pageP);
+			s.flipPivot.position.y = lerp(s.curY, s.restY, pageP);
+			s.bendJoint.rotation.z = lerp(s.curBend, s.restBend, pageP);
 		}
 
 		basePageBlock.scale.y = lerp(curBlockScaleY, restBlockScaleY, pageP);

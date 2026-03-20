@@ -272,7 +272,7 @@ export function initUnifiedScene(
 	let pendingModalTimeout = 0;
 	let transitionAnimationId = 0;
 	let transitionResolve: (() => void) | null = null;
-	let postTransitionRaf = 0;
+	const postTransitionRaf = 0;
 
 	// Wall state — lazily created
 	let deskCreated = false;

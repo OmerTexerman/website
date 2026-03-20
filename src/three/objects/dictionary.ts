@@ -17,16 +17,20 @@ import {
 } from "../materials";
 import { DESK_SURFACE_Y } from "../math-utils";
 
+export interface PageLeaf {
+	/** Outer pivot at the spine hinge — controls the main flip rotation. */
+	flipPivot: Group;
+	/** Inner joint where the root strip meets the body — bends during flip. */
+	bendJoint: Group;
+}
+
 export interface DictionaryObject {
 	root: Group;
 	parts: {
-		/** Front cover pivots at left-spine hinge. rotation.z opens sideways. */
 		frontCoverPivot: Group;
-		/** Page packet root — shifts slightly for "thumb catch" feel. */
 		pagePacketRoot: Group;
-		/** Individual thin page leaves that riffle via rotation.z. */
-		pagePivots: Group[];
-		/** The fixed page block that shrinks as pages flip out. */
+		/** 2-piece page leaves: each has a flip pivot and a bend joint. */
+		pageLeaves: PageLeaf[];
 		basePageBlock: Mesh;
 	};
 }
@@ -47,6 +51,9 @@ const PAGE_D = DEPTH - 0.024;
 
 // Page packet sitting on top of the base page block
 const BASE_PAGE_THICK = 0.1;
+// 2-piece page: narrow root strip at spine + main body
+const ROOT_STRIP_W = 0.07;
+const BODY_W = PAGE_W - ROOT_STRIP_W;
 const LEAF_COUNT = 20;
 const LEAF_THICK = 0.003;
 const LEAF_STEP = 0.0008;
@@ -118,22 +125,36 @@ export function createDictionary(): DictionaryObject {
 	pagePacketRoot.position.set(HINGE_X, COVER_THICK + BASE_PAGE_THICK, 0);
 	dictionary.add(pagePacketRoot);
 
-	const pagePivots: Group[] = [];
+	const pageLeaves: PageLeaf[] = [];
 	for (let i = 0; i < LEAF_COUNT; i++) {
-		const pagePivot = new Group();
-		pagePivot.position.set(0, i * LEAF_STEP, 0);
-		pagePacketRoot.add(pagePivot);
-
 		const t = i / (LEAF_COUNT - 1);
 		const leafColor = new Color().lerpColors(new Color("#f0e8d8"), new Color("#e4dcc8"), t);
 		const leafMat = new MeshStandardMaterial({ color: leafColor, roughness: 1.0 });
-		const leaf = new Mesh(new BoxGeometry(PAGE_W, LEAF_THICK, PAGE_D), leafMat);
-		leaf.position.set(PAGE_W / 2, LEAF_THICK / 2, 0);
-		leaf.castShadow = true;
-		leaf.receiveShadow = true;
-		pagePivot.add(leaf);
 
-		pagePivots.push(pagePivot);
+		// Outer pivot at the spine hinge — controls the main flip
+		const flipPivot = new Group();
+		flipPivot.position.set(0, i * LEAF_STEP, 0);
+		pagePacketRoot.add(flipPivot);
+
+		// Root strip — narrow piece right at the spine
+		const rootMesh = new Mesh(new BoxGeometry(ROOT_STRIP_W, LEAF_THICK, PAGE_D), leafMat);
+		rootMesh.position.set(ROOT_STRIP_W / 2, LEAF_THICK / 2, 0);
+		rootMesh.castShadow = true;
+		flipPivot.add(rootMesh);
+
+		// Bend joint at the end of the root strip
+		const bendJoint = new Group();
+		bendJoint.position.set(ROOT_STRIP_W, 0, 0);
+		flipPivot.add(bendJoint);
+
+		// Main page body extends from the bend joint
+		const bodyMesh = new Mesh(new BoxGeometry(BODY_W, LEAF_THICK, PAGE_D), leafMat);
+		bodyMesh.position.set(BODY_W / 2, LEAF_THICK / 2, 0);
+		bodyMesh.castShadow = true;
+		bodyMesh.receiveShadow = true;
+		bendJoint.add(bodyMesh);
+
+		pageLeaves.push({ flipPivot, bendJoint });
 	}
 
 	// ─── Front cover — pivots at left-spine hinge ────────────────
@@ -205,6 +226,6 @@ export function createDictionary(): DictionaryObject {
 
 	return {
 		root: dictionary,
-		parts: { frontCoverPivot, pagePacketRoot, pagePivots, basePageBlock: basePages },
+		parts: { frontCoverPivot, pagePacketRoot, pageLeaves, basePageBlock: basePages },
 	};
 }
