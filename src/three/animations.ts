@@ -529,12 +529,13 @@ export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
 			// Each page flips quickly
 			const dur = 0.18;
 			const flipP = easeInOutCubic(clamp((p - delay) / dur, 0, 1));
-			// Most pages flip to the max; last 3 stop partway (the page
-			// you landed on). All stay within cover angle.
-			const isTail = i >= n - 3;
+			// Pages spread across the cover angle so they don't bunch up.
+			// Earlier pages land near the cover; later pages stay closer
+			// to the spine. Last 4 stop partway — the page you landed on.
+			const isTail = i >= n - 4;
 			const target = isTail
-				? lerp(DICT_PAGE_MAX * 0.3, DICT_PAGE_MAX * 0.6, (i - (n - 3)) / 2)
-				: DICT_PAGE_MAX;
+				? lerp(DICT_PAGE_MAX * 0.15, DICT_PAGE_MAX * 0.4, (i - (n - 4)) / 3)
+				: lerp(DICT_PAGE_MAX * 0.7, DICT_PAGE_MAX, i / Math.max(n - 5, 1));
 			page.rotation.z = lerp(restRZ, restRZ + target, flipP);
 			// Stack: each flipped page sits slightly higher than the last
 			page.position.y = lerp(restY, restY + i * 0.0015, flipP);
