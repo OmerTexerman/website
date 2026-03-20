@@ -491,8 +491,8 @@ export function animateFrameClose(frame: PhotoFrameObject): Promise<void> {
 // Cover opens wide, pages cascade with "spine shoulder" arc —
 // each page's pivot temporarily lifts (+Y) and pushes out (+X)
 // at mid-turn so it appears to curve around the spine binding.
-const DICT_OPEN_MS = 1100;
-const DICT_CLOSE_MS = 650;
+const DICT_OPEN_MS = 2200;
+const DICT_CLOSE_MS = 1200;
 const DICT_COVER_ANGLE = 2.9;
 const DICT_PAGE_MAX = DICT_COVER_ANGLE - 0.08;
 
