@@ -17,8 +17,6 @@ export const MOBILE_SHELF_SCROLL = {
 	verticalStops: [0, 0.5, 1] as const,
 	panSnapPoints: [[0], [-0.78, 0.3], [0]] as const,
 	panLimit: 1,
-	wheelSpeed: 0.0015,
-	wheelPanSpeed: 0.0011,
 } as const;
 
 export const MOBILE_TRANSITION_MID_POS = MOBILE_INTRO_START_POS.clone();
