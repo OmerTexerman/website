@@ -1,4 +1,4 @@
-import { MeshStandardMaterial, type Object3D, Vector3 } from "three";
+import { type Group, MeshStandardMaterial, type Object3D, Vector3 } from "three";
 import { clamp, lerp } from "./math-utils";
 import type { BookStackObject } from "./objects/book-stack";
 import type { LaptopObject } from "./objects/laptop";
@@ -502,6 +502,31 @@ export function animateSpin(obj: Object3D): Promise<void> {
 	const baseY = obj.rotation.y;
 	return animate(`spin-${obj.uuid}`, 500, (p) => {
 		obj.rotation.y = baseY + p * Math.PI * 2;
+	});
+}
+
+/** Spin clock hands rapidly then settle (tap interaction) */
+export function animateClockSpin(handsPivot: Object3D): Promise<void> {
+	const baseZ = handsPivot.rotation.z;
+	return animate(`clock-spin-${handsPivot.uuid}`, 800, (p) => {
+		// Fast spin that decelerates
+		const spins = 3;
+		const decay = 1 - p * p;
+		handsPivot.rotation.z = baseZ - p * Math.PI * 2 * spins * (1 - decay * 0.3);
+	});
+}
+
+/** Pulse headphone ear cups like they're playing music */
+export function animateHeadphonePulse(hp: Group): Promise<void> {
+	const { left, right } = hp.userData.cups as { left: Object3D; right: Object3D };
+	return animate(`hp-pulse-${hp.uuid}`, 600, (p) => {
+		const decay = 1 - p;
+		const beat = Math.sin(p * Math.PI * 6) * 0.15 * decay;
+		left.scale.setScalar(1 + beat);
+		right.scale.setScalar(1 + Math.sin(p * Math.PI * 6 + 0.5) * 0.15 * decay);
+		// Slight vertical bounce
+		left.position.y = 0.015 + Math.abs(beat) * 0.02;
+		right.position.y = 0.015 + Math.abs(Math.sin(p * Math.PI * 6 + 0.5) * 0.15 * decay) * 0.02;
 	});
 }
 
