@@ -550,14 +550,57 @@ export function createMobileScrollController(
 		captureOrigins();
 	}
 
+	function choosePanSettleTarget(row: number): number | null {
+		const points = panSnapPoints[row];
+		if (!points || points.length <= 1) return points?.[0] ?? null;
+
+		const current = panByRow[row];
+		const origin = panOriginSnap[row];
+		const displacement = current - origin;
+
+		// Find adjacent snap in the direction of movement
+		if (Math.abs(displacement) > 0.01) {
+			const dir = displacement > 0 ? 1 : -1;
+			let bestTarget: number | null = null;
+			let bestDist = Number.POSITIVE_INFINITY;
+			for (const point of points) {
+				const diff = point - origin;
+				if (dir > 0 && diff > 0.01 && diff < bestDist) {
+					bestTarget = point;
+					bestDist = diff;
+				} else if (dir < 0 && diff < -0.01 && Math.abs(diff) < bestDist) {
+					bestTarget = point;
+					bestDist = Math.abs(diff);
+				}
+			}
+
+			// Commit if moved past the commit ratio of the gap to next snap
+			if (bestTarget !== null) {
+				const gap = Math.abs(bestTarget - origin);
+				if (Math.abs(displacement) / gap > POSITION_COMMIT_RATIO) {
+					return bestTarget;
+				}
+			}
+		}
+
+		return nearestSnapPoint(current, points);
+	}
+
 	function wheelGestureEnd(): void {
 		const wasContinuous = wheelGestureActive;
 		wheelGestureActive = false;
 		wheelAxisLock = null;
 		wheelAccumY = 0;
 		if (wasContinuous) {
-			settleAll();
-			inputDirty = true;
+			// Use commit-ratio-based snap for pan (snaps sooner in direction of movement)
+			let changed = beginVerticalAnimation(nearestStopIndex(verticalT));
+			for (let i = 0; i < numRows; i++) {
+				const target = choosePanSettleTarget(i);
+				if (target !== null) {
+					changed = beginPanAnimation(i, target) || changed;
+				}
+			}
+			if (changed) inputDirty = true;
 		}
 	}
 
