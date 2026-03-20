@@ -199,6 +199,7 @@ export function createDictionary(): DictionaryObject {
 	);
 	backCover.position.set(HINGE_X + COVER_W / 2, COVER_THICK / 2, 0);
 	backCover.castShadow = true;
+	backCover.receiveShadow = true;
 	dictionary.add(backCover);
 
 	// ─── Base page block (fixed, bulk of pages) ──────────────────
@@ -267,6 +268,7 @@ export function createDictionary(): DictionaryObject {
 	dictionary.add(pagePacketRoot);
 
 	const staticEdgeDetailGroup = new Group();
+	staticEdgeDetailGroup.visible = false;
 	dictionary.add(staticEdgeDetailGroup);
 
 	// ─── Loose riffle leaves — only the thumb packet moves freely ──
@@ -284,7 +286,7 @@ export function createDictionary(): DictionaryObject {
 		const pageX = HINGE_X + 0.002 + t * LEAF_SPINE_SHOULDER_X;
 		const flipPivot = new Group();
 		flipPivot.position.set(pageX, pageY + t * LEAF_SPINE_SHOULDER_Y, 0);
-		flipPivot.visible = false;
+		flipPivot.visible = false; // hidden when closed — base block shows the stack
 		dictionary.add(flipPivot);
 
 		const curveJoints: Group[] = [];
@@ -328,6 +330,7 @@ export function createDictionary(): DictionaryObject {
 	);
 	frontCover.position.set(COVER_W / 2, COVER_THICK / 2, 0);
 	frontCover.castShadow = true;
+	frontCover.receiveShadow = true;
 	frontCoverPivot.add(frontCover);
 
 	// Gold border on cover
