@@ -63,4 +63,15 @@ const photos = defineCollection({
 	}),
 });
 
-export const collections = { blog, projects, books, photos };
+const words = defineCollection({
+	loader: glob({ pattern: "**/*.yaml", base: "./src/content/words" }),
+	schema: z.object({
+		word: z.string(),
+		partOfSpeech: z.string().optional(),
+		quip: z.string(),
+		date: z.coerce.date(),
+		image: z.string().regex(photoSource, "Image must be an absolute path or URL.").optional(),
+	}),
+});
+
+export const collections = { blog, projects, books, photos, words };

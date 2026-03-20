@@ -1,0 +1,69 @@
+---
+import { getSectionById } from "../../config";
+import { getAllWords } from "../../content/selectors";
+import ContentPage from "../../layouts/ContentPage.astro";
+import { formatDate } from "../../utils";
+
+const section = getSectionById("wordOfTheDay");
+const words = await getAllWords();
+const todaysWord = words[0];
+const archive = words.slice(1);
+---
+
+<ContentPage section={section} surface={false} containerWidthClass="max-w-3xl" showIntro={false}>
+  <div class="dictionary-page" data-animate>
+    <div class="dictionary-spine-edge"></div>
+    <div class="dictionary-paper">
+      {!todaysWord ? (
+        <p class="dictionary-empty">no words yet :)</p>
+      ) : (
+        <>
+          {/* Today's word — hero entry */}
+          <div class="dictionary-hero">
+            <div class="dictionary-header">
+              <span class="dictionary-guide-word">Today's Word</span>
+              <span class="dictionary-date">{formatDate(todaysWord.date, "long")}</span>
+            </div>
+
+            <h1 class="dictionary-word">{todaysWord.word}</h1>
+
+            {todaysWord.partOfSpeech && (
+              <p class="dictionary-pos">{todaysWord.partOfSpeech}</p>
+            )}
+
+            <div class="dictionary-divider"></div>
+
+            <p class="dictionary-quip">{todaysWord.quip}</p>
+
+            {todaysWord.image && (
+              <div class="dictionary-image">
+                <img src={todaysWord.image} alt={todaysWord.word} loading="lazy" />
+              </div>
+            )}
+          </div>
+
+          {/* Archive */}
+          {archive.length > 0 && (
+            <div class="dictionary-archive">
+              <h2 class="dictionary-archive-title">Archive</h2>
+              <div class="dictionary-entries">
+                {archive.map((entry, i) => (
+                  <div class="dictionary-entry" data-animate style={`transition-delay: ${i * 0.06}s`}>
+                    <div class="dictionary-entry-header">
+                      <span class="dictionary-entry-word">{entry.word}</span>
+                      {entry.partOfSpeech && (
+                        <span class="dictionary-entry-pos">{entry.partOfSpeech}</span>
+                      )}
+                    </div>
+                    <p class="dictionary-entry-quip">{entry.quip}</p>
+                    <span class="dictionary-entry-date">{formatDate(entry.date)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  </div>
+</ContentPage>

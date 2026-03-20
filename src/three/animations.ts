@@ -1,6 +1,7 @@
 import { MeshStandardMaterial, type Object3D, Vector3 } from "three";
 import { clamp, lerp } from "./math-utils";
 import type { BookStackObject } from "./objects/book-stack";
+import type { DictionaryObject } from "./objects/dictionary";
 import type { LaptopObject } from "./objects/laptop";
 import type { NotebookObject } from "./objects/notebook";
 import type { PhotoFrameObject } from "./objects/photo-frame";
@@ -483,6 +484,56 @@ export function animateFrameClose(frame: PhotoFrameObject): Promise<void> {
 			frame.root.add(photo);
 			if (saved === flyingPhotoData) flyingPhotoData = null;
 		}
+	});
+}
+
+// ─── DICTIONARY (Word of the Day) ────────────────────────────────
+export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
+	const pivot = dict.parts.coverPivot;
+	saveRest(pivot, "rx", pivot.rotation.x);
+	const rest = getRest(pivot, "rx");
+	const pages = dict.parts.pages;
+	for (const page of pages) {
+		saveRest(page, "rz", page.rotation.z);
+	}
+
+	return animate(`dict-${dict.root.uuid}`, 700, (p) => {
+		// Cover opens
+		const coverOpen = easeInOutCubic(clamp(p / 0.6, 0, 1));
+		pivot.rotation.x = lerp(rest, rest - 2.6, coverOpen);
+
+		// Pages fan slightly after cover starts opening
+		const pageFan = easeInOutCubic(clamp((p - 0.3) / 0.5, 0, 1));
+		for (let i = 0; i < pages.length; i++) {
+			const restRZ = getRest(pages[i], "rz");
+			const t = pages.length <= 1 ? 0.5 : i / (pages.length - 1);
+			const angle = lerp(-0.04, 0.04, t);
+			pages[i].rotation.z = lerp(restRZ, restRZ + angle, pageFan);
+		}
+	});
+}
+
+export function animateDictionaryClose(dict: DictionaryObject): Promise<void> {
+	const pivot = dict.parts.coverPivot;
+	const currentRX = pivot.rotation.x;
+	const restRX = getRest(pivot, "rx");
+	const pages = dict.parts.pages;
+	const pageStates = pages.map((page) => ({
+		page,
+		currentRZ: page.rotation.z,
+		restRZ: getRest(page, "rz"),
+	}));
+
+	return animate(`dict-${dict.root.uuid}`, 450, (p) => {
+		// Pages settle first
+		const pageSettle = easeInOutCubic(clamp(p / 0.5, 0, 1));
+		for (const { page, currentRZ, restRZ } of pageStates) {
+			page.rotation.z = lerp(currentRZ, restRZ, pageSettle);
+		}
+
+		// Cover closes
+		const coverClose = easeInOutCubic(clamp((p - 0.1) / 0.7, 0, 1));
+		pivot.rotation.x = lerp(currentRX, restRX, coverClose);
 	});
 }
 

@@ -1,6 +1,15 @@
 import { type CollectionEntry, getCollection } from "astro:content";
 import type { ShelfBook } from "./types";
 
+export interface WordEntry {
+	id: string;
+	word: string;
+	partOfSpeech?: string;
+	quip: string;
+	date: Date;
+	image?: string;
+}
+
 export interface ReadingSection {
 	status: "reading" | "finished" | "want-to-read";
 	title: string;
@@ -67,4 +76,21 @@ export async function getPhotoCollections(): Promise<PhotoCollection[]> {
 		id: entry.id,
 		...entry.data,
 	}));
+}
+
+/** Get all words sorted by date, newest first. */
+export async function getAllWords(): Promise<WordEntry[]> {
+	const entries = await getCollection("words");
+	return entries
+		.map((entry) => ({
+			id: entry.id,
+			...entry.data,
+		}))
+		.sort((a, b) => b.date.valueOf() - a.date.valueOf());
+}
+
+/** Get the most recent word of the day. */
+export async function getLatestWord(): Promise<WordEntry | undefined> {
+	const words = await getAllWords();
+	return words[0];
 }

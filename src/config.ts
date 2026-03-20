@@ -54,7 +54,7 @@ export const homeLink = {
 	backLabel: "Back to desk",
 } as const;
 
-const sectionOrder = ["blog", "projects", "reading", "photos"] as const;
+const sectionOrder = ["blog", "projects", "reading", "photos", "wordOfTheDay"] as const;
 
 export type SectionId = (typeof sectionOrder)[number];
 
@@ -94,6 +94,13 @@ export const sections: Record<SectionId, SiteSection> = {
 		href: "/photos",
 		description: "Shit I take pictures of",
 		backLabel: "Back to photos",
+	},
+	wordOfTheDay: {
+		id: "wordOfTheDay",
+		label: "Word of the Day",
+		href: "/word-of-the-day",
+		description: "Daily dose of vocab",
+		backLabel: "Back to words",
 	},
 };
 

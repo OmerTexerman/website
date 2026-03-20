@@ -15,7 +15,7 @@ export const MOBILE_SHELF_STOPS = [
 
 export const MOBILE_SHELF_SCROLL = {
 	verticalStops: [0, 0.5, 1] as const,
-	panSnapPoints: [[0], [-0.78, 0.3], [0]] as const,
+	panSnapPoints: [[0], [-0.78, 0.3], [-0.5, 0.5]] as const,
 	panLimit: 1,
 } as const;
 

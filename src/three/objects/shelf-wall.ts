@@ -32,6 +32,9 @@ import {
 	cameraBodyMaterial,
 	createBookMaterial,
 	darkMetalMaterial,
+	dictionaryGoldMaterial,
+	dictionaryLeatherMaterial,
+	dictionaryPagesMaterial,
 	metalMaterial,
 	paperMaterial,
 	shelfNotebookCoverMaterial,
@@ -268,6 +271,29 @@ function createShelfCamera(): Group {
 	return g;
 }
 
+function createShelfDictionary(): Group {
+	const g = new Group();
+
+	// Thick book body lying on its side
+	const body = new Mesh(new BoxGeometry(0.4, 0.12, 0.3), dictionaryLeatherMaterial);
+	body.position.y = 0.06;
+	g.add(body);
+
+	// Page edges visible from the side
+	const pages = new Mesh(new BoxGeometry(0.36, 0.08, 0.28), dictionaryPagesMaterial);
+	pages.position.y = 0.06;
+	g.add(pages);
+
+	// Gold title stripe on top
+	const title = new Mesh(new PlaneGeometry(0.2, 0.04), dictionaryGoldMaterial);
+	title.rotation.x = -Math.PI / 2;
+	title.position.set(0, 0.121, 0);
+	g.add(title);
+
+	g.rotation.y = 0.1;
+	return g;
+}
+
 function createShelfShell(): Group {
 	const shell = new Group();
 
@@ -390,7 +416,14 @@ export function createShelfWall(books?: ShelfBook[]): ShelfWallResult {
 			href: "/photos/camera",
 			source: "camera",
 			item: createShelfCamera(),
-			position: [SHELF_CENTER_X - 0.02, BOT_Y + SHELF_THICK / 2, WALL_Z] as const,
+			position: [SHELF_CENTER_X - 0.02, BOT_Y + SHELF_THICK / 2, WALL_Z - 0.5] as const,
+			rotationY: -Math.PI / 2,
+			hitboxPadding: 0.1,
+		},
+		{
+			sectionId: "wordOfTheDay" as const,
+			item: createShelfDictionary(),
+			position: [SHELF_CENTER_X - 0.02, BOT_Y + SHELF_THICK / 2, WALL_Z + 0.5] as const,
 			rotationY: -Math.PI / 2,
 			hitboxPadding: 0.1,
 		},

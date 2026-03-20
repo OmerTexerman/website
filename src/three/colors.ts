@@ -46,6 +46,11 @@ export const PHOTO_WARM = "#d4c5a9";
 export const PHOTO_ROSE = "#d4b8b8";
 export const PHOTO_BLUE = "#b8c4d4";
 
+// ─── Dictionary colors ──────────────────────────────────────────
+export const DICTIONARY_LEATHER = "#4a3228";
+export const DICTIONARY_GOLD = "#c9a94e";
+export const DICTIONARY_PAGES = "#e8e0d0";
+
 // ─── Page tones ─────────────────────────────────────────────────
 export const PAGE_LEFT = "#e7e0d4";
 export const PAGE_RIGHT = "#ece5da";

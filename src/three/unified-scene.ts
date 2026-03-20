@@ -17,6 +17,8 @@ import { getContentModal } from "../modal/api";
 import {
 	animateBookClose,
 	animateBookLift,
+	animateDictionaryClose,
+	animateDictionaryOpen,
 	animateFrameClose,
 	animateFrameReveal,
 	animateLaptopClose,
@@ -68,6 +70,7 @@ import { createMobileScrollController, type MobileScrollController } from "./mob
 import { createBookStack } from "./objects/book-stack";
 import { createCircuitBoard } from "./objects/circuit-board";
 import { createDeskLamp, toggleLamp } from "./objects/desk-lamp";
+import { createDictionary } from "./objects/dictionary";
 import { createGuitarPick } from "./objects/guitar-pick";
 import { createLaptop } from "./objects/laptop";
 import { createMug } from "./objects/mug";
@@ -363,6 +366,7 @@ export function initUnifiedScene(
 		const photoFrame = createPhotoFrame();
 		const mug = createMug();
 		const pen = createPen();
+		const dictionary = createDictionary();
 		const roots: Object3D[] = [
 			desk,
 			deskLamp,
@@ -370,6 +374,7 @@ export function initUnifiedScene(
 			laptop.root,
 			bookStack.root,
 			photoFrame.root,
+			dictionary.root,
 			mug,
 			pen,
 		];
@@ -429,6 +434,17 @@ export function initUnifiedScene(
 				modalDelayMs: 350,
 				open: () => animateFrameReveal(photoFrame),
 				close: () => animateFrameClose(photoFrame),
+			},
+			{
+				kind: "section",
+				section: getSectionById("wordOfTheDay"),
+				root: dictionary.root,
+				hitboxPadding: 0.1,
+				obstacleRadius: 0.45,
+				hoverScale: true,
+				modalDelayMs: 400,
+				open: () => animateDictionaryOpen(dictionary),
+				close: () => animateDictionaryClose(dictionary),
 			},
 			{
 				kind: "micro",
