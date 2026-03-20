@@ -52,7 +52,7 @@ const PAGE_D = DEPTH - 0.024;
 // Page packet sitting on top of the base page block
 const BASE_PAGE_THICK = 0.1;
 // 2-piece page: narrow root strip at spine + main body
-const ROOT_STRIP_W = 0.07;
+const ROOT_STRIP_W = 0.05;
 const BODY_W = PAGE_W - ROOT_STRIP_W;
 const LEAF_COUNT = 20;
 const LEAF_THICK = 0.003;
@@ -142,14 +142,15 @@ export function createDictionary(): DictionaryObject {
 		rootMesh.castShadow = true;
 		flipPivot.add(rootMesh);
 
-		// Bend joint at the end of the root strip
+		// Bend joint at the end of the root strip — pivots at sheet
+		// mid-thickness so the body rotates around the center, not edge
 		const bendJoint = new Group();
-		bendJoint.position.set(ROOT_STRIP_W, 0, 0);
+		bendJoint.position.set(ROOT_STRIP_W, LEAF_THICK / 2, 0);
 		flipPivot.add(bendJoint);
 
 		// Main page body extends from the bend joint
 		const bodyMesh = new Mesh(new BoxGeometry(BODY_W, LEAF_THICK, PAGE_D), leafMat);
-		bodyMesh.position.set(BODY_W / 2, LEAF_THICK / 2, 0);
+		bodyMesh.position.set(BODY_W / 2, 0, 0);
 		bodyMesh.castShadow = true;
 		bodyMesh.receiveShadow = true;
 		bendJoint.add(bodyMesh);

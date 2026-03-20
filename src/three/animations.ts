@@ -499,7 +499,7 @@ const DICT_PAGE_MAX = DICT_COVER_ANGLE - 0.08;
 // Bend amount at the spine joint during mid-flip.
 // Pages physically bend around the spine — the root strip stays
 // at the hinge while the body bends outward at mid-turn.
-const DICT_BEND_PEAK = 0.45; // radians of bend at the joint
+const DICT_BEND_PEAK = 0.85; // radians of bend at the joint — visible from camera
 
 export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
 	const { frontCoverPivot, pageLeaves, basePageBlock } = dict.parts;
