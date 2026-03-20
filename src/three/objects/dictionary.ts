@@ -1,5 +1,6 @@
 import {
 	BoxGeometry,
+	CanvasTexture,
 	Color,
 	DoubleSide,
 	Group,
@@ -20,10 +21,8 @@ import { DESK_SURFACE_Y } from "../math-utils";
 export interface PageLeaf {
 	/** Outer pivot at the spine hinge — controls the main flip rotation. */
 	flipPivot: Group;
-	/** Joint between segment 1 (root) and segment 2 (mid). */
-	joint1: Group;
-	/** Joint between segment 2 (mid) and segment 3 (tip). */
-	joint2: Group;
+	/** Progressive joints from the spine shoulder to the page edge. */
+	curveJoints: Group[];
 }
 
 export interface DictionaryObject {
@@ -31,9 +30,13 @@ export interface DictionaryObject {
 	parts: {
 		frontCoverPivot: Group;
 		pagePacketRoot: Group;
-		/** 2-piece page leaves: each has a flip pivot and a bend joint. */
+		leftPageBlockPivot: Group;
+		leftPageBlockGroup: Group;
+		leftPageBlockCurveJoints: Group[];
+		/** Segmented page leaves that can curl progressively from spine to edge. */
 		pageLeaves: PageLeaf[];
 		basePageBlock: Mesh;
+		staticEdgeDetailGroup: Group;
 	};
 }
 
@@ -53,16 +56,101 @@ const PAGE_D = DEPTH - 0.024;
 
 // Page packet sitting on top of the base page block
 const BASE_PAGE_THICK = 0.1;
-// 3-segment page: root + mid + tip, each with a bend joint
-const SEG1_W = PAGE_W * 0.2; // root (at spine)
-const SEG2_W = PAGE_W * 0.35; // mid
-const SEG3_W = PAGE_W * 0.45; // tip (longest, most visible)
-const LEAF_COUNT = 20;
-const LEAF_THICK = 0.003;
-const LEAF_STEP = 0.0008;
+const LEAF_COUNT = 8;
+const LEAF_THICK = 0.005;
+const LEAF_STEP = 0.004;
 const PACKET_THICK = LEAF_THICK + (LEAF_COUNT - 1) * LEAF_STEP;
+const LEAF_SEGMENT_COUNT = 40;
+const LEAF_SEGMENT_OVERLAP = 0.006;
+const LEAF_SPINE_SHOULDER_X = 0.01;
+const LEAF_SPINE_SHOULDER_Y = 0.012;
+const LEFT_BLOCK_ROOT_W = PAGE_W * 0.1;
+const LEFT_BLOCK_SPINE_OVERHANG = 0.003;
+const LEFT_BLOCK_OUTER_W = PAGE_W - LEFT_BLOCK_ROOT_W;
+const LEFT_BLOCK_CURVE_SEGMENT_COUNT = 8;
+const LEFT_BLOCK_CURVE_SEGMENT_OVERLAP = 0.02;
+const LEFT_BLOCK_COVER_INSET = 0.014;
+const LEFT_BLOCK_COVER_GAP = 0.006;
 
 const TAB_COUNT = 8;
+
+function createSegmentWidths(
+	totalWidth: number,
+	segmentCount: number,
+	startWeight: number,
+	endWeight: number,
+): number[] {
+	const weights: number[] = [];
+	let totalWeight = 0;
+
+	for (let i = 0; i < segmentCount; i++) {
+		const t = segmentCount <= 1 ? 0 : i / (segmentCount - 1);
+		const weight = startWeight + t * (endWeight - startWeight);
+		weights.push(weight);
+		totalWeight += weight;
+	}
+
+	return weights.map((weight) => (weight / totalWeight) * totalWidth);
+}
+
+export const LEAF_SEGMENT_WIDTHS = createSegmentWidths(PAGE_W, LEAF_SEGMENT_COUNT, 0.75, 1.2);
+const LEFT_BLOCK_CURVE_SEGMENT_WIDTHS = createSegmentWidths(
+	LEFT_BLOCK_OUTER_W,
+	LEFT_BLOCK_CURVE_SEGMENT_COUNT,
+	0.5,
+	1.35,
+);
+
+/** Create a canvas texture that looks like a dictionary page —
+ *  bold headword blocks and thinner definition lines. */
+function createPageTexture(seed: number): MeshStandardMaterial {
+	const canvas = document.createElement("canvas");
+	const w = 512;
+	const h = 512;
+	canvas.width = w;
+	canvas.height = h;
+	const ctx = canvas.getContext("2d");
+	if (!ctx) return new MeshStandardMaterial({ color: new Color("#f0e8d8"), roughness: 1.0 });
+
+	// Page background
+	ctx.fillStyle = "#ede5d5";
+	ctx.fillRect(0, 0, w, h);
+
+	const margin = 40;
+	const contentW = w - margin * 2;
+	let y = margin;
+	let entry = 0;
+
+	// Pseudo-random helper
+	const rand = (s: number) => Math.sin(s * 127.1 + seed * 311.7) * 0.5 + 0.5;
+
+	while (y < h - margin - 20) {
+		// Headword block — thick, bold, partial width
+		const headW = contentW * (0.2 + rand(entry * 3.1) * 0.25);
+		ctx.fillStyle = "#5a5045";
+		ctx.fillRect(margin, y, headW, 12);
+		y += 20;
+
+		// Definition lines — thinner, varying widths
+		const defLines = 2 + Math.floor(rand(entry * 7.3) * 4);
+		for (let dl = 0; dl < defLines && y < h - margin; dl++) {
+			const lineW = contentW * (0.5 + rand(entry * 11 + dl * 3.7) * 0.45);
+			const lineX = margin + (dl === 0 ? 16 : 0); // first line indented
+			ctx.fillStyle = "#8a8278";
+			ctx.fillRect(lineX, y, lineW, 4);
+			y += 12;
+		}
+
+		y += 10; // gap between entries
+		entry++;
+	}
+
+	const texture = new CanvasTexture(canvas);
+	return new MeshStandardMaterial({
+		map: texture,
+		roughness: 1.0,
+	});
+}
 
 /** Dictionary → links to /word-of-the-day
  *
@@ -121,65 +209,118 @@ export function createDictionary(): DictionaryObject {
 	basePages.position.set(HINGE_X + PAGE_W / 2, COVER_THICK + BASE_PAGE_THICK / 2, 0);
 	dictionary.add(basePages);
 
+	const leftPageBlockPivot = new Group();
+	leftPageBlockPivot.visible = false;
+
+	const leftPageBlockGroup = new Group();
+	leftPageBlockGroup.position.y = 0;
+	leftPageBlockPivot.add(leftPageBlockGroup);
+
+	const leftBlockRoot = new Mesh(
+		new BoxGeometry(LEFT_BLOCK_ROOT_W + LEFT_BLOCK_SPINE_OVERHANG, BASE_PAGE_THICK, PAGE_D),
+		dictionaryPagesMaterial,
+	);
+	leftBlockRoot.position.set(
+		(LEFT_BLOCK_ROOT_W - LEFT_BLOCK_SPINE_OVERHANG) / 2,
+		-BASE_PAGE_THICK / 2,
+		0,
+	);
+	leftBlockRoot.castShadow = true;
+	leftBlockRoot.receiveShadow = true;
+	leftPageBlockGroup.add(leftBlockRoot);
+
+	const leftPageBlockCurveJoints: Group[] = [];
+	let leftBlockParent = leftPageBlockGroup;
+
+	for (
+		let segmentIndex = 0;
+		segmentIndex < LEFT_BLOCK_CURVE_SEGMENT_WIDTHS.length;
+		segmentIndex++
+	) {
+		const segmentWidth = LEFT_BLOCK_CURVE_SEGMENT_WIDTHS[segmentIndex];
+		const joint = new Group();
+		joint.position.set(segmentIndex === 0 ? LEFT_BLOCK_ROOT_W : 0, 0, 0);
+		leftBlockParent.add(joint);
+		leftPageBlockCurveJoints.push(joint);
+
+		const segment = new Mesh(
+			new BoxGeometry(segmentWidth + LEFT_BLOCK_CURVE_SEGMENT_OVERLAP, BASE_PAGE_THICK, PAGE_D),
+			dictionaryPagesMaterial,
+		);
+		segment.position.set(segmentWidth / 2, -BASE_PAGE_THICK / 2, 0);
+		segment.castShadow = true;
+		segment.receiveShadow = true;
+		joint.add(segment);
+
+		leftBlockParent = joint;
+		if (segmentIndex < LEFT_BLOCK_CURVE_SEGMENT_WIDTHS.length - 1) {
+			const segmentEnd = new Group();
+			segmentEnd.position.set(segmentWidth, 0, 0);
+			joint.add(segmentEnd);
+			leftBlockParent = segmentEnd;
+		}
+	}
+
 	// ─── Page packet root (kept for interface compat) ────────────
 	const pagePacketRoot = new Group();
 	pagePacketRoot.position.set(0, 0, 0);
 	dictionary.add(pagePacketRoot);
 
-	// ─── Page leaves — each pivots at its actual Y in the stack ──
-	// Page 0 is at the TOP of the page block (flips first).
-	// Page N-1 is near the bottom. Each originates from a different
-	// height so the fan looks like pages peeling from the stack.
+	const staticEdgeDetailGroup = new Group();
+	dictionary.add(staticEdgeDetailGroup);
+
+	// ─── Loose riffle leaves — only the thumb packet moves freely ──
+	// The main page volume is handled by left/right page blocks.
+	// These leaves represent the small packet being thumbed through.
 	const pageLeaves: PageLeaf[] = [];
 	for (let i = 0; i < LEAF_COUNT; i++) {
 		const t = i / (LEAF_COUNT - 1);
 		const leafColor = new Color().lerpColors(new Color("#f0e8d8"), new Color("#e4dcc8"), t);
 		const leafMat = new MeshStandardMaterial({ color: leafColor, roughness: 1.0 });
 
-		// Each page's Y: spread across the top 60% of the page block
-		// (bottom 40% stays as the solid base that doesn't move)
-		const pageY = COVER_THICK + BASE_PAGE_THICK * (1 - t * 0.6);
+		// Roots spread across the top 60% of the page block so each
+		// page visibly originates from a different spine height.
+		const pageY = COVER_THICK + BASE_PAGE_THICK * (0.95 - t * 0.55);
+		const pageX = HINGE_X + 0.002 + t * LEAF_SPINE_SHOULDER_X;
 		const flipPivot = new Group();
-		flipPivot.position.set(HINGE_X, pageY, 0);
+		flipPivot.position.set(pageX, pageY + t * LEAF_SPINE_SHOULDER_Y, 0);
 		flipPivot.visible = false;
 		dictionary.add(flipPivot);
 
-		// Segment 1: root (at spine)
-		const seg1 = new Mesh(new BoxGeometry(SEG1_W, LEAF_THICK, PAGE_D), leafMat);
-		seg1.position.set(SEG1_W / 2, LEAF_THICK / 2, 0);
-		seg1.castShadow = true;
-		flipPivot.add(seg1);
+		const curveJoints: Group[] = [];
+		let parent: Group = flipPivot;
 
-		// Joint 1: between root and mid
-		const joint1 = new Group();
-		joint1.position.set(SEG1_W, LEAF_THICK / 2, 0);
-		flipPivot.add(joint1);
+		for (let segmentIndex = 0; segmentIndex < LEAF_SEGMENT_WIDTHS.length; segmentIndex++) {
+			const segmentWidth = LEAF_SEGMENT_WIDTHS[segmentIndex];
+			const segment = new Mesh(
+				new BoxGeometry(segmentWidth + LEAF_SEGMENT_OVERLAP, LEAF_THICK, PAGE_D),
+				leafMat,
+			);
+			const segmentOffsetY = segmentIndex === 0 ? LEAF_THICK / 2 : 0;
+			segment.position.set(segmentWidth / 2, segmentOffsetY, 0);
+			segment.castShadow = true;
+			segment.receiveShadow = true;
+			parent.add(segment);
 
-		// Segment 2: mid
-		const seg2 = new Mesh(new BoxGeometry(SEG2_W, LEAF_THICK, PAGE_D), leafMat);
-		seg2.position.set(SEG2_W / 2, 0, 0);
-		seg2.castShadow = true;
-		joint1.add(seg2);
+			if (segmentIndex === LEAF_SEGMENT_WIDTHS.length - 1) continue;
 
-		// Joint 2: between mid and tip
-		const joint2 = new Group();
-		joint2.position.set(SEG2_W, 0, 0);
-		joint1.add(joint2);
+			const joint = new Group();
+			joint.position.set(segmentWidth, segmentOffsetY, 0);
+			parent.add(joint);
+			curveJoints.push(joint);
+			parent = joint;
+		}
 
-		// Segment 3: tip
-		const seg3 = new Mesh(new BoxGeometry(SEG3_W, LEAF_THICK, PAGE_D), leafMat);
-		seg3.position.set(SEG3_W / 2, 0, 0);
-		seg3.castShadow = true;
-		seg3.receiveShadow = true;
-		joint2.add(seg3);
-
-		pageLeaves.push({ flipPivot, joint1, joint2 });
+		pageLeaves.push({ flipPivot, curveJoints });
 	}
 
 	// ─── Front cover — pivots at left-spine hinge ────────────────
 	const frontCoverPivot = new Group();
 	frontCoverPivot.position.set(HINGE_X, COVER_THICK + BASE_PAGE_THICK + PACKET_THICK + 0.002, 0);
 	dictionary.add(frontCoverPivot);
+
+	leftPageBlockPivot.position.set(LEFT_BLOCK_COVER_INSET, -LEFT_BLOCK_COVER_GAP, 0);
+	frontCoverPivot.add(leftPageBlockPivot);
 
 	const frontCover = new Mesh(
 		new BoxGeometry(COVER_W, COVER_THICK, DEPTH),
@@ -223,7 +364,7 @@ export function createDictionary(): DictionaryObject {
 		const tabGeo = new BoxGeometry(0.015, BASE_PAGE_THICK * 0.8, tabDepth * 0.5);
 		const tab = new Mesh(tabGeo, edgeMat);
 		tab.position.set(HINGE_X + PAGE_W + 0.008, COVER_THICK + BASE_PAGE_THICK / 2, z);
-		dictionary.add(tab);
+		staticEdgeDetailGroup.add(tab);
 	}
 
 	// ─── Page-edge lines on right and front edges ────────────────
@@ -233,10 +374,10 @@ export function createDictionary(): DictionaryObject {
 		const y = COVER_THICK + BASE_PAGE_THICK * t;
 		const rightEdge = new Mesh(new BoxGeometry(0.001, 0.0008, PAGE_D), linesMat);
 		rightEdge.position.set(HINGE_X + PAGE_W + 0.001, y, 0);
-		dictionary.add(rightEdge);
+		staticEdgeDetailGroup.add(rightEdge);
 		const frontEdge = new Mesh(new BoxGeometry(PAGE_W, 0.0008, 0.001), linesMat);
 		frontEdge.position.set(HINGE_X + PAGE_W / 2, y, DEPTH / 2 - 0.012);
-		dictionary.add(frontEdge);
+		staticEdgeDetailGroup.add(frontEdge);
 	}
 
 	// ─── Position on desk ────────────────────────────────────────
@@ -245,6 +386,15 @@ export function createDictionary(): DictionaryObject {
 
 	return {
 		root: dictionary,
-		parts: { frontCoverPivot, pagePacketRoot, pageLeaves, basePageBlock: basePages },
+		parts: {
+			frontCoverPivot,
+			pagePacketRoot,
+			leftPageBlockPivot,
+			leftPageBlockGroup,
+			leftPageBlockCurveJoints,
+			pageLeaves,
+			basePageBlock: basePages,
+			staticEdgeDetailGroup,
+		},
 	};
 }

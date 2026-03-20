@@ -1,7 +1,7 @@
 import { MeshStandardMaterial, type Object3D, Vector3 } from "three";
 import { clamp, lerp } from "./math-utils";
 import type { BookStackObject } from "./objects/book-stack";
-import type { DictionaryObject } from "./objects/dictionary";
+import { type DictionaryObject, LEAF_SEGMENT_WIDTHS } from "./objects/dictionary";
 import type { LaptopObject } from "./objects/laptop";
 import type { NotebookObject } from "./objects/notebook";
 import type { PhotoFrameObject } from "./objects/photo-frame";
@@ -491,119 +491,314 @@ export function animateFrameClose(frame: PhotoFrameObject): Promise<void> {
 // Cover opens wide, pages cascade with "spine shoulder" arc —
 // each page's pivot temporarily lifts (+Y) and pushes out (+X)
 // at mid-turn so it appears to curve around the spine binding.
-const DICT_OPEN_MS = 2200;
-const DICT_CLOSE_MS = 1200;
+const DICT_OPEN_MS = 1100;
+const DICT_CLOSE_MS = 550;
 const DICT_COVER_ANGLE = 2.9;
-const DICT_PAGE_MAX = DICT_COVER_ANGLE - 0.08;
+const DICT_LEFT_BLOCK_SWEEP = 0;
+const DICT_LEFT_BLOCK_CURVE = 0.52;
+const DICT_LEFT_BLOCK_MAX_SCALE = 0.56;
+const DICT_RIGHT_BLOCK_MIN_SCALE = 0.68;
+const DICT_LEAF_OPEN_START = 0.25;
+const DICT_LEAF_STAGGER = 0.04;
+const DICT_LEAF_DURATION = 0.45;
+const DICT_LEFT_PACKET_START = 0.44;
+const DICT_LEFT_PACKET_DURATION = 0.28;
+// Spine arc center: where the circular bend region is centered.
+// This is roughly the spine's top-left corner.
+const DICT_ARC_CENTER_X = -0.28;
+const DICT_ARC_CENTER_Y = 0.13;
+// Radii sized so pages wrap gently but stay outside the arc circle
+const DICT_SPINE_R0 = 0.015;
+const DICT_PAGE_THICKNESS = 0.003;
 
-// Bend amount at the spine joint during mid-flip.
-// Pages physically bend around the spine — the root strip stays
-// at the hinge while the body bends outward at mid-turn.
-const DICT_BEND_PEAK = 0.85; // radians of bend at the joint — visible from camera
+function getDictionaryPacketCurveProfile(jointCount: number): number[] {
+	if (jointCount <= 0) return [];
+
+	const profile: number[] = [];
+	let maxAbs = 0;
+	let prevTangent = 0;
+	for (let i = 0; i < jointCount; i++) {
+		const t = jointCount <= 1 ? 1 : i / Math.max(jointCount - 1, 1);
+		let tangent = 0;
+		if (t < 0.24) {
+			tangent = Math.sin((t / 0.24) * (Math.PI / 2)) * 1.08;
+		} else if (t < 0.58) {
+			tangent = Math.cos(((t - 0.24) / 0.34) * (Math.PI / 2)) * 1.08;
+		}
+		const delta = tangent - prevTangent;
+		profile.push(delta);
+		maxAbs = Math.max(maxAbs, Math.abs(delta));
+		prevTangent = tangent;
+	}
+
+	return maxAbs > 0 ? profile.map((value) => value / maxAbs) : profile;
+}
 
 export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
-	const { frontCoverPivot, pageLeaves, basePageBlock } = dict.parts;
+	const {
+		frontCoverPivot,
+		leftPageBlockPivot,
+		leftPageBlockGroup,
+		leftPageBlockCurveJoints,
+		pageLeaves,
+		basePageBlock,
+		staticEdgeDetailGroup,
+	} = dict.parts;
 
 	saveRest(frontCoverPivot, "rz", frontCoverPivot.rotation.z);
+	saveRest(leftPageBlockPivot, "rz", leftPageBlockPivot.rotation.z);
+	saveRest(leftPageBlockGroup, "sy", leftPageBlockGroup.scale.y);
+	saveRest(leftPageBlockGroup, "y", leftPageBlockGroup.position.y);
+	for (const joint of leftPageBlockCurveJoints) {
+		saveRest(joint, "rz", joint.rotation.z);
+	}
 	saveRest(basePageBlock, "sy", basePageBlock.scale.y);
 	saveRest(basePageBlock, "y", basePageBlock.position.y);
-	for (const { flipPivot, joint1, joint2 } of pageLeaves) {
+	for (const { flipPivot, curveJoints } of pageLeaves) {
 		saveRest(flipPivot, "rz", flipPivot.rotation.z);
+		saveRest(flipPivot, "x", flipPivot.position.x);
 		saveRest(flipPivot, "y", flipPivot.position.y);
-		saveRest(joint1, "rz", joint1.rotation.z);
-		saveRest(joint2, "rz", joint2.rotation.z);
+		for (const joint of curveJoints) {
+			saveRest(joint, "rz", joint.rotation.z);
+		}
 	}
 
 	const restCover = getRest(frontCoverPivot, "rz");
+	const restLeftPivotRZ = getRest(leftPageBlockPivot, "rz");
+	const restLeftBlockScaleY = getRest(leftPageBlockGroup, "sy");
+	const restLeftBlockY = getRest(leftPageBlockGroup, "y");
+	const leftBlockCurveProfile = getDictionaryPacketCurveProfile(leftPageBlockCurveJoints.length);
 	const restBlockScaleY = getRest(basePageBlock, "sy");
 	const restBlockY = getRest(basePageBlock, "y");
 	const n = pageLeaves.length;
 
 	return animate(`dict-${dict.root.uuid}`, DICT_OPEN_MS, (p) => {
-		const coverP = easeInOutCubic(clamp(p / 0.25, 0, 1));
+		const coverP = easeInOutCubic(clamp(p / 0.55, 0, 1));
+		const riffleP = easeInOutCubic(clamp((p - 0.22) / 0.68, 0, 1));
+		const leftPacketP = easeInOutCubic(
+			clamp((p - DICT_LEFT_PACKET_START) / DICT_LEFT_PACKET_DURATION, 0, 1),
+		);
 		frontCoverPivot.rotation.z = lerp(restCover, restCover + DICT_COVER_ANGLE, coverP);
 
-		let flippedWeight = 0;
-		for (let i = 0; i < n; i++) {
-			const flipIndex = n - 1 - i;
-			const { flipPivot, joint1, joint2 } = pageLeaves[flipIndex];
-			const restRZ = getRest(flipPivot, "rz");
-			const restY = getRest(flipPivot, "y");
-			const restJ1 = getRest(joint1, "rz");
-			const restJ2 = getRest(joint2, "rz");
-
-			const delay = 0.28 + (i / n) * 0.4;
-			const dur = 0.18;
-			const flipP = easeInOutCubic(clamp((p - delay) / dur, 0, 1));
-
-			// Hide page until meaningfully flipped
-			flipPivot.visible = flipP > 0.15;
-
-			const t = i / (n - 1);
-			const target = lerp(DICT_PAGE_MAX, DICT_PAGE_MAX * 0.08, t);
-			flipPivot.rotation.z = lerp(restRZ, restRZ + target, flipP);
-
-			// 3-segment bend: distribute the curve across both joints.
-			// Inner pages (later in flip order) bend more tightly.
-			const innerT = i / (n - 1);
-			const totalBend = lerp(DICT_BEND_PEAK * 0.5, DICT_BEND_PEAK * 1.4, innerT);
-			const bendMid = Math.sin(Math.PI * flipP);
-			const travel = clamp(target / (Math.PI * 0.5), 0, 1);
-			const bend = totalBend * bendMid * travel;
-			// Joint 1 (root→mid) takes 60% of the bend, joint 2 (mid→tip) takes 40%
-			joint1.rotation.z = restJ1 + bend * 0.6;
-			joint2.rotation.z = restJ2 + bend * 0.4;
-
-			flipPivot.position.y = lerp(restY, restY + i * 0.0008, flipP);
-			flippedWeight += flipP;
+		leftPageBlockPivot.visible = false; // disabled — individual pages handle the left side now
+		leftPageBlockPivot.rotation.z = lerp(
+			restLeftPivotRZ,
+			restLeftPivotRZ + DICT_LEFT_BLOCK_SWEEP,
+			leftPacketP,
+		);
+		const leftScale = Math.max(
+			0.02,
+			restLeftBlockScaleY * lerp(0.02, DICT_LEFT_BLOCK_MAX_SCALE, leftPacketP),
+		);
+		leftPageBlockGroup.scale.y = leftScale;
+		leftPageBlockGroup.position.y = restLeftBlockY;
+		for (let jointIndex = 0; jointIndex < leftPageBlockCurveJoints.length; jointIndex++) {
+			const joint = leftPageBlockCurveJoints[jointIndex];
+			const restRZ = getRest(joint, "rz");
+			joint.rotation.z = lerp(
+				restRZ,
+				restRZ + DICT_LEFT_BLOCK_CURVE * leftBlockCurveProfile[jointIndex],
+				leftPacketP,
+			);
 		}
 
-		const shrinkRatio = 1 - (flippedWeight / n) * 0.7;
-		basePageBlock.scale.y = restBlockScaleY * shrinkRatio;
-		basePageBlock.position.y = restBlockY * shrinkRatio;
+		// ── Straight → Arc → Straight model ─────────────────────────
+		// Each page is modeled as: straight rise from pivot P toward
+		// the spine arc, circular arc of radius R_i around the spine,
+		// then straight flat in the cover direction.
+		//
+		// R_i = R_0 + i * t — inner pages wrap tighter, outer pages gentler.
+		// The tangent direction at any arc-length position s is computed
+		// from the continuous path, then discretized onto segment joints.
+		for (let i = 0; i < n; i++) {
+			const { flipPivot, curveJoints } = pageLeaves[i];
+			const restRZ = getRest(flipPivot, "rz");
+			const restX = getRest(flipPivot, "x");
+			const restY = getRest(flipPivot, "y");
+
+			const t = n <= 1 ? 0.5 : i / (n - 1);
+			const delay = DICT_LEAF_OPEN_START + t * DICT_LEAF_STAGGER * (n - 1);
+			const leafPhase = clamp((p - delay) / DICT_LEAF_DURATION, 0, 1);
+			const leafTravel = easeInOutCubic(clamp((leafPhase - 0.06) / 0.8, 0, 1));
+
+			if (leafPhase <= 0.04) {
+				flipPivot.visible = false;
+				flipPivot.rotation.z = restRZ;
+				flipPivot.position.x = restX;
+				flipPivot.position.y = restY;
+				for (const joint of curveJoints) {
+					joint.rotation.z = getRest(joint, "rz");
+				}
+				continue;
+			}
+
+			flipPivot.visible = true;
+
+			// Per-page arc radius
+			const ri = DICT_SPINE_R0 + i * DICT_PAGE_THICKNESS;
+
+			// Rise direction: from pivot P toward the arc center + tangent
+			// The page enters the arc tangentially. The entry tangent point
+			// is where a line from P touches the circle (C, R_i).
+			const pcx = DICT_ARC_CENTER_X - restX;
+			const pcy = DICT_ARC_CENTER_Y - restY;
+			const pcDist = Math.sqrt(pcx * pcx + pcy * pcy);
+			const thetaPC = Math.atan2(pcy, pcx);
+
+			// Angle from P-to-C line to the tangent line
+			const tangentAngle = Math.acos(clamp(ri / pcDist, -1, 1));
+			// Entry tangent direction (wrapping around the outside of the spine)
+			const thetaRise = thetaPC - tangentAngle;
+
+			// Entry point on the arc (phi where tangent matches thetaRise)
+			// Tangent at phi on circle = phi + pi/2, so phi = thetaRise - pi/2
+			const phiEntry = thetaRise - Math.PI / 2;
+
+			// Exit: tangent must match cover direction
+			// phi + pi/2 = theta_cover, so phi = theta_cover - pi/2
+			const phiExit = DICT_COVER_ANGLE - Math.PI / 2;
+
+			// Arc sweep (CCW from entry to exit)
+			let arcSweep = phiExit - phiEntry;
+			if (arcSweep < 0) arcSweep += Math.PI * 2;
+			if (arcSweep > Math.PI * 2) arcSweep -= Math.PI * 2;
+
+			// Phase lengths
+			const riseDist = Math.sqrt(pcDist * pcDist - ri * ri);
+			const arcLen = ri * arcSweep;
+			const totalUsed = riseDist + arcLen;
+
+			// Cumulative segment positions
+			const jCount = curveJoints.length;
+			const cumLengths: number[] = [0];
+			let cumLen = 0;
+			for (let j = 0; j <= jCount; j++) {
+				cumLengths.push(cumLen);
+				cumLen += LEAF_SEGMENT_WIDTHS[j] ?? 0.05;
+			}
+
+			// flipPivot direction = rise direction
+			flipPivot.rotation.z = restRZ + thetaRise * leafTravel;
+
+			// Compute tangent direction at each joint position along the path
+			// Joint j is at cumulative arc length cumLengths[j+1]
+			for (let j = 0; j < jCount; j++) {
+				const joint = curveJoints[j];
+				const restJRZ = getRest(joint, "rz");
+
+				const s = cumLengths[j + 1];
+				let tangentHere: number;
+				let tangentPrev: number;
+
+				// Tangent at position s along the continuous path
+				if (s <= riseDist) {
+					tangentHere = thetaRise;
+				} else if (s <= totalUsed) {
+					const arcFrac = (s - riseDist) / arcLen;
+					const phi = phiEntry + arcFrac * arcSweep;
+					tangentHere = phi + Math.PI / 2;
+				} else {
+					tangentHere = DICT_COVER_ANGLE;
+				}
+
+				// Tangent at previous joint position
+				const sPrev = cumLengths[j];
+				if (sPrev <= riseDist) {
+					tangentPrev = thetaRise;
+				} else if (sPrev <= totalUsed) {
+					const arcFrac = (sPrev - riseDist) / arcLen;
+					const phi = phiEntry + arcFrac * arcSweep;
+					tangentPrev = phi + Math.PI / 2;
+				} else {
+					tangentPrev = DICT_COVER_ANGLE;
+				}
+
+				// Joint angle = change in tangent direction
+				const bend = tangentHere - tangentPrev;
+				joint.rotation.z = restJRZ + bend * leafTravel;
+			}
+
+			flipPivot.position.x = restX;
+			flipPivot.position.y = restY;
+		}
+
+		const rightScale = restBlockScaleY * lerp(1, DICT_RIGHT_BLOCK_MIN_SCALE, riffleP);
+		basePageBlock.scale.y = rightScale;
+		basePageBlock.position.y = restBlockY * rightScale;
+		staticEdgeDetailGroup.visible = false;
 	});
 }
 
 export function animateDictionaryClose(dict: DictionaryObject): Promise<void> {
-	const { frontCoverPivot, pageLeaves, basePageBlock } = dict.parts;
+	const {
+		frontCoverPivot,
+		leftPageBlockPivot,
+		leftPageBlockGroup,
+		leftPageBlockCurveJoints,
+		pageLeaves,
+		basePageBlock,
+		staticEdgeDetailGroup,
+	} = dict.parts;
 
 	const curCover = frontCoverPivot.rotation.z;
 	const restCover = getRest(frontCoverPivot, "rz");
+	const curLeftPivotRZ = leftPageBlockPivot.rotation.z;
+	const restLeftPivotRZ = getRest(leftPageBlockPivot, "rz");
+	const curLeftBlockScaleY = leftPageBlockGroup.scale.y;
+	const restLeftBlockScaleY = getRest(leftPageBlockGroup, "sy");
+	const curLeftBlockY = leftPageBlockGroup.position.y;
+	const restLeftBlockY = getRest(leftPageBlockGroup, "y");
+	const leftBlockCurveStates = leftPageBlockCurveJoints.map((joint) => ({
+		joint,
+		curRZ: joint.rotation.z,
+		restRZ: getRest(joint, "rz"),
+	}));
 	const curBlockScaleY = basePageBlock.scale.y;
 	const restBlockScaleY = getRest(basePageBlock, "sy");
 	const curBlockY = basePageBlock.position.y;
 	const restBlockY = getRest(basePageBlock, "y");
-	const leafStates = pageLeaves.map(({ flipPivot, joint1, joint2 }) => ({
+	const leafStates = pageLeaves.map(({ flipPivot, curveJoints }) => ({
 		flipPivot,
-		joint1,
-		joint2,
 		curRZ: flipPivot.rotation.z,
 		restRZ: getRest(flipPivot, "rz"),
+		curX: flipPivot.position.x,
+		restX: getRest(flipPivot, "x"),
 		curY: flipPivot.position.y,
 		restY: getRest(flipPivot, "y"),
-		curJ1: joint1.rotation.z,
-		restJ1: getRest(joint1, "rz"),
-		curJ2: joint2.rotation.z,
-		restJ2: getRest(joint2, "rz"),
+		jointStates: curveJoints.map((joint) => ({
+			joint,
+			curRZ: joint.rotation.z,
+			restRZ: getRest(joint, "rz"),
+		})),
 	}));
 
 	return animate(`dict-${dict.root.uuid}`, DICT_CLOSE_MS, (p) => {
 		const pageP = easeInOutCubic(clamp(p / 0.45, 0, 1));
 		for (const s of leafStates) {
 			s.flipPivot.rotation.z = lerp(s.curRZ, s.restRZ, pageP);
+			s.flipPivot.position.x = lerp(s.curX, s.restX, pageP);
 			s.flipPivot.position.y = lerp(s.curY, s.restY, pageP);
-			s.joint1.rotation.z = lerp(s.curJ1, s.restJ1, pageP);
-			s.joint2.rotation.z = lerp(s.curJ2, s.restJ2, pageP);
+			for (const jointState of s.jointStates) {
+				jointState.joint.rotation.z = lerp(jointState.curRZ, jointState.restRZ, pageP);
+			}
 			// Hide page once it's nearly back to rest
 			const returnedRZ = Math.abs(s.flipPivot.rotation.z - s.restRZ);
 			s.flipPivot.visible = returnedRZ > 0.05;
 		}
 
+		leftPageBlockPivot.rotation.z = lerp(curLeftPivotRZ, restLeftPivotRZ, pageP);
+		leftPageBlockGroup.scale.y = lerp(curLeftBlockScaleY, restLeftBlockScaleY, pageP);
+		leftPageBlockGroup.position.y = lerp(curLeftBlockY, restLeftBlockY, pageP);
+		for (const jointState of leftBlockCurveStates) {
+			jointState.joint.rotation.z = lerp(jointState.curRZ, jointState.restRZ, pageP);
+		}
+		leftPageBlockPivot.visible = false;
 		basePageBlock.scale.y = lerp(curBlockScaleY, restBlockScaleY, pageP);
 		basePageBlock.position.y = lerp(curBlockY, restBlockY, pageP);
 
 		const coverP = easeInOutCubic(clamp((p - 0.3) / 0.6, 0, 1));
 		frontCoverPivot.rotation.z = lerp(curCover, restCover, coverP);
+		staticEdgeDetailGroup.visible = p > 0.72;
 	});
 }
 
