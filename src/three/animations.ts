@@ -519,28 +519,27 @@ export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
 		const coverP = easeInOutCubic(clamp(p / 0.25, 0, 1));
 		frontCoverPivot.rotation.z = lerp(restCover, restCover + DICT_COVER_ANGLE, coverP);
 
-		// Pages flip rapidly in sequence (0.28–0.92)
-		// Track how many pages have flipped to shrink the base block
+		// Pages flip in REVERSE order (top of stack first, peeling down).
+		// Track how many pages have flipped to shrink the base block.
 		let flippedWeight = 0;
 		for (let i = 0; i < n; i++) {
-			const page = pagePivots[i];
+			// Flip from top (index n-1) to bottom (index 0)
+			const flipIndex = n - 1 - i;
+			const page = pagePivots[flipIndex];
 			const restRZ = getRest(page, "rz");
 			const restY = getRest(page, "y");
 			const delay = 0.28 + (i / n) * 0.4;
 			const dur = 0.18;
 			const flipP = easeInOutCubic(clamp((p - delay) / dur, 0, 1));
+			// Fan angle: first flipped page lands near cover, last near spine
 			const t = i / (n - 1);
-			const target = lerp(DICT_PAGE_MAX * 0.08, DICT_PAGE_MAX, t);
+			const target = lerp(DICT_PAGE_MAX, DICT_PAGE_MAX * 0.08, t);
 			page.rotation.z = lerp(restRZ, restRZ + target, flipP);
 
-			// Page Y tracks the shrinking stack: later pages start lower
-			// as earlier pages have already left the block
-			const stackDrop = (flippedWeight / n) * restBlockY * 0.6;
-			const stackY = lerp(restY - stackDrop, restY + i * 0.004, flipP);
-			page.position.y = stackY;
+			// Stacking on the flipped side
+			page.position.y = lerp(restY, restY + i * 0.004, flipP);
 
-			// Arc lift during flip — page curls up then settles down,
-			// like a real page turning with air resistance
+			// Arc lift during flip
 			const arc = Math.sin(flipP * Math.PI) * 0.15;
 			page.position.y += arc;
 
