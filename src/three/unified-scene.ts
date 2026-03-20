@@ -1052,15 +1052,7 @@ export function initUnifiedScene(
 			targetInterval = 0;
 		} else {
 			// scrollController will be created by setupModeInteractions() below
-			syncMobileShelfCamera(0.5);
-			postTransitionRaf = requestAnimationFrame(() => {
-				postTransitionRaf = 0;
-				if (disposed) return;
-				if (currentMode === "mobile" && !transitioning && scrollController) {
-					syncMobileShelfCamera(scrollController.verticalT);
-					dirty = true;
-				}
-			});
+			syncMobileShelfCamera(0.5, [0, 0, 0]);
 			setDeskVisible(false);
 			applyRenderSettings("mobile");
 			// setPixelRatio clears the canvas buffer — render immediately
