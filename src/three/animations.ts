@@ -536,11 +536,12 @@ export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
 			const target = lerp(DICT_PAGE_MAX, DICT_PAGE_MAX * 0.08, t);
 			page.rotation.z = lerp(restRZ, restRZ + target, flipP);
 
-			// Stacking on the flipped side
-			page.position.y = lerp(restY, restY + i * 0.004, flipP);
+			// Flipped pages stack with minimal offset — just enough
+			// to avoid z-fighting, not enough to lift off the book
+			page.position.y = lerp(restY, restY + i * 0.0008, flipP);
 
-			// Arc lift during flip
-			const arc = Math.sin(flipP * Math.PI) * 0.15;
+			// Subtle arc during flip
+			const arc = Math.sin(flipP * Math.PI) * 0.06;
 			page.position.y += arc;
 
 			flippedWeight += flipP;
