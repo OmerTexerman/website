@@ -488,15 +488,14 @@ export function animateFrameClose(frame: PhotoFrameObject): Promise<void> {
 }
 
 // ─── DICTIONARY (Word of the Day) ────────────────────────────────
-// Cover cracks open ~30° SIDEWAYS (rotation.z at left-spine hinge).
-// Pages riffle via rotation.z within the cover's envelope. The packet
-// root shifts slightly for a "thumb catch" feel. Book stays flat.
-const DICT_OPEN_MS = 980;
-const DICT_CLOSE_MS = 620;
-const DICT_COVER_CRACK = 1.05; // ~60° sideways open — visible from camera
-// Thumb catch: shift of the page packet
-const DICT_CATCH_X = 0.02;
-const DICT_CATCH_Y = 0.008;
+// Bold animation: cover opens wide, then pages TURN one by one like
+// rapidly flipping through a dictionary with your thumb. Each page
+// does a full turn from right side to left side (rotation.z ≈ π).
+// This creates a visible cascading wave of pages — unmistakable.
+const DICT_OPEN_MS = 1100;
+const DICT_CLOSE_MS = 650;
+const DICT_COVER_ANGLE = 1.6; // ~92° — cover opens wide
+const DICT_PAGE_FLIP = Math.PI * 0.88; // each page turns almost fully over
 
 export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
 	const { frontCoverPivot, pagePacketRoot, pagePivots } = dict.parts;
@@ -508,54 +507,32 @@ export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
 	}
 
 	const restCover = getRest(frontCoverPivot, "rz");
-	const restPktX = getRest(pagePacketRoot, "x");
-	const restPktY = getRest(pagePacketRoot, "y");
+	const n = pagePivots.length;
 
 	return animate(`dict-${dict.root.uuid}`, DICT_OPEN_MS, (p) => {
-		// Thumb catch (0–0.16): packet shifts slightly
-		const catchP = easeInOutCubic(clamp(p / 0.16, 0, 1));
-		pagePacketRoot.position.x = lerp(restPktX, restPktX + DICT_CATCH_X, catchP);
-		pagePacketRoot.position.y = lerp(restPktY, restPktY + DICT_CATCH_Y, catchP);
+		// Cover opens FIRST (0–0.25) — fully open before pages start
+		const coverP = easeInOutCubic(clamp(p / 0.25, 0, 1));
+		frontCoverPivot.rotation.z = lerp(restCover, restCover + DICT_COVER_ANGLE, coverP);
 
-		// Cover crack (0.08–0.30): cover opens sideways
-		const coverP = easeInOutCubic(clamp((p - 0.08) / 0.22, 0, 1));
-		frontCoverPivot.rotation.z = lerp(restCover, restCover + DICT_COVER_CRACK, coverP);
-
-		// Staggered riffle (0.22–0.64): pages flip one by one
-		for (let i = 0; i < pagePivots.length; i++) {
+		// Pages flip rapidly in sequence (0.28–0.92)
+		// Each page does a near-full turn. They start staggered so it
+		// looks like a cascading wave — the dictionary thumb-flip.
+		for (let i = 0; i < n; i++) {
 			const page = pagePivots[i];
 			const restRZ = getRest(page, "rz");
-			const delay = 0.22 + i * 0.028;
-			const dur = 0.16;
-			const flipP = clamp((p - delay) / dur, 0, 1);
-			// Peak angle during flip, then settle to held angle
-			const t = pagePivots.length <= 1 ? 0.5 : i / (pagePivots.length - 1);
-			const peak = lerp(0.25, 0.9, t);
-			const held = lerp(0.1, 0.6, t);
-			// Settle phase (0.62–1.0)
-			const settleP = easeInOutCubic(clamp((p - 0.62) / 0.38, 0, 1));
-			const angle = lerp(
-				lerp(restRZ, restRZ + peak, easeInOutCubic(flipP)),
-				restRZ + held,
-				settleP,
-			);
-			// Flutter during flip
-			const flutter = Math.sin(flipP * Math.PI * 2.2 + i * 0.35) * 0.04 * (1 - settleP);
-			page.rotation.z = angle + flutter;
+			// Each page starts slightly after the previous — tight stagger
+			const delay = 0.28 + (i / n) * 0.4;
+			// Each page flips quickly
+			const dur = 0.18;
+			const flipP = easeInOutCubic(clamp((p - delay) / dur, 0, 1));
+			// The last few pages don't flip all the way — they're the
+			// "page you stopped on"
+			const isTail = i >= n - 3;
+			const target = isTail
+				? lerp(DICT_PAGE_FLIP * 0.3, DICT_PAGE_FLIP * 0.6, (i - (n - 3)) / 2)
+				: DICT_PAGE_FLIP;
+			page.rotation.z = lerp(restRZ, restRZ + target, flipP);
 		}
-
-		// Settle packet (0.62–1.0): relax thumb catch slightly
-		const settleP = easeInOutCubic(clamp((p - 0.62) / 0.38, 0, 1));
-		pagePacketRoot.position.x = lerp(
-			restPktX + DICT_CATCH_X,
-			restPktX + DICT_CATCH_X * 0.66,
-			settleP,
-		);
-		pagePacketRoot.position.y = lerp(
-			restPktY + DICT_CATCH_Y,
-			restPktY + DICT_CATCH_Y * 0.5,
-			settleP,
-		);
 	});
 }
 
@@ -564,10 +541,6 @@ export function animateDictionaryClose(dict: DictionaryObject): Promise<void> {
 
 	const curCover = frontCoverPivot.rotation.z;
 	const restCover = getRest(frontCoverPivot, "rz");
-	const curPktX = pagePacketRoot.position.x;
-	const curPktY = pagePacketRoot.position.y;
-	const restPktX = getRest(pagePacketRoot, "x");
-	const restPktY = getRest(pagePacketRoot, "y");
 	const pageStates = pagePivots.map((page) => ({
 		page,
 		cur: page.rotation.z,
@@ -575,16 +548,11 @@ export function animateDictionaryClose(dict: DictionaryObject): Promise<void> {
 	}));
 
 	return animate(`dict-${dict.root.uuid}`, DICT_CLOSE_MS, (p) => {
-		// Pages flatten (0–0.35)
-		const pageP = easeInOutCubic(clamp(p / 0.35, 0, 1));
+		// Pages flip back (0–0.45)
+		const pageP = easeInOutCubic(clamp(p / 0.45, 0, 1));
 		for (const { page, cur, rest } of pageStates) {
 			page.rotation.z = lerp(cur, rest, pageP);
 		}
-
-		// Packet returns (0.15–0.5)
-		const pktP = easeInOutCubic(clamp((p - 0.15) / 0.35, 0, 1));
-		pagePacketRoot.position.x = lerp(curPktX, restPktX, pktP);
-		pagePacketRoot.position.y = lerp(curPktY, restPktY, pktP);
 
 		// Cover closes (0.3–0.9)
 		const coverP = easeInOutCubic(clamp((p - 0.3) / 0.6, 0, 1));
