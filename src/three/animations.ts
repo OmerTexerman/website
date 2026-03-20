@@ -512,6 +512,7 @@ export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
 		coverPivot.rotation.z = lerp(restCover, restCover + DICT_COVER_ANGLE, coverP);
 
 		// Phase 2 (0.25–0.95): Pages flip one by one to the right
+		// Each page settles at a staggered angle WITHIN the cover range
 		const flipStart = 0.25;
 		const flipWindow = 0.7;
 		for (let i = 0; i < pageFlips.length; i++) {
@@ -520,10 +521,13 @@ export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
 			const delay = flipStart + (i / pageFlips.length) * flipWindow * 0.65;
 			const duration = flipWindow * 0.35;
 			const pageP = clamp((p - delay) / duration, 0, 1);
-			const flipAngle = Math.PI * 0.8;
-			// Arc lift — page rises slightly as it flips over
-			const arcLift = Math.sin(pageP * Math.PI) * 0.12;
-			page.rotation.z = lerp(restRZ, restRZ + flipAngle, pageP) + arcLift;
+			// Pages fan out within the cover angle, not past it
+			const maxAngle = DICT_COVER_ANGLE * 0.75;
+			const t = pageFlips.length <= 1 ? 1 : i / (pageFlips.length - 1);
+			const targetAngle = lerp(maxAngle * 0.15, maxAngle, t);
+			// Small arc during flip, but doesn't exceed target
+			const overshoot = Math.sin(pageP * Math.PI) * 0.08 * (1 - pageP);
+			page.rotation.z = lerp(restRZ, restRZ + targetAngle, pageP) + overshoot;
 		}
 	});
 }
