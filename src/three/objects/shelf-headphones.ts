@@ -30,13 +30,13 @@ export function createShelfHeadphones(): Group {
 	const body = new Group();
 	hp.add(body);
 
-	const bandRadius = 0.12;
-	const cupRadius = 0.05;
+	const bandRadius = 0.08;
+	const cupRadius = 0.065;
 
 	// Headband — half-torus in XY plane.
 	// Endpoints at (±bandRadius, 0, 0), peak at (0, bandRadius, 0).
 	// Lift so endpoints align with cup centers.
-	const band = new Mesh(new TorusGeometry(bandRadius, 0.01, 8, 24, Math.PI), bandMaterial);
+	const band = new Mesh(new TorusGeometry(bandRadius, 0.013, 8, 24, Math.PI), bandMaterial);
 	band.position.y = cupRadius;
 	band.castShadow = true;
 	body.add(band);
