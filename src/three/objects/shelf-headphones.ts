@@ -68,7 +68,7 @@ export function createShelfHeadphones(): Group {
 	body.add(rightCup);
 
 	// Lean back against the wall (+Z is toward wall after shelf rotation.y)
-	body.rotation.x = 0.45;
+	body.rotation.x = -0.45;
 
 	hp.userData.cups = { left: leftCup, right: rightCup };
 
