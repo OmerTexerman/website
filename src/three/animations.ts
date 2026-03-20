@@ -537,8 +537,9 @@ export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
 				? lerp(DICT_PAGE_MAX * 0.15, DICT_PAGE_MAX * 0.4, (i - (n - 4)) / 3)
 				: lerp(DICT_PAGE_MAX * 0.7, DICT_PAGE_MAX, i / Math.max(n - 5, 1));
 			page.rotation.z = lerp(restRZ, restRZ + target, flipP);
-			// Stack: each flipped page sits slightly higher than the last
-			page.position.y = lerp(restY, restY + i * 0.0015, flipP);
+			// Stack: each flipped page sits higher than the last so you
+			// can see them piling up on the cover side
+			page.position.y = lerp(restY, restY + i * 0.004, flipP);
 		}
 	});
 }
