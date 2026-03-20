@@ -276,7 +276,7 @@ function createShelfShell(): Group {
 		roughness: 1.0,
 		metalness: 0.0,
 		transparent: true,
-		opacity: 0.2,
+		opacity: 0.45,
 		depthWrite: false,
 		side: DoubleSide,
 	});
@@ -285,7 +285,7 @@ function createShelfShell(): Group {
 		roughness: 1.0,
 		metalness: 0.0,
 		transparent: true,
-		opacity: 0.1,
+		opacity: 0.25,
 		depthWrite: false,
 		side: DoubleSide,
 	});
@@ -326,7 +326,7 @@ function createShelfShell(): Group {
 			roughness: 1.0,
 			metalness: 0.0,
 			transparent: true,
-			opacity: 0.08,
+			opacity: 0.14,
 			depthWrite: false,
 			side: DoubleSide,
 		}),
