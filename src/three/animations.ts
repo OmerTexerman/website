@@ -488,52 +488,104 @@ export function animateFrameClose(frame: PhotoFrameObject): Promise<void> {
 }
 
 // ─── DICTIONARY (Word of the Day) ────────────────────────────────
+// Unique animation: the dictionary lifts slightly, the cover opens,
+// then the loose pages riffle through rapidly like someone thumbing
+// to find a word — a motion no other desk object uses.
+const DICT_OPEN_MS = 1100;
+const DICT_CLOSE_MS = 700;
+const DICT_COVER_OPEN_RX = -2.5;
+const DICT_LIFT_Y = 0.2;
+
 export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
+	const root = dict.root;
 	const pivot = dict.parts.coverPivot;
+	const { loosePages, ribbon } = dict.parts;
+
+	saveRestPose(root);
 	saveRest(pivot, "rx", pivot.rotation.x);
-	const rest = getRest(pivot, "rx");
-	const pages = dict.parts.pages;
-	for (const page of pages) {
-		saveRest(page, "rz", page.rotation.z);
+	saveRest(ribbon, "rx", ribbon.rotation.x);
+	saveRest(ribbon, "y", ribbon.position.y);
+	for (const page of loosePages) {
+		saveRest(page, "rx", page.rotation.x);
 	}
 
-	return animate(`dict-${dict.root.uuid}`, 700, (p) => {
-		// Cover opens
-		const coverOpen = easeInOutCubic(clamp(p / 0.6, 0, 1));
-		pivot.rotation.x = lerp(rest, rest - 2.6, coverOpen);
+	const restY = getRest(root, "y");
+	const restCoverRX = getRest(pivot, "rx");
+	const restRibbonRX = getRest(ribbon, "rx");
+	const restRibbonY = getRest(ribbon, "y");
 
-		// Pages fan slightly after cover starts opening
-		const pageFan = easeInOutCubic(clamp((p - 0.3) / 0.5, 0, 1));
-		for (let i = 0; i < pages.length; i++) {
-			const restRZ = getRest(pages[i], "rz");
-			const t = pages.length <= 1 ? 0.5 : i / (pages.length - 1);
-			const angle = lerp(-0.04, 0.04, t);
-			pages[i].rotation.z = lerp(restRZ, restRZ + angle, pageFan);
+	return animate(`dict-${root.uuid}`, DICT_OPEN_MS, (p) => {
+		// Phase 1 (0–0.25): Lift up slightly
+		const lift = easeInOutCubic(clamp(p / 0.25, 0, 1));
+		root.position.y = lerp(restY, restY + DICT_LIFT_Y, lift);
+
+		// Phase 2 (0.1–0.45): Cover opens
+		const coverOpen = easeInOutCubic(clamp((p - 0.1) / 0.35, 0, 1));
+		pivot.rotation.x = lerp(restCoverRX, restCoverRX + DICT_COVER_OPEN_RX, coverOpen);
+
+		// Phase 3 (0.35–0.85): Pages riffle through — each page flips
+		// rapidly with staggered timing, like thumbing through the book
+		const riffleStart = 0.35;
+		const riffleDuration = 0.5;
+		for (let i = 0; i < loosePages.length; i++) {
+			const page = loosePages[i];
+			const restPageRX = getRest(page, "rx");
+			// Each page starts flipping at a slightly different time
+			const pageDelay = (i / loosePages.length) * riffleDuration * 0.6;
+			const pageProgress = clamp((p - riffleStart - pageDelay) / (riffleDuration * 0.5), 0, 1);
+			// Pages flip over (rotate around spine axis) then settle at
+			// staggered angles — like a fanned-open dictionary
+			const targetAngle = lerp(-0.15, 0.8, i / (loosePages.length - 1));
+			const flipCurve = easeInOutCubic(pageProgress);
+			// Add a flutter overshoot during the riffle
+			const overshoot = Math.sin(pageProgress * Math.PI) * 0.15 * (1 - pageProgress);
+			page.rotation.x = lerp(restPageRX, restPageRX + targetAngle + overshoot, flipCurve);
 		}
+
+		// Ribbon droops as cover opens
+		const ribbonDroop = easeInOutCubic(clamp((p - 0.2) / 0.4, 0, 1));
+		ribbon.rotation.x = lerp(restRibbonRX, restRibbonRX - 0.6, ribbonDroop);
+		ribbon.position.y = lerp(restRibbonY, restRibbonY + 0.03, ribbonDroop);
 	});
 }
 
 export function animateDictionaryClose(dict: DictionaryObject): Promise<void> {
+	const root = dict.root;
 	const pivot = dict.parts.coverPivot;
-	const currentRX = pivot.rotation.x;
-	const restRX = getRest(pivot, "rx");
-	const pages = dict.parts.pages;
-	const pageStates = pages.map((page) => ({
+	const { loosePages, ribbon } = dict.parts;
+
+	const curY = root.position.y;
+	const restY = getRest(root, "y");
+	const curCoverRX = pivot.rotation.x;
+	const restCoverRX = getRest(pivot, "rx");
+	const curRibbonRX = ribbon.rotation.x;
+	const restRibbonRX = getRest(ribbon, "rx");
+	const curRibbonY = ribbon.position.y;
+	const restRibbonY = getRest(ribbon, "y");
+	const pageStates = loosePages.map((page) => ({
 		page,
-		currentRZ: page.rotation.z,
-		restRZ: getRest(page, "rz"),
+		currentRX: page.rotation.x,
+		restRX: getRest(page, "rx"),
 	}));
 
-	return animate(`dict-${dict.root.uuid}`, 450, (p) => {
-		// Pages settle first
+	return animate(`dict-${root.uuid}`, DICT_CLOSE_MS, (p) => {
+		// Pages settle back first (0–0.5)
 		const pageSettle = easeInOutCubic(clamp(p / 0.5, 0, 1));
-		for (const { page, currentRZ, restRZ } of pageStates) {
-			page.rotation.z = lerp(currentRZ, restRZ, pageSettle);
+		for (const { page, currentRX, restRX } of pageStates) {
+			page.rotation.x = lerp(currentRX, restRX, pageSettle);
 		}
 
-		// Cover closes
-		const coverClose = easeInOutCubic(clamp((p - 0.1) / 0.7, 0, 1));
-		pivot.rotation.x = lerp(currentRX, restRX, coverClose);
+		// Cover closes (0.1–0.6)
+		const coverClose = easeInOutCubic(clamp((p - 0.1) / 0.5, 0, 1));
+		pivot.rotation.x = lerp(curCoverRX, restCoverRX, coverClose);
+
+		// Ribbon returns
+		ribbon.rotation.x = lerp(curRibbonRX, restRibbonRX, coverClose);
+		ribbon.position.y = lerp(curRibbonY, restRibbonY, coverClose);
+
+		// Lower back to desk (0.4–1.0)
+		const lower = easeInOutCubic(clamp((p - 0.4) / 0.6, 0, 1));
+		root.position.y = lerp(curY, restY, lower);
 	});
 }
 

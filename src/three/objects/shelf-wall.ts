@@ -274,23 +274,63 @@ function createShelfCamera(): Group {
 function createShelfDictionary(): Group {
 	const g = new Group();
 
-	// Thick book body lying on its side
-	const body = new Mesh(new BoxGeometry(0.4, 0.12, 0.3), dictionaryLeatherMaterial);
-	body.position.y = 0.06;
-	g.add(body);
+	const w = 0.35;
+	const h = 0.14;
+	const d = 0.28;
+	const coverThick = 0.012;
 
-	// Page edges visible from the side
-	const pages = new Mesh(new BoxGeometry(0.36, 0.08, 0.28), dictionaryPagesMaterial);
-	pages.position.y = 0.06;
+	// Bottom cover
+	const bottom = new Mesh(new BoxGeometry(w, coverThick, d), dictionaryLeatherMaterial);
+	bottom.position.y = coverThick / 2;
+	g.add(bottom);
+
+	// Page block
+	const pagesH = h - coverThick * 2;
+	const pages = new Mesh(new BoxGeometry(w - 0.02, pagesH, d - 0.02), dictionaryPagesMaterial);
+	pages.position.y = coverThick + pagesH / 2;
 	g.add(pages);
 
-	// Gold title stripe on top
-	const title = new Mesh(new PlaneGeometry(0.2, 0.04), dictionaryGoldMaterial);
-	title.rotation.x = -Math.PI / 2;
-	title.position.set(0, 0.121, 0);
-	g.add(title);
+	// Top cover
+	const top = new Mesh(new BoxGeometry(w, coverThick, d), dictionaryLeatherMaterial);
+	top.position.y = coverThick + pagesH + coverThick / 2;
+	g.add(top);
 
-	g.rotation.y = 0.1;
+	// Gold border inset on top cover
+	const border = new Mesh(new PlaneGeometry(w - 0.04, d - 0.04), dictionaryGoldMaterial);
+	border.rotation.x = -Math.PI / 2;
+	border.position.set(0, h + 0.001, 0);
+	g.add(border);
+
+	// Gold title bar
+	const titleBar = new Mesh(new PlaneGeometry(w * 0.5, 0.025), dictionaryGoldMaterial);
+	titleBar.rotation.x = -Math.PI / 2;
+	titleBar.position.set(0, h + 0.002, d * 0.15);
+	g.add(titleBar);
+
+	// Rounded spine (cylinder)
+	const spineRadius = coverThick * 1.1;
+	const spine = new Mesh(
+		new CylinderGeometry(spineRadius, spineRadius, w - 0.01, 6, 1, false, 0, Math.PI),
+		dictionaryLeatherMaterial,
+	);
+	spine.rotation.z = Math.PI / 2;
+	spine.rotation.y = Math.PI / 2;
+	spine.position.set(0, coverThick + pagesH / 2, -d / 2 + 0.003);
+	g.add(spine);
+
+	// Ribbon bookmark peeking out
+	const ribbonMat = new MeshStandardMaterial({
+		color: new Color(0x8b1a1a),
+		roughness: 0.7,
+		side: DoubleSide,
+	});
+	const ribbon = new Mesh(new PlaneGeometry(0.012, d * 0.2), ribbonMat);
+	ribbon.rotation.x = -0.1;
+	ribbon.position.set(0.03, h + 0.002, d * 0.22);
+	g.add(ribbon);
+
+	// Stand upright, leaning slightly
+	g.rotation.z = 0.04;
 	return g;
 }
 
