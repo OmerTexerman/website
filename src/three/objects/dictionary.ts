@@ -138,6 +138,7 @@ export function createDictionary(): DictionaryObject {
 		const pageY = COVER_THICK + BASE_PAGE_THICK * (1 - t * 0.6);
 		const flipPivot = new Group();
 		flipPivot.position.set(HINGE_X, pageY, 0);
+		flipPivot.visible = false; // hidden until animation flips them out
 		dictionary.add(flipPivot);
 
 		// Root strip — narrow piece right at the spine

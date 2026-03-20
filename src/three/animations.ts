@@ -534,16 +534,22 @@ export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
 			const dur = 0.18;
 			const flipP = easeInOutCubic(clamp((p - delay) / dur, 0, 1));
 
+			// Hide page until it's meaningfully flipped (prevents base block clipping)
+			flipPivot.visible = flipP > 0.15;
+
 			const t = i / (n - 1);
 			const target = lerp(DICT_PAGE_MAX, DICT_PAGE_MAX * 0.08, t);
 			flipPivot.rotation.z = lerp(restRZ, restRZ + target, flipP);
 
-			// Bend joint: curves at mid-turn (sin peak), flat at start/end
+			// Variable bend: pages lower in the stack (higher i = flipped later)
+			// are inner pages that bend MORE tightly. Top pages (flipped first,
+			// low i) are outer and bend less.
+			const innerT = i / (n - 1); // 0 = first flipped (outer), 1 = last flipped (inner)
+			const bendAmount = lerp(DICT_BEND_PEAK * 0.5, DICT_BEND_PEAK * 1.4, innerT);
 			const bendMid = Math.sin(Math.PI * flipP);
 			const travel = clamp(target / (Math.PI * 0.5), 0, 1);
-			bendJoint.rotation.z = restBend + DICT_BEND_PEAK * bendMid * travel;
+			bendJoint.rotation.z = restBend + bendAmount * bendMid * travel;
 
-			// Minimal stacking offset
 			flipPivot.position.y = lerp(restY, restY + i * 0.0008, flipP);
 			flippedWeight += flipP;
 		}
@@ -580,6 +586,9 @@ export function animateDictionaryClose(dict: DictionaryObject): Promise<void> {
 			s.flipPivot.rotation.z = lerp(s.curRZ, s.restRZ, pageP);
 			s.flipPivot.position.y = lerp(s.curY, s.restY, pageP);
 			s.bendJoint.rotation.z = lerp(s.curBend, s.restBend, pageP);
+			// Hide page once it's nearly back to rest (re-enters base block)
+			const returnedRZ = Math.abs(s.flipPivot.rotation.z - s.restRZ);
+			s.flipPivot.visible = returnedRZ > 0.05;
 		}
 
 		basePageBlock.scale.y = lerp(curBlockScaleY, restBlockScaleY, pageP);
