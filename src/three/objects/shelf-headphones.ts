@@ -21,36 +21,35 @@ const cushionMaterial = new MeshStandardMaterial({
 
 /**
  * Headphones leaning against the back wall of a shelf.
- * The headband arch faces outward with ear cups resting on the shelf surface.
  * Tap to make the ear cups pulse like they're playing music.
  */
 export function createShelfHeadphones(): Group {
 	const hp = new Group();
 	hp.userData = { interactive: true };
 
-	// Body group — we tilt this back to lean against the wall
 	const body = new Group();
 	hp.add(body);
 
-	// Headband — half-torus arch. Default torus(PI) lies in XY with endpoints
-	// at (±R, 0, 0) and the arch going up through (0, R, 0).
-	// Rotate so the arch goes up in Y, opening faces down.
 	const bandRadius = 0.12;
+	const cupRadius = 0.05;
+
+	// Headband — half-torus in XY plane.
+	// Endpoints at (±bandRadius, 0, 0), peak at (0, bandRadius, 0).
+	// Lift so endpoints align with cup centers.
 	const band = new Mesh(new TorusGeometry(bandRadius, 0.01, 8, 24, Math.PI), bandMaterial);
-	band.rotation.z = Math.PI / 2; // rotate so arch opens downward, endpoints at (0, ±R, 0)
-	band.position.y = bandRadius; // lift so endpoints sit at y=0 and y=2R
+	band.position.y = cupRadius;
 	band.castShadow = true;
 	body.add(band);
 
-	// Ear cups — cylinders with flat faces outward (along Z).
-	// Position at the band endpoints: (0, 0, 0) and (0, 2*bandRadius, 0)
-	const cupGeo = new CylinderGeometry(0.05, 0.05, 0.03, 16);
-	const cushionGeo = new CylinderGeometry(0.044, 0.044, 0.006, 16);
+	// Ear cups — cylinder axis rotated to Z so flat faces point forward/back.
+	// Positioned at band endpoints, lifted so bottom of cup circle sits at y=0.
+	const cupGeo = new CylinderGeometry(cupRadius, cupRadius, 0.03, 16);
+	const cushionGeo = new CylinderGeometry(cupRadius - 0.006, cupRadius - 0.006, 0.006, 16);
 
 	function makeCup(): Group {
 		const cup = new Group();
 		const pad = new Mesh(cupGeo, padMaterial);
-		pad.rotation.x = Math.PI / 2; // flat face along Z
+		pad.rotation.x = Math.PI / 2;
 		pad.castShadow = true;
 		cup.add(pad);
 		const cushion = new Mesh(cushionGeo, cushionMaterial);
@@ -61,20 +60,15 @@ export function createShelfHeadphones(): Group {
 	}
 
 	const leftCup = makeCup();
-	leftCup.position.set(0, 0, 0);
+	leftCup.position.set(-bandRadius, cupRadius, 0);
 	body.add(leftCup);
 
 	const rightCup = makeCup();
-	rightCup.position.set(0, bandRadius * 2, 0);
+	rightCup.position.set(bandRadius, cupRadius, 0);
 	body.add(rightCup);
 
-	// Rotate so the headband arch plane faces outward (toward the viewer)
-	// and the two cups sit side by side horizontally on the shelf
-	body.rotation.z = Math.PI / 2; // cups now left/right along X, arch in XY
-	body.position.y = bandRadius * 2; // lift so bottom cup sits on shelf surface
-
-	// Lean back against the wall
-	body.rotation.x = -0.4;
+	// Lean back against the wall (+Z is toward wall after shelf rotation.y)
+	body.rotation.x = 0.45;
 
 	hp.userData.cups = { left: leftCup, right: rightCup };
 
