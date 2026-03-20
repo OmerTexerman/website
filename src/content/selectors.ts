@@ -78,19 +78,15 @@ export async function getPhotoCollections(): Promise<PhotoCollection[]> {
 	}));
 }
 
-/** Get all words sorted by date, newest first. */
+/** Get all words sorted by date, newest first. Excludes future-dated entries. */
 export async function getAllWords(): Promise<WordEntry[]> {
+	const now = new Date();
 	const entries = await getCollection("words");
 	return entries
 		.map((entry) => ({
 			id: entry.id,
 			...entry.data,
 		}))
+		.filter((w) => w.date.valueOf() <= now.valueOf())
 		.sort((a, b) => b.date.valueOf() - a.date.valueOf());
-}
-
-/** Get the most recent word of the day. */
-export async function getLatestWord(): Promise<WordEntry | undefined> {
-	const words = await getAllWords();
-	return words[0];
 }

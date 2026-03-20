@@ -69,7 +69,12 @@ const words = defineCollection({
 		word: z.string(),
 		partOfSpeech: z.string().optional(),
 		quip: z.string(),
-		date: z.coerce.date(),
+		date: z.coerce.date().transform((d) => {
+			// Shift to noon UTC so the date displays correctly in any timezone
+			const noon = new Date(d);
+			noon.setUTCHours(12, 0, 0, 0);
+			return noon;
+		}),
 		image: z.string().regex(photoSource, "Image must be an absolute path or URL.").optional(),
 	}),
 });

@@ -499,10 +499,9 @@ const DICT_COVER_ANGLE = 2.9; // ~166° — cover opens nearly flat
 const DICT_PAGE_MAX = DICT_COVER_ANGLE - 0.08;
 
 export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
-	const { frontCoverPivot, pagePacketRoot, pagePivots } = dict.parts;
+	const { frontCoverPivot, pagePivots } = dict.parts;
 
 	saveRest(frontCoverPivot, "rz", frontCoverPivot.rotation.z);
-	saveRestPose(pagePacketRoot);
 	for (const page of pagePivots) {
 		saveRest(page, "rz", page.rotation.z);
 		saveRest(page, "y", page.position.y);
