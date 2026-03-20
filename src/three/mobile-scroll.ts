@@ -199,10 +199,14 @@ export function createMobileScrollController(
 	let pendingTap: TapPoint | null = null;
 	let inputDirty = false;
 
-	// ── Wheel accumulator ──
+	// ── Wheel accumulator (independent per axis) ──
 	let wheelAccumY = 0;
 	let wheelAccumX = 0;
-	let lastWheelPageTime = 0;
+	let lastWheelPageTimeY = 0;
+	let lastWheelPageTimeX = 0;
+	let wheelAxisLock: "v" | "h" | null = null;
+	let wheelAxisLockTime = 0;
+	const WHEEL_AXIS_LOCK_MS = 150; // lock to dominant axis for this duration
 
 	// ── Input conversion ──
 	const DRAG_VERTICAL_SPEED = 0.003;
@@ -554,72 +558,91 @@ export function createMobileScrollController(
 		e.preventDefault();
 
 		const now = performance.now();
-		const deltaY = normalizeWheelDelta(e.deltaY, e.deltaMode);
-		const deltaX = normalizeWheelDelta(e.deltaX, e.deltaMode);
+		const rawY = normalizeWheelDelta(e.deltaY, e.deltaMode);
+		const rawX = normalizeWheelDelta(e.deltaX, e.deltaMode);
 
-		// Accumulate vertical delta
-		wheelAccumY += deltaY;
-
-		if (
-			Math.abs(wheelAccumY) >= WHEEL_PAGE_THRESHOLD &&
-			now - lastWheelPageTime >= WHEEL_COOLDOWN_MS
-		) {
-			const currentIdx =
-				state === State.ANIMATING ? nearestStopIndex(animTargetT) : nearestStopIndex(verticalT);
-			const dir: -1 | 1 = wheelAccumY > 0 ? 1 : -1;
-			const targetIdx = adjacentStopIndex(currentIdx, dir);
-
-			if (targetIdx !== currentIdx || state !== State.ANIMATING) {
-				beginVerticalAnimation(targetIdx);
-			}
-
-			wheelAccumY = 0;
-			lastWheelPageTime = now;
+		// Axis locking — trackpads send both axes simultaneously, pick the dominant one
+		if (wheelAxisLock && now - wheelAxisLockTime > WHEEL_AXIS_LOCK_MS) {
+			wheelAxisLock = null;
+		}
+		if (!wheelAxisLock && (Math.abs(rawX) > 1 || Math.abs(rawY) > 1)) {
+			wheelAxisLock = Math.abs(rawY) >= Math.abs(rawX) ? "v" : "h";
+			wheelAxisLockTime = now;
+			// Reset the other axis accumulator when switching
+			if (wheelAxisLock === "v") wheelAccumX = 0;
+			else wheelAccumY = 0;
 		}
 
-		// Horizontal wheel → page pan
-		wheelAccumX += deltaX;
+		const deltaY = wheelAxisLock === "h" ? 0 : rawY;
+		const deltaX = wheelAxisLock === "v" ? 0 : rawX;
 
-		if (
-			Math.abs(wheelAccumX) >= WHEEL_PAGE_THRESHOLD &&
-			now - lastWheelPageTime >= WHEEL_COOLDOWN_MS
-		) {
-			const currentStopIdx =
-				state === State.ANIMATING ? nearestStopIndex(animTargetT) : nearestStopIndex(verticalT);
+		// Vertical paging
+		if (deltaY !== 0) {
+			wheelAccumY += deltaY;
 
-			for (let i = 0; i < numRows; i++) {
-				const points = panSnapPoints[i];
-				if (!points || points.length <= 1) continue;
+			if (
+				Math.abs(wheelAccumY) >= WHEEL_PAGE_THRESHOLD &&
+				now - lastWheelPageTimeY >= WHEEL_COOLDOWN_MS
+			) {
+				const currentIdx =
+					state === State.ANIMATING ? nearestStopIndex(animTargetT) : nearestStopIndex(verticalT);
+				const dir: -1 | 1 = wheelAccumY > 0 ? 1 : -1;
+				const targetIdx = adjacentStopIndex(currentIdx, dir);
 
-				// Only page the row we're currently on (or adjacent)
-				if (Math.abs(i - currentStopIdx) > 0.6) continue;
+				if (targetIdx !== currentIdx || state !== State.ANIMATING) {
+					beginVerticalAnimation(targetIdx);
+				}
 
-				const currentSnap = panAnimating[i]
-					? panAnimTarget[i]
-					: nearestSnapPoint(panByRow[i], points);
-				const dir = wheelAccumX > 0 ? -1 : 1;
+				wheelAccumY = 0;
+				lastWheelPageTimeY = now;
+			}
+		}
 
-				// Find adjacent snap in direction
-				let bestTarget = currentSnap;
-				let bestDist = Number.POSITIVE_INFINITY;
-				for (const p of points) {
-					const diff = p - currentSnap;
-					if (dir > 0 && diff > 0.01 && diff < bestDist) {
-						bestTarget = p;
-						bestDist = diff;
-					} else if (dir < 0 && diff < -0.01 && Math.abs(diff) < bestDist) {
-						bestTarget = p;
-						bestDist = Math.abs(diff);
+		// Horizontal paging
+		if (deltaX !== 0) {
+			wheelAccumX += deltaX;
+
+			if (
+				Math.abs(wheelAccumX) >= WHEEL_PAGE_THRESHOLD &&
+				now - lastWheelPageTimeX >= WHEEL_COOLDOWN_MS
+			) {
+				const currentStopIdx =
+					state === State.ANIMATING ? nearestStopIndex(animTargetT) : nearestStopIndex(verticalT);
+
+				for (let i = 0; i < numRows; i++) {
+					const points = panSnapPoints[i];
+					if (!points || points.length <= 1) continue;
+
+					// Only page the row we're currently on (or adjacent)
+					if (Math.abs(i - currentStopIdx) > 0.6) continue;
+
+					const currentSnap = panAnimating[i]
+						? panAnimTarget[i]
+						: nearestSnapPoint(panByRow[i], points);
+					const dir = wheelAccumX > 0 ? -1 : 1;
+
+					// Find adjacent snap in direction
+					let bestTarget = currentSnap;
+					let bestDist = Number.POSITIVE_INFINITY;
+					for (const p of points) {
+						const diff = p - currentSnap;
+						if (dir > 0 && diff > 0.01 && diff < bestDist) {
+							bestTarget = p;
+							bestDist = diff;
+						} else if (dir < 0 && diff < -0.01 && Math.abs(diff) < bestDist) {
+							bestTarget = p;
+							bestDist = Math.abs(diff);
+						}
+					}
+
+					if (bestTarget !== currentSnap) {
+						beginPanAnimation(i, bestTarget);
 					}
 				}
 
-				if (bestTarget !== currentSnap) {
-					beginPanAnimation(i, bestTarget);
-				}
+				wheelAccumX = 0;
+				lastWheelPageTimeX = now;
 			}
-
-			wheelAccumX = 0;
-			lastWheelPageTime = now;
 		}
 
 		inputDirty = true;
@@ -683,6 +706,7 @@ export function createMobileScrollController(
 		inputDirty = false;
 		wheelAccumY = 0;
 		wheelAccumX = 0;
+		wheelAxisLock = null;
 		for (let i = 0; i < numRows; i++) {
 			panByRow[i] = 0;
 		}
