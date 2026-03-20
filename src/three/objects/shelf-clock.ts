@@ -34,7 +34,7 @@ const tickMaterial = new MeshStandardMaterial({
 	metalness: 0.3,
 });
 
-const CLOCK_RADIUS = 0.18;
+const CLOCK_RADIUS = 0.28;
 
 /** Small wall clock for the shelf scene. Tap to spin the hands. */
 export function createShelfClock(): Group {

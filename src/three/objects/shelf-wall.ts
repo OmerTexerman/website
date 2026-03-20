@@ -466,9 +466,9 @@ export function createShelfWall(books?: ShelfBook[]): ShelfWallResult {
 		},
 	});
 
-	// Headphones — bottom shelf, right side (next to camera)
+	// Headphones — bottom shelf, leaning against back wall (next to camera)
 	const headphones = createShelfHeadphones();
-	headphones.position.set(SHELF_CENTER_X + 0.02, BOT_Y + SHELF_THICK / 2, WALL_Z + 0.62);
+	headphones.position.set(SHELF_CENTER_X + 0.16, BOT_Y + SHELF_THICK / 2, WALL_Z + 0.62);
 	headphones.rotation.y = -Math.PI / 2;
 	enableShadows(headphones);
 	const hpTarget = new Group();

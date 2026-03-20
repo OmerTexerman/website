@@ -519,14 +519,17 @@ export function animateClockSpin(handsPivot: Object3D): Promise<void> {
 /** Pulse headphone ear cups like they're playing music */
 export function animateHeadphonePulse(hp: Group): Promise<void> {
 	const { left, right } = hp.userData.cups as { left: Object3D; right: Object3D };
+	const leftZ = left.position.z;
+	const rightZ = right.position.z;
 	return animate(`hp-pulse-${hp.uuid}`, 600, (p) => {
 		const decay = 1 - p;
 		const beat = Math.sin(p * Math.PI * 6) * 0.15 * decay;
+		const offBeat = Math.sin(p * Math.PI * 6 + 0.5) * 0.15 * decay;
 		left.scale.setScalar(1 + beat);
-		right.scale.setScalar(1 + Math.sin(p * Math.PI * 6 + 0.5) * 0.15 * decay);
-		// Slight vertical bounce
-		left.position.y = 0.015 + Math.abs(beat) * 0.02;
-		right.position.y = 0.015 + Math.abs(Math.sin(p * Math.PI * 6 + 0.5) * 0.15 * decay) * 0.02;
+		right.scale.setScalar(1 + offBeat);
+		// Slight forward bounce (cups face outward along Z)
+		left.position.z = leftZ + Math.abs(beat) * 0.02;
+		right.position.z = rightZ + Math.abs(offBeat) * 0.02;
 	});
 }
 
