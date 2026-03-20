@@ -494,7 +494,7 @@ export function animateFrameClose(frame: PhotoFrameObject): Promise<void> {
 // This creates a visible cascading wave of pages — unmistakable.
 const DICT_OPEN_MS = 1100;
 const DICT_CLOSE_MS = 650;
-const DICT_COVER_ANGLE = 1.6; // ~92° — cover opens wide
+const DICT_COVER_ANGLE = 2.9; // ~166° — cover opens nearly flat
 // Pages must stay INSIDE the cover envelope
 const DICT_PAGE_MAX = DICT_COVER_ANGLE - 0.08;
 
