@@ -586,7 +586,8 @@ export function createMobileScrollController(
 			) {
 				const currentIdx =
 					state === State.ANIMATING ? nearestStopIndex(animTargetT) : nearestStopIndex(verticalT);
-				const dir: -1 | 1 = wheelAccumY > 0 ? 1 : -1;
+				// Scroll down (positive deltaY) = see lower content = lower stop index
+				const dir: -1 | 1 = wheelAccumY > 0 ? -1 : 1;
 				const targetIdx = adjacentStopIndex(currentIdx, dir);
 
 				if (targetIdx !== currentIdx || state !== State.ANIMATING) {
