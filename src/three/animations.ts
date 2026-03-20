@@ -532,18 +532,27 @@ export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
 			const t = i / (n - 1);
 			const target = lerp(DICT_PAGE_MAX * 0.08, DICT_PAGE_MAX, t);
 			page.rotation.z = lerp(restRZ, restRZ + target, flipP);
-			page.position.y = lerp(restY, restY + i * 0.004, flipP);
+
+			// Page Y tracks the shrinking stack: later pages start lower
+			// as earlier pages have already left the block
+			const stackDrop = (flippedWeight / n) * restBlockY * 0.6;
+			const stackY = lerp(restY - stackDrop, restY + i * 0.004, flipP);
+			page.position.y = stackY;
+
+			// Arc lift during flip — page curls up then settles down,
+			// like a real page turning with air resistance
+			const arc = Math.sin(flipP * Math.PI) * 0.04;
+			page.position.y += arc;
+
 			flippedWeight += flipP;
 		}
 
 		// Shrink the base page block as pages leave it
-		// Scale from 100% down to ~30% of original height
 		const shrinkRatio = 1 - (flippedWeight / n) * 0.7;
 		basePageBlock.scale.y = restBlockScaleY * shrinkRatio;
-		// Keep the bottom edge anchored by adjusting position
-		const originalH = restBlockY * 2; // position is at center, so height ≈ 2 * posY
-		const yAdj = originalH * (1 - shrinkRatio) * 0.01;
-		basePageBlock.position.y = restBlockY * shrinkRatio + yAdj;
+		// Keep the bottom edge anchored
+		const halfH = restBlockY;
+		basePageBlock.position.y = halfH * shrinkRatio;
 	});
 }
 
