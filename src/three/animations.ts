@@ -493,10 +493,10 @@ export function animateFrameClose(frame: PhotoFrameObject): Promise<void> {
 // root shifts slightly for a "thumb catch" feel. Book stays flat.
 const DICT_OPEN_MS = 980;
 const DICT_CLOSE_MS = 620;
-const DICT_COVER_CRACK = 0.52; // ~30° sideways open
-// Thumb catch: small shift of the page packet
-const DICT_CATCH_X = 0.012;
-const DICT_CATCH_Y = 0.004;
+const DICT_COVER_CRACK = 1.05; // ~60° sideways open — visible from camera
+// Thumb catch: shift of the page packet
+const DICT_CATCH_X = 0.02;
+const DICT_CATCH_Y = 0.008;
 
 export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
 	const { frontCoverPivot, pagePacketRoot, pagePivots } = dict.parts;
@@ -530,8 +530,8 @@ export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
 			const flipP = clamp((p - delay) / dur, 0, 1);
 			// Peak angle during flip, then settle to held angle
 			const t = pagePivots.length <= 1 ? 0.5 : i / (pagePivots.length - 1);
-			const peak = lerp(0.12, 0.44, t);
-			const held = lerp(0.05, 0.28, t);
+			const peak = lerp(0.25, 0.9, t);
+			const held = lerp(0.1, 0.6, t);
 			// Settle phase (0.62–1.0)
 			const settleP = easeInOutCubic(clamp((p - 0.62) / 0.38, 0, 1));
 			const angle = lerp(
@@ -540,7 +540,7 @@ export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
 				settleP,
 			);
 			// Flutter during flip
-			const flutter = Math.sin(flipP * Math.PI * 2.2 + i * 0.35) * 0.018 * (1 - settleP);
+			const flutter = Math.sin(flipP * Math.PI * 2.2 + i * 0.35) * 0.04 * (1 - settleP);
 			page.rotation.z = angle + flutter;
 		}
 
