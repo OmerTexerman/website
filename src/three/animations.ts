@@ -499,15 +499,19 @@ const DICT_COVER_ANGLE = 2.9; // ~166° — cover opens nearly flat
 const DICT_PAGE_MAX = DICT_COVER_ANGLE - 0.08;
 
 export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
-	const { frontCoverPivot, pagePivots } = dict.parts;
+	const { frontCoverPivot, pagePivots, basePageBlock } = dict.parts;
 
 	saveRest(frontCoverPivot, "rz", frontCoverPivot.rotation.z);
+	saveRest(basePageBlock, "sy", basePageBlock.scale.y);
+	saveRest(basePageBlock, "y", basePageBlock.position.y);
 	for (const page of pagePivots) {
 		saveRest(page, "rz", page.rotation.z);
 		saveRest(page, "y", page.position.y);
 	}
 
 	const restCover = getRest(frontCoverPivot, "rz");
+	const restBlockScaleY = getRest(basePageBlock, "sy");
+	const restBlockY = getRest(basePageBlock, "y");
 	const n = pagePivots.length;
 
 	return animate(`dict-${dict.root.uuid}`, DICT_OPEN_MS, (p) => {
@@ -516,35 +520,42 @@ export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
 		frontCoverPivot.rotation.z = lerp(restCover, restCover + DICT_COVER_ANGLE, coverP);
 
 		// Pages flip rapidly in sequence (0.28–0.92)
-		// Each page does a near-full turn. They start staggered so it
-		// looks like a cascading wave — the dictionary thumb-flip.
-		// Flipped pages get a small Y bump so they stack on the cover.
+		// Track how many pages have flipped to shrink the base block
+		let flippedWeight = 0;
 		for (let i = 0; i < n; i++) {
 			const page = pagePivots[i];
 			const restRZ = getRest(page, "rz");
 			const restY = getRest(page, "y");
-			// Each page starts slightly after the previous — tight stagger
 			const delay = 0.28 + (i / n) * 0.4;
-			// Each page flips quickly
 			const dur = 0.18;
 			const flipP = easeInOutCubic(clamp((p - delay) / dur, 0, 1));
-			// Pages form a continuous fan from near-spine to near-cover.
-			// Each page lands at an evenly spaced angle across the arc.
 			const t = i / (n - 1);
 			const target = lerp(DICT_PAGE_MAX * 0.08, DICT_PAGE_MAX, t);
 			page.rotation.z = lerp(restRZ, restRZ + target, flipP);
-			// Stack: each flipped page sits higher than the last so you
-			// can see them piling up on the cover side
 			page.position.y = lerp(restY, restY + i * 0.004, flipP);
+			flippedWeight += flipP;
 		}
+
+		// Shrink the base page block as pages leave it
+		// Scale from 100% down to ~30% of original height
+		const shrinkRatio = 1 - (flippedWeight / n) * 0.7;
+		basePageBlock.scale.y = restBlockScaleY * shrinkRatio;
+		// Keep the bottom edge anchored by adjusting position
+		const originalH = restBlockY * 2; // position is at center, so height ≈ 2 * posY
+		const yAdj = originalH * (1 - shrinkRatio) * 0.01;
+		basePageBlock.position.y = restBlockY * shrinkRatio + yAdj;
 	});
 }
 
 export function animateDictionaryClose(dict: DictionaryObject): Promise<void> {
-	const { frontCoverPivot, pagePivots } = dict.parts;
+	const { frontCoverPivot, pagePivots, basePageBlock } = dict.parts;
 
 	const curCover = frontCoverPivot.rotation.z;
 	const restCover = getRest(frontCoverPivot, "rz");
+	const curBlockScaleY = basePageBlock.scale.y;
+	const restBlockScaleY = getRest(basePageBlock, "sy");
+	const curBlockY = basePageBlock.position.y;
+	const restBlockY = getRest(basePageBlock, "y");
 	const pageStates = pagePivots.map((page) => ({
 		page,
 		curRZ: page.rotation.z,
@@ -560,6 +571,10 @@ export function animateDictionaryClose(dict: DictionaryObject): Promise<void> {
 			page.rotation.z = lerp(curRZ, restRZ, pageP);
 			page.position.y = lerp(curY, restY, pageP);
 		}
+
+		// Base page block grows back (0–0.45)
+		basePageBlock.scale.y = lerp(curBlockScaleY, restBlockScaleY, pageP);
+		basePageBlock.position.y = lerp(curBlockY, restBlockY, pageP);
 
 		// Cover closes (0.3–0.9)
 		const coverP = easeInOutCubic(clamp((p - 0.3) / 0.6, 0, 1));

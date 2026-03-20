@@ -26,6 +26,8 @@ export interface DictionaryObject {
 		pagePacketRoot: Group;
 		/** Individual thin page leaves that riffle via rotation.z. */
 		pagePivots: Group[];
+		/** The fixed page block that shrinks as pages flip out. */
+		basePageBlock: Mesh;
 	};
 }
 
@@ -204,6 +206,6 @@ export function createDictionary(): DictionaryObject {
 
 	return {
 		root: dictionary,
-		parts: { frontCoverPivot, pagePacketRoot, pagePivots },
+		parts: { frontCoverPivot, pagePacketRoot, pagePivots, basePageBlock: basePages },
 	};
 }
