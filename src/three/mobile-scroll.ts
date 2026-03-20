@@ -11,9 +11,9 @@ export interface MobileScrollConfig {
 	panLimit: number;
 	/** Number of shelf rows (matches MOBILE_SHELF_STOPS.length) */
 	numRows: number;
-	/** Wheel → vertical-t scale */
+	/** Wheel → vertical-t scale (unused, kept for interface compat) */
 	wheelSpeed: number;
-	/** Wheel → horizontal pan scale */
+	/** Wheel → horizontal pan scale (unused, kept for interface compat) */
 	wheelPanSpeed: number;
 }
 
@@ -24,7 +24,7 @@ export interface MobileScrollController {
 	onPointerCancel(e: PointerEvent): void;
 	cancelActiveGesture(): void;
 	onWheel(e: WheelEvent): void;
-	/** Advance physics by dt seconds. Returns true if camera position changed. */
+	/** Advance animation by dt seconds. Returns true if camera position changed. */
 	tick(dt: number): boolean;
 	/** Current vertical track position (0–1, may exceed during rubber-band) */
 	readonly verticalT: number;
@@ -38,34 +38,42 @@ export interface MobileScrollController {
 }
 
 // ─── State machine ───────────────────────────────────────────────
+//
+// iOS-style paging: only 4 states, no coast/decelerate.
+//   IDLE      → waiting for input
+//   TRACKING  → pointer down, waiting for direction lock
+//   DRAGGING  → finger down, content tracks 1:1
+//   ANIMATING → finger lifted, easing to committed target
 
 enum State {
 	IDLE = 0,
 	TRACKING = 1,
 	DRAGGING = 2,
-	DECELERATING = 3,
-	SNAPPING = 4,
+	ANIMATING = 3,
 }
 
 // ─── Constants ───────────────────────────────────────────────────
 
-const TAP_DISTANCE_THRESHOLD = 10; // px — larger than old 6px for high-DPI
+const TAP_DISTANCE_THRESHOLD = 10; // px
 const DIRECTION_LOCK_THRESHOLD = 8; // px before locking V or H
-const DECELERATION_RATE = 6.0; // velocity halves every ~115ms (smoother coast)
-const DECELERATION_STOP = 0.001; // velocity magnitude to stop decelerating
-const SNAP_STIFFNESS = 55;
-const SNAP_DAMPING = 16; // slightly overdamped — no oscillation
-const SNAP_SETTLE = 0.0005; // position + velocity threshold to settle
+
+// Paging target selection
+const FLICK_VELOCITY_THRESHOLD = 200; // px/s — above this, velocity determines target
+const POSITION_COMMIT_RATIO = 0.35; // drag past 35% of stop gap → commit to next
+
+// Animation
+const ANIMATE_DURATION = 0.35; // seconds for ease-out animation
+
+// Rubber-banding during drag
 const RUBBER_BAND_FACTOR = 0.35;
+
+// Velocity estimation
 const VELOCITY_WINDOW_MS = 100;
-const PAN_DECELERATION_RATE = 6.0;
-const PAN_SNAP_STIFFNESS = 55;
-const PAN_SNAP_DAMPING = 16;
-const PAN_SNAP_SETTLE = 0.0005;
+
+// Wheel paging
 const WHEEL_LINE_PIXELS = 16;
-const WHEEL_DELTA_CAP = 80;
-const WHEEL_RESPONSE_CURVE = 0.82;
-const WHEEL_VELOCITY_BOOST = 0.6; // scale wheel delta into velocity units
+const WHEEL_PAGE_THRESHOLD = 40; // accumulated px before paging
+const WHEEL_COOLDOWN_MS = 200; // minimum ms between wheel page changes
 
 // ─── Helpers ─────────────────────────────────────────────────────
 
@@ -84,7 +92,6 @@ const prefersReducedMotion =
 	typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
 function rubberBand(overscroll: number, limit: number): number {
-	// Diminishing returns: f(x) = factor * limit * (1 - exp(-x / limit))
 	const sign = Math.sign(overscroll);
 	const abs = Math.abs(overscroll);
 	return sign * RUBBER_BAND_FACTOR * limit * (1 - Math.exp(-abs / (limit * 0.5)));
@@ -93,7 +100,6 @@ function rubberBand(overscroll: number, limit: number): number {
 function estimateVelocity(samples: PointerSample[]): { vx: number; vy: number } {
 	if (samples.length < 2) return { vx: 0, vy: 0 };
 
-	// Simple linear regression over samples in the velocity window
 	const last = samples[samples.length - 1];
 	const cutoff = last.t - VELOCITY_WINDOW_MS;
 
@@ -108,7 +114,7 @@ function estimateVelocity(samples: PointerSample[]): { vx: number; vy: number } 
 	for (let i = samples.length - 1; i >= 0; i--) {
 		const s = samples[i];
 		if (s.t < cutoff) break;
-		const t = (s.t - last.t) / 1000; // seconds relative to last sample
+		const t = (s.t - last.t) / 1000;
 		sumT += t;
 		sumX += s.x;
 		sumY += s.y;
@@ -119,7 +125,6 @@ function estimateVelocity(samples: PointerSample[]): { vx: number; vy: number } 
 	}
 
 	if (n < 2) return { vx: 0, vy: 0 };
-
 	const denom = n * sumTT - sumT * sumT;
 	if (Math.abs(denom) < 1e-10) return { vx: 0, vy: 0 };
 
@@ -142,20 +147,17 @@ function nearestSnapPoint(value: number, points: readonly number[]): number {
 	return best;
 }
 
+/** Quadratic ease-out: fast start, smooth deceleration */
+function easeOut(t: number): number {
+	return 1 - (1 - t) * (1 - t);
+}
+
 function normalizeWheelDelta(delta: number, deltaMode: number): number {
 	if (deltaMode === 1) return delta * WHEEL_LINE_PIXELS;
 	if (deltaMode === 2) {
-		const viewportHeight = typeof window !== "undefined" ? window.innerHeight : 800;
-		return delta * viewportHeight;
+		return delta * (typeof window !== "undefined" ? window.innerHeight : 800);
 	}
 	return delta;
-}
-
-function dampWheelDelta(delta: number, deltaMode: number): number {
-	const normalized = normalizeWheelDelta(delta, deltaMode);
-	const sign = Math.sign(normalized);
-	const magnitude = Math.min(Math.abs(normalized), WHEEL_DELTA_CAP);
-	return sign * magnitude ** WHEEL_RESPONSE_CURVE;
 }
 
 // ─── Controller factory ─────────────────────────────────────────
@@ -164,21 +166,27 @@ export function createMobileScrollController(
 	canvas: HTMLCanvasElement,
 	config: MobileScrollConfig,
 ): MobileScrollController {
-	const { verticalStops, panSnapPoints, panLimit, numRows, wheelSpeed, wheelPanSpeed } = config;
+	const { verticalStops, panSnapPoints, panLimit, numRows } = config;
 
 	// ── Vertical state ──
 	let state: State = State.IDLE;
 	let verticalT = 0.5;
-	let verticalVelocity = 0; // in t-units per second
-	let snapTarget = 0.5;
-	let snapVelocity = 0; // used by snap spring
+	let dragOriginStop = 1; // which stop index we started dragging from
+
+	// ── Animation state (shared for vertical) ──
+	let animStartT = 0; // vertical position at animation start
+	let animTargetT = 0; // vertical position target
+	let animElapsed = 0; // seconds since animation began
+	let animDuration = ANIMATE_DURATION;
 
 	// ── Horizontal pan state (per row) ──
 	const panByRow: number[] = Array.from({ length: numRows }, () => 0);
-	const panVelocityByRow: number[] = Array.from({ length: numRows }, () => 0);
-	const panSnapping: boolean[] = Array.from({ length: numRows }, () => false);
-	const panSnapTargets: number[] = Array.from({ length: numRows }, () => 0);
-	const panSnapVelocities: number[] = Array.from({ length: numRows }, () => 0);
+	const panOriginSnap: number[] = Array.from({ length: numRows }, () => 0);
+	// Per-row pan animation
+	const panAnimating: boolean[] = Array.from({ length: numRows }, () => false);
+	const panAnimStart: number[] = Array.from({ length: numRows }, () => 0);
+	const panAnimTarget: number[] = Array.from({ length: numRows }, () => 0);
+	const panAnimElapsed: number[] = Array.from({ length: numRows }, () => 0);
 
 	// ── Pointer tracking ──
 	let activePointerId: number | null = null;
@@ -189,75 +197,126 @@ export function createMobileScrollController(
 	let directionLocked: "v" | "h" | null = null;
 	const pointerSamples: PointerSample[] = [];
 	let pendingTap: TapPoint | null = null;
-	let inputDirty = false; // set by input handlers, cleared by tick
+	let inputDirty = false;
 
-	// ── Input conversion constants ──
-	// Lower than old values (0.007/0.006) because 1:1 tracking has no lerp buffer
+	// ── Wheel accumulator ──
+	let wheelAccumY = 0;
+	let wheelAccumX = 0;
+	let lastWheelPageTime = 0;
+
+	// ── Input conversion ──
 	const DRAG_VERTICAL_SPEED = 0.003;
 	const DRAG_PAN_SPEED = 0.003;
 
-	/** Get the nearest vertical stop value */
-	function nearestVerticalStop(t: number): number {
-		return nearestSnapPoint(clamp(t, 0, 1), verticalStops);
-	}
+	// ── Helpers ──
 
-	function stopAllMotion(): void {
-		verticalVelocity = 0;
-		snapVelocity = 0;
-		for (let i = 0; i < numRows; i++) {
-			panVelocityByRow[i] = 0;
-			panSnapping[i] = false;
-			panSnapVelocities[i] = 0;
+	/** Index of the nearest vertical stop */
+	function nearestStopIndex(t: number): number {
+		const clamped = clamp(t, 0, 1);
+		let bestIdx = 0;
+		let bestDist = Math.abs(clamped - verticalStops[0]);
+		for (let i = 1; i < verticalStops.length; i++) {
+			const d = Math.abs(clamped - verticalStops[i]);
+			if (d < bestDist) {
+				bestIdx = i;
+				bestDist = d;
+			}
 		}
+		return bestIdx;
 	}
 
-	function clearPointerTracking(): void {
-		activePointerId = null;
-		directionLocked = null;
-		pointerSamples.length = 0;
+	/** Get stop index in a direction from current, clamped to bounds */
+	function adjacentStopIndex(fromIndex: number, direction: -1 | 1): number {
+		return clamp(fromIndex + direction, 0, verticalStops.length - 1);
 	}
 
-	function beginVerticalSnapping(target = nearestVerticalStop(verticalT)): void {
-		snapTarget = target;
-		snapVelocity = 0;
-		state = State.SNAPPING;
-	}
-
-	function getPanDistribution(): {
-		index: number;
-		nextIndex: number;
-		primaryWeight: number;
-		secondaryWeight: number;
-		scale: number;
-	} {
+	/** Choose the vertical target stop based on velocity and position (iOS-style) */
+	function chooseVerticalTarget(velocityPx: number): number {
 		const clamped = clamp(verticalT, 0, 1);
-		const scaled = clamped * (numRows - 1);
-		const index = Math.floor(scaled);
-		const nextIndex = Math.min(index + 1, numRows - 1);
-		if (index === nextIndex) {
-			return {
-				index,
-				nextIndex,
-				primaryWeight: 1,
-				secondaryWeight: 0,
-				scale: 1,
-			};
+
+		// Fast flick → advance one stop in flick direction
+		if (Math.abs(velocityPx) > FLICK_VELOCITY_THRESHOLD) {
+			// Positive velocity = dragging down = scrolling up (toward lower T)
+			const dir = velocityPx > 0 ? -1 : 1;
+			return adjacentStopIndex(dragOriginStop, dir as -1 | 1);
 		}
 
-		const secondaryWeight = scaled - index;
-		const primaryWeight = 1 - secondaryWeight;
-		const normalization = primaryWeight * primaryWeight + secondaryWeight * secondaryWeight;
+		// Slow drag → use position to decide
+		const originT = verticalStops[dragOriginStop];
+		const displacement = clamped - originT;
 
-		return {
-			index,
-			nextIndex,
-			primaryWeight,
-			secondaryWeight,
-			scale: normalization > 0 ? 1 / normalization : 1,
-		};
+		// Find the gap to the adjacent stop in the drag direction
+		if (displacement > 0 && dragOriginStop < verticalStops.length - 1) {
+			const nextT = verticalStops[dragOriginStop + 1];
+			const gap = nextT - originT;
+			if (displacement / gap > POSITION_COMMIT_RATIO) {
+				return dragOriginStop + 1;
+			}
+		} else if (displacement < 0 && dragOriginStop > 0) {
+			const prevT = verticalStops[dragOriginStop - 1];
+			const gap = originT - prevT;
+			if (Math.abs(displacement) / gap > POSITION_COMMIT_RATIO) {
+				return dragOriginStop - 1;
+			}
+		}
+
+		// Not past threshold — return to origin
+		return dragOriginStop;
 	}
 
-	/** Apply vertical position with rubber-banding at edges */
+	/** Choose the horizontal pan target for a row based on velocity and position */
+	function choosePanTarget(row: number, velocityPx: number): number | null {
+		const points = panSnapPoints[row];
+		if (!points || points.length === 0) return null;
+
+		const originSnap = panOriginSnap[row];
+		const current = panByRow[row];
+
+		// Fast flick → advance to next snap in flick direction
+		if (Math.abs(velocityPx) > FLICK_VELOCITY_THRESHOLD) {
+			const dir = velocityPx > 0 ? 1 : -1; // positive vx = dragging right = pan decreasing
+			// Find adjacent snap point in that direction
+			let bestIdx = -1;
+			let bestDist = Number.POSITIVE_INFINITY;
+			for (let i = 0; i < points.length; i++) {
+				const diff = points[i] - originSnap;
+				if (dir < 0 && diff < -0.01 && Math.abs(diff) < bestDist) {
+					bestIdx = i;
+					bestDist = Math.abs(diff);
+				} else if (dir > 0 && diff > 0.01 && Math.abs(diff) < bestDist) {
+					bestIdx = i;
+					bestDist = Math.abs(diff);
+				}
+			}
+			return bestIdx >= 0 ? points[bestIdx] : nearestSnapPoint(current, points);
+		}
+
+		// Slow drag → snap to nearest by position
+		return nearestSnapPoint(current, points);
+	}
+
+	/** Begin easing vertical position to a target stop */
+	function beginVerticalAnimation(targetIndex: number): void {
+		animStartT = verticalT;
+		animTargetT = verticalStops[targetIndex];
+		animElapsed = 0;
+		// Scale duration by distance for consistent perceived speed
+		const distance = Math.abs(animTargetT - animStartT);
+		const maxGap = Math.max(
+			...verticalStops.map((s, i) => (i < verticalStops.length - 1 ? verticalStops[i + 1] - s : 0)),
+		);
+		animDuration = ANIMATE_DURATION * clamp(distance / (maxGap || 0.5), 0.3, 1);
+		state = State.ANIMATING;
+	}
+
+	/** Begin easing a row's pan to a target */
+	function beginPanAnimation(row: number, target: number): void {
+		panAnimating[row] = true;
+		panAnimStart[row] = panByRow[row];
+		panAnimTarget[row] = target;
+		panAnimElapsed[row] = 0;
+	}
+
 	function setVerticalWithRubberBand(raw: number): void {
 		if (raw < 0) {
 			verticalT = rubberBand(raw, 1);
@@ -268,60 +327,78 @@ export function createMobileScrollController(
 		}
 	}
 
-	/** Get the "raw" (unclamped) vertical position for drag math */
 	function getRawVertical(): number {
-		// Invert rubber band — for positions outside [0,1], estimate the raw value
 		if (verticalT >= 0 && verticalT <= 1) return verticalT;
 		if (verticalT < 0) {
-			// rubberBand(x, 1) = 0.35 * (1 - exp(-x/0.5))
-			// solve: verticalT = 0.35 * (1 - exp(-x/0.5)) → x = -0.5 * ln(1 - verticalT/0.35)
 			const ratio = verticalT / -RUBBER_BAND_FACTOR;
-			if (ratio >= 1) return -2; // safety cap
+			if (ratio >= 1) return -2;
 			return 0.5 * Math.log(1 - ratio);
 		}
 		const over = verticalT - 1;
 		const ratio = over / RUBBER_BAND_FACTOR;
-		if (ratio >= 1) return 3; // safety cap
+		if (ratio >= 1) return 3;
 		return 1 - 0.5 * Math.log(1 - ratio);
 	}
 
-	/** Apply pan delta distributed by current vertical position */
 	function applyPanDelta(panDelta: number): void {
-		const { index, nextIndex, primaryWeight, secondaryWeight, scale } = getPanDistribution();
-		const primaryDelta = panDelta * primaryWeight * scale;
-		panByRow[index] = clamp(panByRow[index] + primaryDelta, -panLimit, panLimit);
+		const clamped = clamp(verticalT, 0, 1);
+		const scaled = clamped * (numRows - 1);
+		const index = Math.floor(scaled);
+		const nextIndex = Math.min(index + 1, numRows - 1);
 
 		if (index === nextIndex) {
+			panByRow[index] = clamp(panByRow[index] + panDelta, -panLimit, panLimit);
 			return;
 		}
 
-		const secondaryDelta = panDelta * secondaryWeight * scale;
-		panByRow[nextIndex] = clamp(panByRow[nextIndex] + secondaryDelta, -panLimit, panLimit);
+		const secondaryWeight = scaled - index;
+		const primaryWeight = 1 - secondaryWeight;
+		const norm = primaryWeight * primaryWeight + secondaryWeight * secondaryWeight;
+		const scale = norm > 0 ? 1 / norm : 1;
+
+		panByRow[index] = clamp(
+			panByRow[index] + panDelta * primaryWeight * scale,
+			-panLimit,
+			panLimit,
+		);
+		panByRow[nextIndex] = clamp(
+			panByRow[nextIndex] + panDelta * secondaryWeight * scale,
+			-panLimit,
+			panLimit,
+		);
 	}
 
-	function applyPanVelocity(panVelocity: number): void {
-		const { index, nextIndex, primaryWeight, secondaryWeight, scale } = getPanDistribution();
-		panVelocityByRow[index] += panVelocity * primaryWeight * scale;
-		if (index === nextIndex) return;
-		panVelocityByRow[nextIndex] += panVelocity * secondaryWeight * scale;
-	}
-
-	function beginPanSnapping(): void {
+	function stopAllAnimations(): void {
 		for (let i = 0; i < numRows; i++) {
-			const points = panSnapPoints[i];
-			if (!points || points.length === 0) continue;
-			const nearest = nearestSnapPoint(panByRow[i], points);
-			panSnapping[i] = true;
-			panSnapTargets[i] = nearest;
-			panSnapVelocities[i] = panVelocityByRow[i];
+			panAnimating[i] = false;
 		}
 	}
 
-	function settleAfterGestureCancel(): void {
-		clearPointerTracking();
-		pendingTap = null;
-		beginPanSnapping();
-		beginVerticalSnapping();
+	function clearPointerTracking(): void {
+		activePointerId = null;
+		directionLocked = null;
+		pointerSamples.length = 0;
+	}
+
+	/** Record origin snap points for all rows at gesture start */
+	function captureOrigins(): void {
+		dragOriginStop = nearestStopIndex(verticalT);
+		for (let i = 0; i < numRows; i++) {
+			const points = panSnapPoints[i];
+			panOriginSnap[i] = points && points.length > 0 ? nearestSnapPoint(panByRow[i], points) : 0;
+		}
+	}
+
+	/** Animate all pan rows to nearest snap and vertical to nearest stop */
+	function settleAll(): void {
+		const targetIdx = nearestStopIndex(verticalT);
+		beginVerticalAnimation(targetIdx);
+		for (let i = 0; i < numRows; i++) {
+			const points = panSnapPoints[i];
+			if (points && points.length > 0) {
+				beginPanAnimation(i, nearestSnapPoint(panByRow[i], points));
+			}
+		}
 	}
 
 	// ── Pointer handlers ──
@@ -329,7 +406,11 @@ export function createMobileScrollController(
 	function onPointerDown(e: PointerEvent): void {
 		if (e.button !== 0 || activePointerId !== null) return;
 
-		stopAllMotion();
+		// Interrupt any ongoing animation — grab at current position
+		if (state === State.ANIMATING) {
+			// Snap to current animated position (already set by tick)
+		}
+		stopAllAnimations();
 
 		state = State.TRACKING;
 		activePointerId = e.pointerId;
@@ -341,6 +422,8 @@ export function createMobileScrollController(
 		pointerSamples.length = 0;
 		pointerSamples.push({ x: e.clientX, y: e.clientY, t: performance.now() });
 		pendingTap = null;
+
+		captureOrigins();
 		canvas.setPointerCapture?.(e.pointerId);
 	}
 
@@ -353,13 +436,11 @@ export function createMobileScrollController(
 		const dist = Math.sqrt(dx * dx + dy * dy);
 
 		if (state === State.TRACKING) {
-			if (dist < DIRECTION_LOCK_THRESHOLD) return; // not enough movement yet
-			// Lock direction
+			if (dist < DIRECTION_LOCK_THRESHOLD) return;
 			directionLocked = Math.abs(dy) >= Math.abs(dx) ? "v" : "h";
 			state = State.DRAGGING;
 		}
 
-		// Record sample for velocity estimation
 		pointerSamples.push({ x: e.clientX, y: e.clientY, t: performance.now() });
 		if (pointerSamples.length > 20) pointerSamples.shift();
 
@@ -369,7 +450,6 @@ export function createMobileScrollController(
 		pointerLastY = e.clientY;
 
 		if (directionLocked === "v") {
-			// Vertical drag: camera follows finger 1:1
 			const rawT = getRawVertical();
 			const newRaw = rawT + moveDy * DRAG_VERTICAL_SPEED;
 			setVerticalWithRubberBand(newRaw);
@@ -383,11 +463,10 @@ export function createMobileScrollController(
 	function onPointerUp(e: PointerEvent): void {
 		if (activePointerId !== e.pointerId) return;
 		activePointerId = null;
-		const lockedDirection = directionLocked;
+		const lockedDir = directionLocked;
 		canvas.releasePointerCapture?.(e.pointerId);
 
 		if (state === State.TRACKING) {
-			// Didn't move enough to drag — it's a tap
 			const dx = e.clientX - pointerDownX;
 			const dy = e.clientY - pointerDownY;
 			if (dx * dx + dy * dy <= TAP_DISTANCE_THRESHOLD * TAP_DISTANCE_THRESHOLD) {
@@ -406,214 +485,186 @@ export function createMobileScrollController(
 			return;
 		}
 
-		// Estimate velocity from pointer samples
+		// ── Commitment at release ──
 		const vel = estimateVelocity(pointerSamples);
+		directionLocked = null;
+		pointerSamples.length = 0;
 
 		if (prefersReducedMotion) {
-			// Skip momentum, snap immediately
 			verticalT = clamp(verticalT, 0, 1);
-			verticalT = nearestVerticalStop(verticalT);
-			snapToNearestPanPoints();
-			directionLocked = null;
-			pointerSamples.length = 0;
+			verticalT = verticalStops[nearestStopIndex(verticalT)];
+			for (let i = 0; i < numRows; i++) {
+				const points = panSnapPoints[i];
+				if (points && points.length > 0) {
+					panByRow[i] = nearestSnapPoint(panByRow[i], points);
+				}
+			}
 			state = State.IDLE;
+			inputDirty = true;
 			return;
 		}
 
-		if (lockedDirection === "v") {
-			verticalVelocity = vel.vy * DRAG_VERTICAL_SPEED;
-			state = State.DECELERATING;
-		} else if (lockedDirection === "h") {
-			applyPanVelocity(-vel.vx * DRAG_PAN_SPEED);
-			// Also snap vertically so we don't stay floating between rows
-			beginVerticalSnapping();
+		if (lockedDir === "v") {
+			// Choose target based on velocity + position, animate directly there
+			const targetIdx = chooseVerticalTarget(vel.vy);
+			beginVerticalAnimation(targetIdx);
+			// Also settle any displaced pans
+			for (let i = 0; i < numRows; i++) {
+				const points = panSnapPoints[i];
+				if (points && points.length > 0) {
+					beginPanAnimation(i, nearestSnapPoint(panByRow[i], points));
+				}
+			}
+		} else if (lockedDir === "h") {
+			// Choose pan target based on velocity + position
+			for (let i = 0; i < numRows; i++) {
+				const target = choosePanTarget(i, -vel.vx);
+				if (target !== null) {
+					beginPanAnimation(i, target);
+				}
+			}
+			// Also snap vertically
+			const targetIdx = nearestStopIndex(verticalT);
+			beginVerticalAnimation(targetIdx);
 		} else {
-			state = State.IDLE;
+			settleAll();
 		}
-
-		directionLocked = null;
-		pointerSamples.length = 0;
 	}
 
 	function onPointerCancel(e: PointerEvent): void {
 		if (activePointerId !== e.pointerId) return;
 		activePointerId = null;
 		canvas.releasePointerCapture?.(e.pointerId);
-		settleAfterGestureCancel();
+		clearPointerTracking();
+		pendingTap = null;
+		settleAll();
 	}
 
 	function cancelActiveGesture(): void {
 		if (activePointerId === null) return;
-		settleAfterGestureCancel();
+		clearPointerTracking();
+		pendingTap = null;
+		settleAll();
 	}
+
+	// ── Wheel handler ──
+	// Wheel = discrete paging, not smooth scroll. Each "notch" pages one stop.
 
 	function onWheel(e: WheelEvent): void {
 		e.preventDefault();
-		const deltaY = dampWheelDelta(e.deltaY, e.deltaMode);
-		const deltaX = dampWheelDelta(e.deltaX, e.deltaMode);
 
-		// Accumulate vertical velocity (adds to existing momentum)
-		verticalVelocity -= deltaY * wheelSpeed * WHEEL_VELOCITY_BOOST;
-		if (state !== State.DECELERATING) {
-			state = State.DECELERATING;
+		const now = performance.now();
+		const deltaY = normalizeWheelDelta(e.deltaY, e.deltaMode);
+		const deltaX = normalizeWheelDelta(e.deltaX, e.deltaMode);
+
+		// Accumulate vertical delta
+		wheelAccumY += deltaY;
+
+		if (
+			Math.abs(wheelAccumY) >= WHEEL_PAGE_THRESHOLD &&
+			now - lastWheelPageTime >= WHEEL_COOLDOWN_MS
+		) {
+			const currentIdx =
+				state === State.ANIMATING ? nearestStopIndex(animTargetT) : nearestStopIndex(verticalT);
+			const dir: -1 | 1 = wheelAccumY > 0 ? 1 : -1;
+			const targetIdx = adjacentStopIndex(currentIdx, dir);
+
+			if (targetIdx !== currentIdx || state !== State.ANIMATING) {
+				beginVerticalAnimation(targetIdx);
+			}
+
+			wheelAccumY = 0;
+			lastWheelPageTime = now;
 		}
 
-		// Horizontal pan — apply directly with gentle snap
-		if (Math.abs(deltaX) > 0.1) {
-			applyPanDelta(-deltaX * wheelPanSpeed);
-			snapPanGently();
+		// Horizontal wheel → page pan
+		wheelAccumX += deltaX;
+
+		if (
+			Math.abs(wheelAccumX) >= WHEEL_PAGE_THRESHOLD &&
+			now - lastWheelPageTime >= WHEEL_COOLDOWN_MS
+		) {
+			const currentStopIdx =
+				state === State.ANIMATING ? nearestStopIndex(animTargetT) : nearestStopIndex(verticalT);
+
+			for (let i = 0; i < numRows; i++) {
+				const points = panSnapPoints[i];
+				if (!points || points.length <= 1) continue;
+
+				// Only page the row we're currently on (or adjacent)
+				if (Math.abs(i - currentStopIdx) > 0.6) continue;
+
+				const currentSnap = panAnimating[i]
+					? panAnimTarget[i]
+					: nearestSnapPoint(panByRow[i], points);
+				const dir = wheelAccumX > 0 ? -1 : 1;
+
+				// Find adjacent snap in direction
+				let bestTarget = currentSnap;
+				let bestDist = Number.POSITIVE_INFINITY;
+				for (const p of points) {
+					const diff = p - currentSnap;
+					if (dir > 0 && diff > 0.01 && diff < bestDist) {
+						bestTarget = p;
+						bestDist = diff;
+					} else if (dir < 0 && diff < -0.01 && Math.abs(diff) < bestDist) {
+						bestTarget = p;
+						bestDist = Math.abs(diff);
+					}
+				}
+
+				if (bestTarget !== currentSnap) {
+					beginPanAnimation(i, bestTarget);
+				}
+			}
+
+			wheelAccumX = 0;
+			lastWheelPageTime = now;
 		}
 
 		inputDirty = true;
 	}
 
-	// ── Pan snapping helpers ──
-
-	function snapToNearestPanPoints(): void {
-		for (let i = 0; i < numRows; i++) {
-			const points = panSnapPoints[i];
-			if (!points || points.length === 0) continue;
-			panByRow[i] = nearestSnapPoint(panByRow[i], points);
-			panVelocityByRow[i] = 0;
-			panSnapping[i] = false;
-		}
-	}
-
-	function snapPanGently(): void {
-		for (let i = 0; i < numRows; i++) {
-			const points = panSnapPoints[i];
-			if (!points || points.length === 0) continue;
-			const nearest = nearestSnapPoint(panByRow[i], points);
-			panByRow[i] = lerp(panByRow[i], nearest, 0.3);
-		}
-	}
-
-	// ── Physics tick ──
+	// ── Animation tick ──
 
 	function tick(dt: number): boolean {
-		// Consume input-driven changes (drag, wheel)
 		const hadInput = inputDirty;
 		inputDirty = false;
 
 		let changed = hadInput;
 
-		if (state === State.DECELERATING) {
-			changed = tickDeceleration(dt) || changed;
-		} else if (state === State.SNAPPING) {
-			changed = tickSnapping(dt) || changed;
-		}
+		// Vertical animation (ease-out to target)
+		if (state === State.ANIMATING) {
+			animElapsed += dt;
+			const progress = clamp(animElapsed / animDuration, 0, 1);
+			const eased = easeOut(progress);
 
-		changed = tickPanDeceleration(dt) || changed;
-		changed = tickPanSnapping(dt) || changed;
-
-		return changed;
-	}
-
-	function tickDeceleration(dt: number): boolean {
-		if (Math.abs(verticalVelocity) < DECELERATION_STOP && verticalT >= 0 && verticalT <= 1) {
-			// Velocity died down and we're in bounds — transition to snapping
-			verticalVelocity = 0;
-			snapTarget = nearestVerticalStop(verticalT);
-			snapVelocity = 0;
-			beginPanSnapping();
-			state = State.SNAPPING;
-			return true;
-		}
-
-		// Apply exponential decay: v *= exp(-rate * dt)
-		verticalVelocity *= Math.exp(-DECELERATION_RATE * dt);
-		verticalT += verticalVelocity * dt;
-
-		// Rubber-band at edges during deceleration
-		if (verticalT < 0) {
-			verticalT = rubberBand(verticalT, 0.3);
-			// Extra damping when overscrolled
-			verticalVelocity *= Math.exp(-20 * dt);
-			if (Math.abs(verticalVelocity) < DECELERATION_STOP) {
-				snapTarget = 0;
-				snapVelocity = 0;
-				beginPanSnapping();
-				state = State.SNAPPING;
-			}
-		} else if (verticalT > 1) {
-			verticalT = 1 + rubberBand(verticalT - 1, 0.3);
-			verticalVelocity *= Math.exp(-20 * dt);
-			if (Math.abs(verticalVelocity) < DECELERATION_STOP) {
-				snapTarget = 1;
-				snapVelocity = 0;
-				beginPanSnapping();
-				state = State.SNAPPING;
-			}
-		}
-
-		return true;
-	}
-
-	function tickSnapping(dt: number): boolean {
-		// Damped spring: F = -stiffness * (x - target) - damping * v
-		const displacement = verticalT - snapTarget;
-		const force = -SNAP_STIFFNESS * displacement - SNAP_DAMPING * snapVelocity;
-		snapVelocity += force * dt;
-		verticalT += snapVelocity * dt;
-
-		if (Math.abs(displacement) < SNAP_SETTLE && Math.abs(snapVelocity) < SNAP_SETTLE) {
-			verticalT = snapTarget;
-			snapVelocity = 0;
-			state = State.IDLE;
-			return true;
-		}
-
-		return true;
-	}
-
-	function tickPanDeceleration(dt: number): boolean {
-		let changed = false;
-		for (let i = 0; i < numRows; i++) {
-			if (Math.abs(panVelocityByRow[i]) < DECELERATION_STOP) {
-				if (panVelocityByRow[i] !== 0) {
-					panVelocityByRow[i] = 0;
-					// Start snapping this row to nearest point
-					const points = panSnapPoints[i];
-					if (points && points.length > 0) {
-						const nearest = nearestSnapPoint(panByRow[i], points);
-						panSnapping[i] = true;
-						panSnapTargets[i] = nearest;
-						panSnapVelocities[i] = 0;
-					}
-					changed = true;
-				}
-				continue;
-			}
-
-			panVelocityByRow[i] *= Math.exp(-PAN_DECELERATION_RATE * dt);
-			panByRow[i] += panVelocityByRow[i] * dt;
-			panByRow[i] = clamp(panByRow[i], -panLimit, panLimit);
+			verticalT = lerp(animStartT, animTargetT, eased);
 			changed = true;
-		}
-		return changed;
-	}
 
-	function tickPanSnapping(dt: number): boolean {
-		let changed = false;
-		for (let i = 0; i < numRows; i++) {
-			if (!panSnapping[i]) continue;
-
-			const displacement = panByRow[i] - panSnapTargets[i];
-			const force = -PAN_SNAP_STIFFNESS * displacement - PAN_SNAP_DAMPING * panSnapVelocities[i];
-			panSnapVelocities[i] += force * dt;
-			panByRow[i] += panSnapVelocities[i] * dt;
-
-			if (
-				Math.abs(displacement) < PAN_SNAP_SETTLE &&
-				Math.abs(panSnapVelocities[i]) < PAN_SNAP_SETTLE
-			) {
-				panByRow[i] = panSnapTargets[i];
-				panSnapVelocities[i] = 0;
-				panSnapping[i] = false;
+			if (progress >= 1) {
+				verticalT = animTargetT;
+				state = State.IDLE;
 			}
-
-			changed = true;
 		}
+
+		// Pan animations (independent per row)
+		for (let i = 0; i < numRows; i++) {
+			if (!panAnimating[i]) continue;
+
+			panAnimElapsed[i] += dt;
+			const progress = clamp(panAnimElapsed[i] / ANIMATE_DURATION, 0, 1);
+			const eased = easeOut(progress);
+
+			panByRow[i] = lerp(panAnimStart[i], panAnimTarget[i], eased);
+			changed = true;
+
+			if (progress >= 1) {
+				panByRow[i] = panAnimTarget[i];
+				panAnimating[i] = false;
+			}
+		}
+
 		return changed;
 	}
 
@@ -625,18 +676,21 @@ export function createMobileScrollController(
 
 	function resetTo(t: number): void {
 		verticalT = t;
-		stopAllMotion();
 		state = State.IDLE;
+		stopAllAnimations();
 		clearPointerTracking();
 		pendingTap = null;
 		inputDirty = false;
+		wheelAccumY = 0;
+		wheelAccumX = 0;
 		for (let i = 0; i < numRows; i++) {
 			panByRow[i] = 0;
 		}
 	}
 
 	function dispose(): void {
-		stopAllMotion();
+		state = State.IDLE;
+		stopAllAnimations();
 		clearPointerTracking();
 		pendingTap = null;
 		inputDirty = false;
