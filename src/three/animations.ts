@@ -542,7 +542,7 @@ export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
 }
 
 export function animateDictionaryClose(dict: DictionaryObject): Promise<void> {
-	const { frontCoverPivot, pagePacketRoot, pagePivots } = dict.parts;
+	const { frontCoverPivot, pagePivots } = dict.parts;
 
 	const curCover = frontCoverPivot.rotation.z;
 	const restCover = getRest(frontCoverPivot, "rz");
