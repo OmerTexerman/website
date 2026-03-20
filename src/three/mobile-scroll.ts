@@ -11,6 +11,34 @@ export interface MobileScrollConfig {
 	numRows: number;
 }
 
+interface LinearStop {
+	stopIndex: number;
+	verticalT: number;
+	panTarget: number;
+	row: number;
+}
+
+function buildLinearSequence(config: MobileScrollConfig): LinearStop[] {
+	const { verticalStops, panSnapPoints } = config;
+	const sequence: LinearStop[] = [];
+	for (let i = 0; i < verticalStops.length; i++) {
+		const points = panSnapPoints[i];
+		if (!points || points.length <= 1) {
+			sequence.push({
+				stopIndex: i,
+				verticalT: verticalStops[i],
+				panTarget: points?.[0] ?? 0,
+				row: i,
+			});
+		} else {
+			for (const p of points) {
+				sequence.push({ stopIndex: i, verticalT: verticalStops[i], panTarget: p, row: i });
+			}
+		}
+	}
+	return sequence;
+}
+
 export interface MobileScrollController {
 	onPointerDown(e: PointerEvent): boolean;
 	onPointerMove(e: PointerEvent): boolean;
@@ -144,6 +172,8 @@ export function createMobileScrollController(
 	config: MobileScrollConfig,
 ): MobileScrollController {
 	const { verticalStops, panSnapPoints, panLimit, numRows } = config;
+	const linearSequence = buildLinearSequence(config);
+	let linearIndex = Math.floor(linearSequence.length / 2);
 
 	let state: State = State.IDLE;
 	let verticalT = 0.5;
@@ -171,9 +201,7 @@ export function createMobileScrollController(
 	let inputDirty = false;
 
 	let wheelAccumY = 0;
-	let wheelAccumX = 0;
 	let lastWheelPageTimeY = 0;
-	let lastWheelPageTimeX = 0;
 	let wheelAxisLock: "v" | "h" | null = null;
 	let wheelGestureActive = false;
 	let wheelSettleTimer = 0;
@@ -355,7 +383,6 @@ export function createMobileScrollController(
 
 	function resetWheelState(): void {
 		wheelAccumY = 0;
-		wheelAccumX = 0;
 		wheelAxisLock = null;
 		wheelGestureActive = false;
 		if (wheelSettleTimer) {
@@ -527,7 +554,6 @@ export function createMobileScrollController(
 		wheelGestureActive = false;
 		wheelAxisLock = null;
 		wheelAccumY = 0;
-		wheelAccumX = 0;
 		if (wasContinuous) {
 			settleAll();
 			inputDirty = true;
@@ -542,70 +568,59 @@ export function createMobileScrollController(
 		}, WHEEL_SETTLE_DELAY_MS);
 	}
 
-	function onWheelDiscrete(rawY: number, rawX: number, now: number): boolean {
-		const deltaY = wheelAxisLock === "h" ? 0 : rawY;
-		const deltaX = wheelAxisLock === "v" ? 0 : rawX;
-		let changed = false;
+	function findNearestLinearIndex(): number {
+		const currentStop = nearestStopIndex(verticalT);
+		let bestIdx = 0;
+		let bestDist = Number.POSITIVE_INFINITY;
+		for (let i = 0; i < linearSequence.length; i++) {
+			const entry = linearSequence[i];
+			if (entry.row !== currentStop) continue;
+			const panDist = Math.abs(panByRow[entry.row] - entry.panTarget);
+			if (panDist < bestDist) {
+				bestIdx = i;
+				bestDist = panDist;
+			}
+		}
+		return bestIdx;
+	}
 
-		// Arm settle timer so axis lock clears when the wheel burst ends
+	function navigateToLinearStop(idx: number): boolean {
+		const target = linearSequence[idx];
+		linearIndex = idx;
+		let changed = beginVerticalAnimation(target.stopIndex);
+		changed = beginPanAnimation(target.row, target.panTarget) || changed;
+		// Snap other rows to their nearest snap point
+		for (let i = 0; i < numRows; i++) {
+			if (i === target.row) continue;
+			const points = panSnapPoints[i];
+			if (points && points.length > 0) {
+				changed = beginPanAnimation(i, nearestSnapPoint(panByRow[i], points)) || changed;
+			}
+		}
+		return changed;
+	}
+
+	function onWheelDiscrete(rawY: number, now: number): boolean {
+		wheelAccumY += rawY;
+		if (
+			Math.abs(wheelAccumY) < WHEEL_PAGE_THRESHOLD ||
+			now - lastWheelPageTimeY < WHEEL_COOLDOWN_MS
+		) {
+			armWheelSettle();
+			return false;
+		}
+
+		// Sync linear index to current position in case touch/trackpad moved us
+		linearIndex = findNearestLinearIndex();
+
+		const dir = wheelAccumY > 0 ? 1 : -1;
+		const nextIdx = clamp(linearIndex + dir, 0, linearSequence.length - 1);
+		wheelAccumY = 0;
+		lastWheelPageTimeY = now;
 		armWheelSettle();
 
-		if (deltaY !== 0) {
-			wheelAccumY += deltaY;
-			if (
-				Math.abs(wheelAccumY) >= WHEEL_PAGE_THRESHOLD &&
-				now - lastWheelPageTimeY >= WHEEL_COOLDOWN_MS
-			) {
-				const currentIdx =
-					state === State.ANIMATING ? nearestStopIndex(animTargetT) : nearestStopIndex(verticalT);
-				const dir: -1 | 1 = wheelAccumY > 0 ? -1 : 1;
-				changed = beginVerticalAnimation(adjacentStopIndex(currentIdx, dir)) || changed;
-				wheelAccumY = 0;
-				lastWheelPageTimeY = now;
-			}
-		}
-
-		if (deltaX !== 0) {
-			wheelAccumX += deltaX;
-			if (
-				Math.abs(wheelAccumX) >= WHEEL_PAGE_THRESHOLD &&
-				now - lastWheelPageTimeX >= WHEEL_COOLDOWN_MS
-			) {
-				const currentStopIdx =
-					state === State.ANIMATING ? nearestStopIndex(animTargetT) : nearestStopIndex(verticalT);
-				for (let i = 0; i < numRows; i++) {
-					const points = panSnapPoints[i];
-					if (!points || points.length <= 1) continue;
-					if (Math.abs(i - currentStopIdx) > 0.6) continue;
-
-					const currentSnap = panAnimating[i]
-						? panAnimTarget[i]
-						: nearestSnapPoint(panByRow[i], points);
-					const dir = wheelAccumX > 0 ? -1 : 1;
-					let bestTarget = currentSnap;
-					let bestDist = Number.POSITIVE_INFINITY;
-					for (const point of points) {
-						const diff = point - currentSnap;
-						if (dir > 0 && diff > 0.01 && diff < bestDist) {
-							bestTarget = point;
-							bestDist = diff;
-						} else if (dir < 0 && diff < -0.01 && Math.abs(diff) < bestDist) {
-							bestTarget = point;
-							bestDist = Math.abs(diff);
-						}
-					}
-
-					if (bestTarget !== currentSnap) {
-						changed = beginPanAnimation(i, bestTarget) || changed;
-					}
-				}
-
-				wheelAccumX = 0;
-				lastWheelPageTimeX = now;
-			}
-		}
-
-		return changed;
+		if (nextIdx === linearIndex) return false;
+		return navigateToLinearStop(nextIdx);
 	}
 
 	function hasHorizontalContent(): boolean {
@@ -642,16 +657,21 @@ export function createMobileScrollController(
 		const rawY = normalizeWheelDelta(e.deltaY, e.deltaMode);
 		const rawX = normalizeWheelDelta(e.deltaX, e.deltaMode);
 
-		// Axis lock: determine dominant direction from first significant delta
-		if (!wheelAxisLock && (Math.abs(rawX) > 1 || Math.abs(rawY) > 1)) {
-			wheelAxisLock = Math.abs(rawY) >= Math.abs(rawX) ? "v" : "h";
-		}
-
 		// deltaMode !== 0 means line or page units (discrete mouse wheel)
 		// deltaMode === 0 with pixel values is trackpad/continuous input
 		const discrete = e.deltaMode !== 0;
-		const changed = discrete ? onWheelDiscrete(rawY, rawX, now) : onWheelContinuous(rawY, rawX);
 
+		if (discrete) {
+			// Linear item navigation — no axis lock needed, vertical only
+			const changed = onWheelDiscrete(rawY, now);
+			return changed ? markChanged() : false;
+		}
+
+		// Continuous trackpad: apply axis lock
+		if (!wheelAxisLock && (Math.abs(rawX) > 1 || Math.abs(rawY) > 1)) {
+			wheelAxisLock = Math.abs(rawY) >= Math.abs(rawX) ? "v" : "h";
+		}
+		const changed = onWheelContinuous(rawY, rawX);
 		return changed ? markChanged() : false;
 	}
 
