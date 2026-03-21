@@ -528,7 +528,8 @@ export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
 	saveRest(frontCoverPivot, "rz", frontCoverPivot.rotation.z);
 	saveRest(basePageBlock, "sy", basePageBlock.scale.y);
 	saveRest(basePageBlock, "y", basePageBlock.position.y);
-	for (const { curveJoints } of pageLeaves) {
+	for (const { flipPivot, curveJoints } of pageLeaves) {
+		saveRest(flipPivot, "rz", flipPivot.rotation.z);
 		for (const joint of curveJoints) {
 			saveRest(joint, "rz", joint.rotation.z);
 		}
