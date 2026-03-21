@@ -4,5 +4,6 @@ export function formatDate(date: Date, style: "short" | "long" = "short"): strin
 		year: "numeric",
 		month: style,
 		day: "numeric",
+		timeZone: "UTC",
 	});
 }

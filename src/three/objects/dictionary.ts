@@ -50,6 +50,7 @@ const LEAF_SEGMENT_COUNT = 20;
 const LEAF_SEGMENT_OVERLAP = 0.006;
 const LEAF_SPINE_SHOULDER_X = 0.01;
 const LEAF_SPINE_SHOULDER_Y = 0.012;
+const COVER_CLEARANCE = 0.002;
 
 // ─── Segment widths (computed once at module scope) ─────────────
 function createSegmentWidths(
@@ -80,6 +81,15 @@ const SEGMENT_GEOS = SEGMENT_WIDTHS.map(
 const LEAF_MAT_LIGHT = new MeshStandardMaterial({ color: new Color("#f0e8d8"), roughness: 1.0 });
 const LEAF_MAT_DARK = new MeshStandardMaterial({ color: new Color("#e4dcc8"), roughness: 1.0 });
 
+const dictionaryGoldBorderMaterial = new MeshStandardMaterial({
+	color: new Color(DICTIONARY_GOLD),
+	roughness: 0.3,
+	metalness: 0.55,
+	transparent: true,
+	opacity: 0.45,
+	side: DoubleSide,
+});
+
 /** Dictionary → links to /word-of-the-day
  *
  *  Lies flat. Spine binding on the left.
@@ -89,7 +99,7 @@ export function createDictionary(): DictionaryObject {
 	const dictionary = new Group();
 	applySectionInteraction(dictionary, "wordOfTheDay");
 
-	const totalThickness = COVER_THICK * 2 + BASE_PAGE_THICK + PACKET_THICK + 0.002;
+	const totalThickness = COVER_THICK * 2 + BASE_PAGE_THICK + PACKET_THICK + COVER_CLEARANCE;
 
 	// ─── Spine block ─────────────────────────────────────────────
 	const spineBlock = new Mesh(
@@ -124,12 +134,13 @@ export function createDictionary(): DictionaryObject {
 	dictionary.add(backCover);
 
 	// ─── Base page block ─────────────────────────────────────────
-	const basePages = new Mesh(
+	const basePageBlock = new Mesh(
 		new BoxGeometry(PAGE_W, BASE_PAGE_THICK, PAGE_D),
 		dictionaryPagesMaterial,
 	);
-	basePages.position.set(HINGE_X + PAGE_W / 2, COVER_THICK + BASE_PAGE_THICK / 2, 0);
-	dictionary.add(basePages);
+	basePageBlock.position.set(HINGE_X + PAGE_W / 2, COVER_THICK + BASE_PAGE_THICK / 2, 0);
+	basePageBlock.receiveShadow = true;
+	dictionary.add(basePageBlock);
 
 	// ─── Page leaves ─────────────────────────────────────────────
 	const pageLeaves: PageLeaf[] = [];
@@ -153,8 +164,11 @@ export function createDictionary(): DictionaryObject {
 			const segment = new Mesh(SEGMENT_GEOS[seg], leafMat);
 			const offsetY = seg === 0 ? LEAF_THICK / 2 : 0;
 			segment.position.set(segW / 2, offsetY, 0);
-			segment.castShadow = true;
-			segment.receiveShadow = true;
+			// Only first and last segments need shadow — inner segments
+			// are visually occluded and save shadow map passes
+			const isEdge = seg === 0 || seg === SEGMENT_WIDTHS.length - 1;
+			segment.castShadow = isEdge;
+			segment.receiveShadow = isEdge;
 			parent.add(segment);
 
 			if (seg === SEGMENT_WIDTHS.length - 1) continue;
@@ -171,7 +185,11 @@ export function createDictionary(): DictionaryObject {
 
 	// ─── Front cover ─────────────────────────────────────────────
 	const frontCoverPivot = new Group();
-	frontCoverPivot.position.set(HINGE_X, COVER_THICK + BASE_PAGE_THICK + PACKET_THICK + 0.002, 0);
+	frontCoverPivot.position.set(
+		HINGE_X,
+		COVER_THICK + BASE_PAGE_THICK + PACKET_THICK + COVER_CLEARANCE,
+		0,
+	);
 	dictionary.add(frontCoverPivot);
 
 	const frontCover = new Mesh(
@@ -184,15 +202,10 @@ export function createDictionary(): DictionaryObject {
 	frontCoverPivot.add(frontCover);
 
 	// Gold border
-	const borderMat = new MeshStandardMaterial({
-		color: new Color(DICTIONARY_GOLD),
-		roughness: 0.3,
-		metalness: 0.55,
-		transparent: true,
-		opacity: 0.45,
-		side: DoubleSide,
-	});
-	const border = new Mesh(new PlaneGeometry(COVER_W - 0.06, DEPTH - 0.06), borderMat);
+	const border = new Mesh(
+		new PlaneGeometry(COVER_W - 0.06, DEPTH - 0.06),
+		dictionaryGoldBorderMaterial,
+	);
 	border.rotation.x = -Math.PI / 2;
 	border.position.set(COVER_W / 2, COVER_THICK + 0.001, 0);
 	frontCoverPivot.add(border);
@@ -215,6 +228,6 @@ export function createDictionary(): DictionaryObject {
 
 	return {
 		root: dictionary,
-		parts: { frontCoverPivot, pageLeaves, basePageBlock: basePages },
+		parts: { frontCoverPivot, pageLeaves, basePageBlock },
 	};
 }

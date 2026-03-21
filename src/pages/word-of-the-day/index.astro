@@ -48,7 +48,7 @@ const archive = words.slice(1);
             <h2 class="wotd-archive-heading">Previous Words</h2>
             <div class="wotd-archive-list">
               {archive.map((entry, i) => (
-                <div class="wotd-archive-item" data-animate style={`transition-delay: ${i * 0.06}s`}>
+                <div class="wotd-archive-item" data-animate style={`transition-delay: ${Math.min(i * 0.06, 0.5)}s`}>
                   <div class="wotd-archive-word-row">
                     <span class="wotd-archive-word">{entry.word}</span>
                     {entry.partOfSpeech && (

@@ -272,7 +272,6 @@ export function initUnifiedScene(
 	let pendingModalTimeout = 0;
 	let transitionAnimationId = 0;
 	let transitionResolve: (() => void) | null = null;
-	const postTransitionRaf = 0;
 
 	// Wall state — lazily created
 	let deskCreated = false;
@@ -1051,18 +1050,9 @@ export function initUnifiedScene(
 			composer.render();
 			targetInterval = 0;
 		} else {
-			// scrollController will be created by setupModeInteractions() below
 			syncMobileShelfCamera(0.5, [0, 0, 0]);
 			setDeskVisible(false);
 			applyRenderSettings("mobile");
-			// setPixelRatio clears the canvas buffer — render immediately
-			// so the browser never paints a black frame
-			renderer.render(scene, camera);
-			targetInterval = 0;
-			setDeskVisible(false);
-			applyRenderSettings("mobile");
-			// setPixelRatio clears the canvas buffer — render immediately
-			// so the browser never paints a black frame
 			renderer.render(scene, camera);
 			targetInterval = 0;
 		}
@@ -1091,7 +1081,6 @@ export function initUnifiedScene(
 			transitionResolve();
 			transitionResolve = null;
 		}
-		if (postTransitionRaf) cancelAnimationFrame(postTransitionRaf);
 		if (pendingModalTimeout) window.clearTimeout(pendingModalTimeout);
 		if (cleanupInteraction) cleanupInteraction();
 		if (cleanupDrag) cleanupDrag();
