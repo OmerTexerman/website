@@ -116,6 +116,7 @@ interface ShelfSceneData {
 	entries: ShelfSceneEntry[];
 	entryByTarget: Map<Object3D, ShelfSceneEntry>;
 	decorByTarget: Map<Object3D, ShelfDecorEntry>;
+	cleanup?: () => void;
 }
 
 type OpenSelection =
@@ -486,6 +487,7 @@ export function initUnifiedScene(
 			...shelf,
 			entryByTarget: new Map(shelf.entries.map((entry) => [entry.target, entry])),
 			decorByTarget: new Map(shelf.decor.map((d) => [d.target, d])),
+			cleanup: shelf.cleanup,
 		};
 		room.add(shelf.wall);
 	}
@@ -609,7 +611,7 @@ export function initUnifiedScene(
 				// Check decorative items first
 				const decorEntry = shelf.decorByTarget.get(interaction.object);
 				if (decorEntry) {
-					clickLockedUntil = performance.now() + 200;
+					clickLockedUntil = performance.now() + 1000;
 					decorEntry.activate();
 					dirty = true;
 					trackEvent("shelf_decor_tap", { label: decorEntry.label });
@@ -1096,6 +1098,7 @@ export function initUnifiedScene(
 		if (cleanupDrag) cleanupDrag();
 		if (cleanupMobileShelfControls) cleanupMobileShelfControls();
 		cleanupModalClose?.();
+		shelfScene?.cleanup?.();
 		labelController.dispose();
 		disposeObjectResources(scene);
 

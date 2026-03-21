@@ -42,7 +42,7 @@ import {
 import { SHELF_BOT_Y, SHELF_MID_Y, SHELF_TOP_Y, SHELF_WALL_X, SHELF_WALL_Z } from "../shelf-layout";
 import { createSpineTexture } from "../spine-texture";
 import { createShelfCandle, toggleCandle } from "./shelf-candle";
-import { createShelfClock } from "./shelf-clock";
+import { createShelfClock, syncClockToTime } from "./shelf-clock";
 import { createShelfHeadphones } from "./shelf-headphones";
 
 export interface ShelfDecorEntry {
@@ -55,6 +55,7 @@ export interface ShelfWallResult {
 	wall: Group;
 	entries: ShelfSceneEntry[];
 	decor: ShelfDecorEntry[];
+	cleanup?: () => void;
 }
 
 export interface ShelfSceneEntry {
@@ -484,5 +485,15 @@ export function createShelfWall(books?: ShelfBook[]): ShelfWallResult {
 		},
 	});
 
-	return { wall, entries, decor };
+	// Resync clock hands to actual time every 30 s
+	const clockSyncInterval = window.setInterval(() => syncClockToTime(clock), 30_000);
+
+	return {
+		wall,
+		entries,
+		decor,
+		cleanup: () => {
+			window.clearInterval(clockSyncInterval);
+		},
+	};
 }
