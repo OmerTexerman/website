@@ -36,6 +36,37 @@ function markIntroPlayed(): void {
 	}
 }
 
+/**
+ * Replace a canvas whose WebGL context was destroyed during a prior cleanup
+ * (e.g. before bfcache storage) with a fresh element so Three.js can obtain
+ * a working context.
+ *
+ * Detection uses a `data-context-lost` marker set by unified-scene cleanup
+ * rather than probing `getContext()` — probing would create a context with
+ * default attributes, preventing Three.js from setting antialias /
+ * powerPreference later.
+ *
+ * Returns the usable canvas — either the original (if healthy) or the
+ * replacement that was swapped into the DOM.
+ */
+function ensureFreshCanvas(canvas: HTMLCanvasElement): HTMLCanvasElement {
+	if (canvas.dataset.contextLost !== "true") return canvas;
+
+	const fresh = canvas.cloneNode(false) as HTMLCanvasElement;
+	delete fresh.dataset.contextLost;
+	canvas.replaceWith(fresh);
+	return fresh;
+}
+
+/**
+ * Clear any leftover label elements from a prior mount so the new
+ * label controller starts with a clean container.
+ */
+function clearStaleLabels(): void {
+	const labels = document.getElementById("scene-labels");
+	if (labels) labels.innerHTML = "";
+}
+
 /** Tracks the active mount's cleanup so HMR re-execution tears down the old instance first. */
 let activeCleanup: (() => void) | null = null;
 
@@ -74,15 +105,52 @@ export function mountSceneApp(): () => void {
 	async function applyMode(mode: "desktop" | "mobile"): Promise<void> {
 		const gen = generation;
 		if (!sceneHandle) {
-			const canvas = document.getElementById("scene-canvas");
+			let canvas = document.getElementById("scene-canvas");
 			const labels = document.getElementById("scene-labels");
 			if (!(canvas instanceof HTMLCanvasElement) || !(labels instanceof HTMLElement)) return;
+
+			// Swap out any canvas with a dead WebGL context (bfcache, GPU reset, …)
+			canvas = ensureFreshCanvas(canvas);
 
 			const { initUnifiedScene } = await import("../three/unified-scene");
 			// If cleanup ran while the import was in flight, abandon this mount
 			if (gen !== generation) return;
+
+			// Re-check the canvas after the async gap — another mount could
+			// have replaced it, or the context could have been lost while we
+			// were waiting for the dynamic import.
+			let currentCanvas = document.getElementById("scene-canvas");
+			if (!(currentCanvas instanceof HTMLCanvasElement)) return;
+			currentCanvas = ensureFreshCanvas(currentCanvas);
+
 			const skipIntro = hasPlayedIntro();
-			sceneHandle = initUnifiedScene(canvas, labels, mode, parseBooks(root), { skipIntro });
+
+			try {
+				sceneHandle = initUnifiedScene(currentCanvas, labels, mode, parseBooks(root), {
+					skipIntro,
+				});
+			} catch (initError) {
+				// Last-resort recovery: replace canvas and try once more
+				console.warn("Scene init failed, retrying with fresh canvas", initError);
+				const retryCanvas = document.createElement("canvas");
+				retryCanvas.id = currentCanvas.id;
+				retryCanvas.className = currentCanvas.className;
+				const ariaLabel = currentCanvas.getAttribute("aria-label");
+				if (ariaLabel) retryCanvas.setAttribute("aria-label", ariaLabel);
+				currentCanvas.replaceWith(retryCanvas);
+
+				try {
+					sceneHandle = initUnifiedScene(retryCanvas, labels, mode, parseBooks(root), {
+						skipIntro,
+					});
+				} catch (retryError) {
+					console.error("Scene init failed after retry — showing fallback", retryError);
+					document.documentElement.dataset.sceneFallback = "visible";
+					setFallbackVisible(true);
+					return;
+				}
+			}
+
 			markIntroPlayed();
 			(window as Window & { __sceneHandle?: SceneHandle }).__sceneHandle = sceneHandle;
 			window.clearTimeout(fallbackTimer);
@@ -122,6 +190,7 @@ export function mountSceneApp(): () => void {
 				})
 			: null;
 
+	clearStaleLabels();
 	setFallbackVisible(false);
 	fallbackTimer = window.setTimeout(() => {
 		if (!sceneHandle) {
@@ -154,6 +223,13 @@ export function mountSceneApp(): () => void {
 	activeCleanup = cleanup;
 
 	document.addEventListener("astro:before-preparation", cleanup, {
+		once: true,
+		signal: listenerAc.signal,
+	});
+	// pagehide fires reliably before bfcache storage (and permanent unloads)
+	// in all modern browsers.  Keep beforeunload as a belt-and-suspenders
+	// fallback — whichever fires first aborts the other via listenerAc.
+	window.addEventListener("pagehide", cleanup, {
 		once: true,
 		signal: listenerAc.signal,
 	});

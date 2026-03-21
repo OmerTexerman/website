@@ -1131,6 +1131,10 @@ export function initUnifiedScene(
 		const gl = renderer.getContext();
 		gl.getExtension("WEBGL_lose_context")?.loseContext();
 		renderer.dispose();
+
+		// Mark the canvas so scene-app can detect that this canvas needs to
+		// be replaced before any re-mount (e.g. after bfcache restore).
+		canvas.dataset.contextLost = "true";
 	}
 
 	return { cleanup, transition };

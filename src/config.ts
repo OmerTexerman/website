@@ -49,9 +49,9 @@ export const site = {
 } as const;
 
 export const homeLink = {
-	label: "Desk",
+	label: "Home",
 	href: "/",
-	backLabel: "Back to desk",
+	backLabel: "Back home",
 } as const;
 
 const sectionOrder = ["blog", "projects", "reading", "photos", "wordOfTheDay"] as const;
@@ -128,7 +128,15 @@ export function getSectionPageTitle(section: SiteSection): string {
 
 export function getBackLabel(href: string): string {
 	const normalizedHref = normalizeSectionHref(href);
-	if (normalizedHref === homeLink.href) return homeLink.backLabel;
+	if (normalizedHref === homeLink.href) {
+		// On mobile the homepage shows a shelf, on desktop a desk.
+		// This runs client-side only (from context-back-link.ts), so window
+		// is always available.
+		if (typeof window !== "undefined" && window.innerWidth < 768) {
+			return "Back to shelf";
+		}
+		return "Back to desk";
+	}
 	return getSectionByHref(normalizedHref)?.backLabel ?? "Go back";
 }
 
