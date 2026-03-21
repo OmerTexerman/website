@@ -885,8 +885,9 @@ export function initUnifiedScene(
 			}
 		}
 
-		// Update labels (desktop only, not during transition)
-		if (currentMode === "desktop" && !transitioning) {
+		// Update labels (not during transition; in mobile mode only keyboard
+		// Tab sets currentHover since pointer hover is disabled)
+		if (!transitioning) {
 			labelController.update(currentHover, camera, canvas);
 		} else {
 			labelController.update(null, camera, canvas);
