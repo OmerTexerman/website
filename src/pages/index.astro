@@ -11,7 +11,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
   fullscreen
 >
   <div class="fixed inset-0 h-dvh min-h-screen overflow-hidden bg-dark">
-    <div id="scene-fallback" class="absolute inset-0 z-10 flex items-end sm:items-center justify-center px-4 py-8 sm:px-6 pointer-events-none">
+    <div id="scene-fallback" class="absolute inset-0 z-10 flex items-end sm:items-center justify-center px-4 py-8 sm:px-6 pointer-events-none" inert aria-hidden="true">
       <div class="max-w-xl rounded-2xl border border-white/10 bg-dark-surface/90 p-6 sm:p-8 shadow-2xl backdrop-blur-md">
         <p class="font-mono text-xs uppercase tracking-[0.3em] text-accent mb-3">Portfolio</p>
         <h1 class="font-display text-4xl sm:text-5xl font-bold tracking-tight text-cream mb-4">

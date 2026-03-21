@@ -740,7 +740,8 @@ export function initUnifiedScene(
 				canvas,
 				camera,
 				scene,
-				() => {
+				(interaction) => {
+					currentHover = interaction;
 					dirty = true;
 				},
 				handleShelfInteraction,
@@ -837,8 +838,8 @@ export function initUnifiedScene(
 			}
 		}
 
-		// Update labels (desktop only, not during transition)
-		if (currentMode === "desktop" && !transitioning) {
+		// Update labels (not during transition)
+		if (!transitioning) {
 			labelController.update(currentHover, camera, canvas);
 		} else {
 			labelController.update(null, camera, canvas);
