@@ -4,6 +4,10 @@ import { z } from "astro/zod";
 
 const hexColor = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
 const photoSource = /^(?:\/|https?:\/\/).+/i;
+const optionalPhoto = z
+	.string()
+	.transform((v) => v || undefined)
+	.pipe(z.string().regex(photoSource, "Image must be an absolute path or URL.").optional());
 
 const blog = defineCollection({
 	loader: glob({ pattern: "**/*.md", base: "./src/content/blog" }),
@@ -23,7 +27,7 @@ const projects = defineCollection({
 		title: z.string(),
 		description: z.string(),
 		tech: z.array(z.string()),
-		image: z.string().regex(photoSource, "Image must be an absolute path or URL.").optional(),
+		image: optionalPhoto,
 		url: z.url().optional(),
 		repo: z.url().optional(),
 		order: z.number().default(0),
@@ -37,7 +41,7 @@ const books = defineCollection({
 		title: z.string(),
 		author: z.string(),
 		spineColor: z.string().regex(hexColor).default("#2a4a6a"),
-		cover: z.string().regex(photoSource, "Cover must be an absolute path or URL.").optional(),
+		cover: optionalPhoto,
 		status: z.enum(["reading", "finished", "want-to-read"]),
 		url: z.url().optional(),
 		post: z.string().optional(),
@@ -75,7 +79,7 @@ const words = defineCollection({
 			noon.setUTCHours(12, 0, 0, 0);
 			return noon;
 		}),
-		image: z.string().regex(photoSource, "Image must be an absolute path or URL.").optional(),
+		image: optionalPhoto,
 	}),
 });
 
