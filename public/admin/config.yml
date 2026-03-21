@@ -1,6 +1,6 @@
 backend:
   name: github
-  repo: OmerTexerman/portfolio
+  repo: OmerTexerman/website
   branch: main
   base_url: https://sveltia-cms-auth.omer-850.workers.dev
 
