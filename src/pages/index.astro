@@ -59,11 +59,26 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
     let cleanup = mountSceneApp();
 
-    // Re-mount after bfcache restore — the WebGL context was destroyed on
-    // beforeunload but the DOM is reused, so we need a fresh scene.
+    // Re-mount after bfcache restore — the WebGL context was force-lost on
+    // beforeunload so we must swap in a fresh canvas before re-mounting.
     window.addEventListener("pageshow", (e) => {
       if (!e.persisted) return;
       cleanup();
+
+      // The old canvas holds a dead WebGL context (WEBGL_lose_context was
+      // called during cleanup).  Calling getContext() on it returns the same
+      // lost context, so Three.js can't create a working renderer.  Replace
+      // the element with a clone so the new mount gets a blank slate.
+      const old = document.getElementById("scene-canvas");
+      if (old instanceof HTMLCanvasElement) {
+        const fresh = old.cloneNode(false) as HTMLCanvasElement;
+        old.replaceWith(fresh);
+      }
+
+      // Clear any stale label DOM left over from the previous session.
+      const labels = document.getElementById("scene-labels");
+      if (labels) labels.innerHTML = "";
+
       cleanup = mountSceneApp();
     });
 
