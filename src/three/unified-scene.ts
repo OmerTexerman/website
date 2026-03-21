@@ -86,6 +86,9 @@ import {
 	MOBILE_SHELF_STOPS,
 	MOBILE_TRANSITION_MID_LOOK,
 	MOBILE_TRANSITION_MID_POS,
+	SHELF_BOT_Y,
+	SHELF_MID_Y,
+	SHELF_TOP_Y,
 } from "./shelf-layout";
 
 interface DeskSectionEntity {
@@ -631,6 +634,43 @@ export function initUnifiedScene(
 			const sc = scrollController;
 			const shelf = shelfScene;
 			const interactionPicker = createInteractionPicker(canvas, camera, scene);
+
+			// Build a map from shelf entry target → linear scroll stop index so
+			// keyboard Tab navigation can scroll the camera to the focused item.
+			const shelfStopByTarget = new Map<Object3D, number>();
+			{
+				const shelfYs = [SHELF_BOT_Y, SHELF_MID_Y, SHELF_TOP_Y];
+				const byRow = new Map<number, { target: Object3D; z: number }[]>();
+				for (const entry of shelf.entries) {
+					const y = entry.item.position.y;
+					let row = 0;
+					let bestDist = Math.abs(y - shelfYs[0]);
+					for (let i = 1; i < shelfYs.length; i++) {
+						const d = Math.abs(y - shelfYs[i]);
+						if (d < bestDist) {
+							row = i;
+							bestDist = d;
+						}
+					}
+					if (!byRow.has(row)) byRow.set(row, []);
+					byRow.get(row)?.push({ target: entry.target, z: entry.item.position.z });
+				}
+				// Within each row, sort by Z ascending (lower Z = first/left pan snap)
+				for (const items of byRow.values()) {
+					items.sort((a, b) => a.z - b.z);
+				}
+				// Compute linear index: sum of pan snap counts for preceding rows + pan index
+				let offset = 0;
+				for (let row = 0; row < MOBILE_SHELF_SCROLL.panSnapPoints.length; row++) {
+					const rowItems = byRow.get(row);
+					if (rowItems) {
+						for (let i = 0; i < rowItems.length; i++) {
+							shelfStopByTarget.set(rowItems[i].target, offset + i);
+						}
+					}
+					offset += MOBILE_SHELF_SCROLL.panSnapPoints[row].length;
+				}
+			}
 			const previousTouchAction = canvas.style.touchAction;
 			canvas.style.touchAction = "none";
 
@@ -743,6 +783,13 @@ export function initUnifiedScene(
 				(interaction) => {
 					currentHover = interaction;
 					dirty = true;
+					// Scroll the shelf camera to the focused item on keyboard Tab
+					if (interaction) {
+						const stopIdx = shelfStopByTarget.get(interaction.object);
+						if (stopIdx !== undefined && sc.navigateToLinearStop(stopIdx)) {
+							dirty = true;
+						}
+					}
 				},
 				handleShelfInteraction,
 				{ enableHover: false, enablePointerClick: false },
@@ -838,8 +885,8 @@ export function initUnifiedScene(
 			}
 		}
 
-		// Update labels (not during transition)
-		if (!transitioning) {
+		// Update labels (desktop only, not during transition)
+		if (currentMode === "desktop" && !transitioning) {
 			labelController.update(currentHover, camera, canvas);
 		} else {
 			labelController.update(null, camera, canvas);
