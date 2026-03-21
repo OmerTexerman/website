@@ -96,8 +96,13 @@ export function mountSceneApp(): () => void {
 
 	function setFallbackVisible(visible: boolean): void {
 		if (!(fallback instanceof HTMLElement)) return;
-		fallback.setAttribute("aria-hidden", visible ? "false" : "true");
-		fallback.inert = !visible;
+		if (visible) {
+			fallback.removeAttribute("aria-hidden");
+			fallback.removeAttribute("inert");
+		} else {
+			fallback.setAttribute("aria-hidden", "true");
+			fallback.setAttribute("inert", "");
+		}
 	}
 
 	function modeFromSceneWidth(): "desktop" | "mobile" {

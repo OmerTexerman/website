@@ -54,6 +54,10 @@ export interface MobileScrollController {
 	readonly panByRow: readonly number[];
 	/** Consume a pending tap event, or null if none */
 	consumeTap(): { clientX: number; clientY: number } | null;
+	/** Animate to a specific linear stop by index. Returns true if animation started. */
+	navigateToLinearStop(idx: number): boolean;
+	/** Total number of linear stops (rows × pan snap points). */
+	readonly linearStopCount: number;
 	/** Hard-reset position (used after transitions) */
 	resetTo(t: number): boolean;
 	dispose(): void;
@@ -806,6 +810,13 @@ export function createMobileScrollController(
 			return panByRow;
 		},
 		consumeTap,
+		navigateToLinearStop(idx: number): boolean {
+			const clamped = clamp(idx, 0, linearSequence.length - 1);
+			return navigateToLinearStop(clamped) ? markChanged() : false;
+		},
+		get linearStopCount() {
+			return linearSequence.length;
+		},
 		resetTo,
 		dispose,
 	};

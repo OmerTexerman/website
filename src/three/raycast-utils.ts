@@ -35,11 +35,21 @@ export function collectMeshesBy(scene: Scene, key: string): Mesh[] {
 	return meshes;
 }
 
-/** Collect top-level groups matching a userData key */
+/** Check if an object and all its ancestors are visible */
+function isWorldVisible(obj: Object3D): boolean {
+	let current: Object3D | null = obj;
+	while (current) {
+		if (!current.visible) return false;
+		current = current.parent;
+	}
+	return true;
+}
+
+/** Collect top-level groups matching a userData key (only visible objects) */
 export function collectGroupsBy(scene: Scene, key: string): Object3D[] {
 	const groups: Object3D[] = [];
 	scene.traverse((child) => {
-		if (child.userData?.[key]) groups.push(child);
+		if (child.userData?.[key] && isWorldVisible(child)) groups.push(child);
 	});
 	return groups;
 }
