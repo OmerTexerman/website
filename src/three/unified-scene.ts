@@ -125,6 +125,7 @@ interface ShelfSceneData {
 	entries: ShelfSceneEntry[];
 	entryByTarget: Map<Object3D, ShelfSceneEntry>;
 	decorByTarget: Map<Object3D, ShelfDecorEntry>;
+	hoverTargets: Object3D[];
 	cleanup?: () => void;
 }
 
@@ -520,6 +521,7 @@ export function initUnifiedScene(
 			...shelf,
 			entryByTarget: new Map(shelf.entries.map((entry) => [entry.target, entry])),
 			decorByTarget: new Map(shelf.decor.map((d) => [d.target, d])),
+			hoverTargets: [...shelf.entries.map((e) => e.target), ...shelf.decor.map((d) => d.target)],
 			cleanup: shelf.cleanup,
 		};
 		room.add(shelf.wall);
@@ -792,7 +794,7 @@ export function initUnifiedScene(
 					}
 				},
 				handleShelfInteraction,
-				{ enableHover: false, enablePointerClick: false },
+				{ enableHover: true, enablePointerClick: false },
 			);
 		}
 
@@ -873,14 +875,18 @@ export function initUnifiedScene(
 			}
 		}
 
-		// Hover scale lerp (desktop only)
-		if (currentMode === "desktop" && deskScene && !transitioning) {
-			for (const obj of deskScene.hoverTargets) {
-				const target = currentHover?.object === obj ? HOVER_SCALE : 1;
-				const delta = target - obj.scale.x;
-				if (Math.abs(delta) > 0.001) {
-					obj.scale.setScalar(obj.scale.x + delta * HOVER_LERP);
-					dirty = true;
+		// Hover scale lerp
+		if (!transitioning) {
+			const hoverTargets =
+				currentMode === "desktop" ? deskScene?.hoverTargets : shelfScene?.hoverTargets;
+			if (hoverTargets) {
+				for (const obj of hoverTargets) {
+					const target = currentHover?.object === obj ? HOVER_SCALE : 1;
+					const delta = target - obj.scale.x;
+					if (Math.abs(delta) > 0.001) {
+						obj.scale.setScalar(obj.scale.x + delta * HOVER_LERP);
+						dirty = true;
+					}
 				}
 			}
 		}
