@@ -1,0 +1,68 @@
+---
+import { getSectionById } from "../../config";
+import { getAllWords } from "../../content/selectors";
+import ContentPage from "../../layouts/ContentPage.astro";
+import { formatDate } from "../../utils";
+
+const section = getSectionById("wordOfTheDay");
+const words = await getAllWords();
+const latestWord = words[0];
+const archive = words.slice(1);
+---
+
+<ContentPage section={section} surface={false} containerWidthClass="max-w-3xl" showIntro={false}>
+  <div class="wotd-page" data-animate>
+    {!latestWord ? (
+      <p class="wotd-empty">no words yet :)</p>
+    ) : (
+      <>
+        {/* Today's word — calendar card */}
+        <div class="wotd-card">
+          <div class="wotd-card-tab">
+            <span class="wotd-tab-label">Word of the Day</span>
+            <span class="wotd-tab-date">{formatDate(latestWord.date, "long", { utc: true })}</span>
+          </div>
+
+          <div class="wotd-card-body">
+            <h1 class="wotd-word">{latestWord.word}</h1>
+
+            {latestWord.partOfSpeech && (
+              <span class="wotd-pos">/{latestWord.partOfSpeech}/</span>
+            )}
+
+            <div class="wotd-accent-line" aria-hidden="true"></div>
+
+            <p class="wotd-quip">{latestWord.quip}</p>
+
+            {latestWord.image && (
+              <div class="wotd-image">
+                <img src={latestWord.image} alt={latestWord.word} loading="eager" />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Archive */}
+        {archive.length > 0 && (
+          <div class="wotd-archive">
+            <h2 class="wotd-archive-heading">Previous Words</h2>
+            <div class="wotd-archive-list">
+              {archive.map((entry, i) => (
+                <div class="wotd-archive-item" data-animate style={`transition-delay: ${Math.min(i * 0.06, 0.5)}s`}>
+                  <div class="wotd-archive-word-row">
+                    <span class="wotd-archive-word">{entry.word}</span>
+                    {entry.partOfSpeech && (
+                      <span class="wotd-archive-pos">/{entry.partOfSpeech}/</span>
+                    )}
+                    <span class="wotd-archive-date">{formatDate(entry.date, "short", { utc: true })}</span>
+                  </div>
+                  <p class="wotd-archive-quip">{entry.quip}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </>
+    )}
+  </div>
+</ContentPage>

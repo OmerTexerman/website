@@ -1,4 +1,4 @@
-import { Color, MeshPhysicalMaterial, MeshStandardMaterial } from "three";
+import { Color, DoubleSide, MeshPhysicalMaterial, MeshStandardMaterial } from "three";
 import {
 	ACCENT,
 	CERAMIC,
@@ -7,6 +7,10 @@ import {
 	DARK_CHARCOAL,
 	DARK_METAL,
 	DARK_WOOD,
+	DICTIONARY_GOLD,
+	DICTIONARY_LEATHER,
+	DICTIONARY_PAGES,
+	DICTIONARY_SPINE,
 	METAL,
 	NOTEBOOK_RED,
 	PCB_GREEN,
@@ -115,4 +119,37 @@ export const cameraBodyMaterial = new MeshStandardMaterial({
 	color: new Color(DARK_CHARCOAL),
 	roughness: 0.4,
 	metalness: 0.6,
+});
+
+export const dictionaryLeatherMaterial = new MeshStandardMaterial({
+	color: new Color(DICTIONARY_LEATHER),
+	roughness: 0.75,
+	metalness: 0.0,
+});
+
+export const dictionaryGoldMaterial = new MeshStandardMaterial({
+	color: new Color(DICTIONARY_GOLD),
+	roughness: 0.3,
+	metalness: 0.6,
+});
+
+export const dictionaryPagesMaterial = new MeshStandardMaterial({
+	color: new Color(DICTIONARY_PAGES),
+	roughness: 1.0,
+	metalness: 0.0,
+});
+
+export const dictionarySpineMaterial = new MeshStandardMaterial({
+	color: new Color(DICTIONARY_SPINE),
+	roughness: 0.7,
+	metalness: 0.0,
+});
+
+export const dictionaryGoldBorderMaterial = new MeshStandardMaterial({
+	color: new Color(DICTIONARY_GOLD),
+	roughness: 0.3,
+	metalness: 0.55,
+	transparent: true,
+	opacity: 0.45,
+	side: DoubleSide,
 });

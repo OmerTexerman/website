@@ -54,7 +54,7 @@ export const homeLink = {
 	backLabel: "Back to desk",
 } as const;
 
-const sectionOrder = ["blog", "projects", "reading", "photos"] as const;
+const sectionOrder = ["blog", "projects", "reading", "photos", "wordOfTheDay"] as const;
 
 export type SectionId = (typeof sectionOrder)[number];
 
@@ -64,6 +64,7 @@ export interface SiteSection {
 	href: `/${string}`;
 	description: string;
 	backLabel: string;
+	hidden?: boolean;
 }
 
 export const sections: Record<SectionId, SiteSection> = {
@@ -95,9 +96,17 @@ export const sections: Record<SectionId, SiteSection> = {
 		description: "Shit I take pictures of",
 		backLabel: "Back to photos",
 	},
+	wordOfTheDay: {
+		id: "wordOfTheDay",
+		label: "Word of the Day",
+		href: "/word-of-the-day",
+		description: "Daily dose of vocab",
+		backLabel: "Back to words",
+		hidden: true,
+	},
 };
 
-export const orderedSections = sectionOrder.map((id) => sections[id]);
+export const orderedSections = sectionOrder.map((id) => sections[id]).filter((s) => !s.hidden);
 
 function normalizeSectionHref(href: string): string {
 	if (href === "" || href === "/") return "/";
@@ -110,7 +119,7 @@ export function getSectionById(id: SectionId): SiteSection {
 
 export function getSectionByHref(href: string): SiteSection | undefined {
 	const normalizedHref = normalizeSectionHref(href);
-	return orderedSections.find((section) => section.href === normalizedHref);
+	return Object.values(sections).find((section) => section.href === normalizedHref);
 }
 
 export function getSectionPageTitle(section: SiteSection): string {

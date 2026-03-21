@@ -32,6 +32,9 @@ import {
 	cameraBodyMaterial,
 	createBookMaterial,
 	darkMetalMaterial,
+	dictionaryGoldMaterial,
+	dictionaryLeatherMaterial,
+	dictionaryPagesMaterial,
 	metalMaterial,
 	paperMaterial,
 	shelfNotebookCoverMaterial,
@@ -277,6 +280,46 @@ function createShelfCamera(): Group {
 	return g;
 }
 
+function createShelfDictionary(): Group {
+	const g = new Group();
+
+	// Lying flat on the shelf — simple, clean
+	const w = 0.38;
+	const h = 0.1;
+	const d = 0.3;
+	const coverThick = 0.01;
+
+	// Bottom cover
+	const bottom = new Mesh(new BoxGeometry(w, coverThick, d), dictionaryLeatherMaterial);
+	bottom.position.y = coverThick / 2;
+	g.add(bottom);
+
+	// Page block
+	const pagesH = h - coverThick * 2;
+	const pages = new Mesh(new BoxGeometry(w - 0.02, pagesH, d - 0.02), dictionaryPagesMaterial);
+	pages.position.y = coverThick + pagesH / 2;
+	g.add(pages);
+
+	// Top cover
+	const top = new Mesh(new BoxGeometry(w, coverThick, d), dictionaryLeatherMaterial);
+	top.position.y = coverThick + pagesH + coverThick / 2;
+	g.add(top);
+
+	// Gold border on top cover
+	const border = new Mesh(new PlaneGeometry(w - 0.04, d - 0.04), dictionaryGoldMaterial);
+	border.rotation.x = -Math.PI / 2;
+	border.position.set(0, h + 0.001, 0);
+	g.add(border);
+
+	// Gold title bar on top
+	const titleBar = new Mesh(new PlaneGeometry(w * 0.5, 0.02), dictionaryGoldMaterial);
+	titleBar.rotation.x = -Math.PI / 2;
+	titleBar.position.set(0, h + 0.002, d * 0.12);
+	g.add(titleBar);
+
+	return g;
+}
+
 function createShelfShell(): Group {
 	const shell = new Group();
 
@@ -384,7 +427,14 @@ export function createShelfWall(books?: ShelfBook[]): ShelfWallResult {
 			href: "/photos/camera",
 			source: "camera",
 			item: createShelfCamera(),
-			position: [SHELF_CENTER_X - 0.02, BOT_Y + SHELF_THICK / 2, WALL_Z] as const,
+			position: [SHELF_CENTER_X - 0.02, BOT_Y + SHELF_THICK / 2, WALL_Z - 0.5] as const,
+			rotationY: -Math.PI / 2,
+			hitboxPadding: 0.1,
+		},
+		{
+			sectionId: "wordOfTheDay" as const,
+			item: createShelfDictionary(),
+			position: [SHELF_CENTER_X - 0.04, BOT_Y + SHELF_THICK / 2, WALL_Z + 0.35] as const,
 			rotationY: -Math.PI / 2,
 			hitboxPadding: 0.1,
 		},

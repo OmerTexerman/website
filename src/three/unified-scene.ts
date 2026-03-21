@@ -20,6 +20,8 @@ import { getContentModal } from "../modal/api";
 import {
 	animateBookClose,
 	animateBookLift,
+	animateDictionaryClose,
+	animateDictionaryOpen,
 	animateFrameClose,
 	animateFrameReveal,
 	animateLaptopClose,
@@ -71,6 +73,7 @@ import { createMobileScrollController, type MobileScrollController } from "./mob
 import { createBookStack } from "./objects/book-stack";
 import { createCircuitBoard } from "./objects/circuit-board";
 import { createDeskLamp, toggleLamp } from "./objects/desk-lamp";
+import { createDictionary } from "./objects/dictionary";
 import { createGuitarPick } from "./objects/guitar-pick";
 import { createLaptop } from "./objects/laptop";
 import { createMug } from "./objects/mug";
@@ -286,7 +289,6 @@ export function initUnifiedScene(
 	let pendingModalTimeout = 0;
 	let transitionAnimationId = 0;
 	let transitionResolve: (() => void) | null = null;
-	let postTransitionRaf = 0;
 
 	// Wall state — lazily created
 	let deskCreated = false;
@@ -380,6 +382,7 @@ export function initUnifiedScene(
 		const photoFrame = createPhotoFrame();
 		const mug = createMug();
 		const pen = createPen();
+		const dictionary = createDictionary();
 		const roots: Object3D[] = [
 			desk,
 			deskLamp,
@@ -387,6 +390,7 @@ export function initUnifiedScene(
 			laptop.root,
 			bookStack.root,
 			photoFrame.root,
+			dictionary.root,
 			mug,
 			pen,
 		];
@@ -446,6 +450,17 @@ export function initUnifiedScene(
 				modalDelayMs: 350,
 				open: () => animateFrameReveal(photoFrame),
 				close: () => animateFrameClose(photoFrame),
+			},
+			{
+				kind: "section",
+				section: getSectionById("wordOfTheDay"),
+				root: dictionary.root,
+				hitboxPadding: 0.1,
+				obstacleRadius: 0.45,
+				hoverScale: true,
+				modalDelayMs: 800,
+				open: () => animateDictionaryOpen(dictionary),
+				close: () => animateDictionaryClose(dictionary),
 			},
 			{
 				kind: "micro",
@@ -1065,20 +1080,9 @@ export function initUnifiedScene(
 			composer.render();
 			targetInterval = 0;
 		} else {
-			// scrollController will be created by setupModeInteractions() below
-			syncMobileShelfCamera(0.5);
-			postTransitionRaf = requestAnimationFrame(() => {
-				postTransitionRaf = 0;
-				if (disposed) return;
-				if (currentMode === "mobile" && !transitioning && scrollController) {
-					syncMobileShelfCamera(scrollController.verticalT);
-					dirty = true;
-				}
-			});
+			syncMobileShelfCamera(0.5, [0, 0, 0]);
 			setDeskVisible(false);
 			applyRenderSettings("mobile");
-			// setPixelRatio clears the canvas buffer — render immediately
-			// so the browser never paints a black frame
 			renderer.render(scene, camera);
 			targetInterval = 0;
 		}
@@ -1107,7 +1111,6 @@ export function initUnifiedScene(
 			transitionResolve();
 			transitionResolve = null;
 		}
-		if (postTransitionRaf) cancelAnimationFrame(postTransitionRaf);
 		if (pendingModalTimeout) window.clearTimeout(pendingModalTimeout);
 		if (cleanupInteraction) cleanupInteraction();
 		if (cleanupDrag) cleanupDrag();

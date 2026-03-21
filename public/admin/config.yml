@@ -56,6 +56,21 @@ collections:
       - { label: URL, name: url, widget: string, required: false }
       - { label: Related Post, name: post, widget: string, required: false }
 
+  - name: words
+    label: Word of the Day
+    label_singular: Word
+    folder: src/content/words
+    create: true
+    extension: yaml
+    format: yaml
+    slug: "{{date}}"
+    fields:
+      - { label: Word, name: word, widget: string }
+      - { label: Part of Speech, name: partOfSpeech, widget: string, required: false }
+      - { label: Quip, name: quip, widget: text }
+      - { label: Date, name: date, widget: datetime, date_format: YYYY-MM-DD, time_format: false, format: YYYY-MM-DD }
+      - { label: Image, name: image, widget: image, required: false }
+
   - name: photos
     label: Photo Collections
     label_singular: Photo Collection
