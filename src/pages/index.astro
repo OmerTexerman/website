@@ -56,15 +56,19 @@ import BaseLayout from "../layouts/BaseLayout.astro";
   <!-- Unified scene boot -->
   <script>
     import { mountSceneApp } from "../dom/scene-app";
+    import { bootstrapContentModal } from "../modal/bootstrap";
 
     let cleanup = mountSceneApp();
 
-    // Re-mount after bfcache restore — the WebGL context was destroyed on
-    // beforeunload but the DOM is reused, so we need a fresh scene.
+    // Re-mount after bfcache restore.  The beforeunload cleanup destroyed the
+    // WebGL context and tore down the modal, but the browser kept the DOM.
+    // mountSceneApp now handles dead-canvas detection internally, but we still
+    // need to re-bootstrap the modal here.
     window.addEventListener("pageshow", (e) => {
       if (!e.persisted) return;
       cleanup();
       cleanup = mountSceneApp();
+      bootstrapContentModal();
     });
 
     if (import.meta.hot) {

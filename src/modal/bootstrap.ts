@@ -11,5 +11,9 @@ export function bootstrapContentModal(root = document.getElementById("content-mo
 		getContentModal()?.open(returnState.label, returnState.href);
 	}
 
+	// Clean up on View-Transition navigation or page unload / bfcache storage.
+	// pagehide is the web-platform-recommended teardown event — it fires
+	// reliably before bfcache storage and permanent unloads.
 	document.addEventListener("astro:before-preparation", cleanup, { once: true });
+	window.addEventListener("pagehide", cleanup, { once: true });
 }
