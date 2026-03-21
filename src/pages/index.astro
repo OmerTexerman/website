@@ -60,10 +60,10 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
     let cleanup = mountSceneApp();
 
-    // Re-mount after bfcache restore.  The beforeunload cleanup destroyed the
-    // WebGL context and tore down the modal, but the browser kept the DOM.
-    // mountSceneApp now handles dead-canvas detection internally, but we still
-    // need to re-bootstrap the modal here.
+    // Re-mount after bfcache restore.  The pagehide cleanup disposed GPU
+    // resources but left the context alive for bfcache.  mountSceneApp
+    // handles context-lost detection internally; we still need to
+    // re-bootstrap the modal here.
     window.addEventListener("pageshow", (e) => {
       if (!e.persisted) return;
       cleanup();

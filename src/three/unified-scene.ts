@@ -214,6 +214,10 @@ export function initUnifiedScene(
 		powerPreference: "high-performance",
 	});
 
+	// Mark the canvas so scene-app knows it already has a WebGL context with
+	// the correct attributes and can probe it on re-mount instead of replacing.
+	canvas.dataset.sceneUsed = "true";
+
 	function applyRenderSettings(mode: "desktop" | "mobile"): void {
 		renderer.setPixelRatio(Math.min(window.devicePixelRatio, mode === "mobile" ? 1.25 : 2));
 		renderer.shadowMap.enabled = true;
@@ -1125,16 +1129,11 @@ export function initUnifiedScene(
 		bloomPass.dispose();
 		composer.dispose();
 
-		// Force the browser to drop the GL context immediately rather than
-		// waiting for GC — critical on Linux/Mesa where lingering contexts
-		// can exhaust GPU memory and hang the compositor.
-		const gl = renderer.getContext();
-		gl.getExtension("WEBGL_lose_context")?.loseContext();
+		// renderer.dispose() frees all heavy GPU resources (textures, buffers,
+		// programs) via GL delete calls. The lightweight context object stays
+		// alive so the browser can preserve it through bfcache.
+		// MDN WebGL best practices: don't call loseContext() on navigation.
 		renderer.dispose();
-
-		// Mark the canvas so scene-app can detect that this canvas needs to
-		// be replaced before any re-mount (e.g. after bfcache restore).
-		canvas.dataset.contextLost = "true";
 	}
 
 	return { cleanup, transition };

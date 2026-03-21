@@ -37,23 +37,27 @@ function markIntroPlayed(): void {
 }
 
 /**
- * Replace a canvas whose WebGL context was destroyed during a prior cleanup
- * (e.g. before bfcache storage) with a fresh element so Three.js can obtain
- * a working context.
+ * Ensure the canvas has a usable WebGL context for (re-)mounting the scene.
  *
- * Detection uses a `data-context-lost` marker set by unified-scene cleanup
- * rather than probing `getContext()` — probing would create a context with
- * default attributes, preventing Three.js from setting antialias /
- * powerPreference later.
- *
- * Returns the usable canvas — either the original (if healthy) or the
- * replacement that was swapped into the DOM.
+ * - First mount (no `data-scene-used`): return as-is without probing, so
+ *   Three.js can create its context with the desired attributes (antialias,
+ *   powerPreference).
+ * - Re-mount (`data-scene-used` present): probe the existing context.
+ *   • If the context survived (common on desktop bfcache), return the same
+ *     canvas — Three.js will reuse the surviving context for instant restore.
+ *   • If the context was lost (mobile memory pressure, GPU reset), replace
+ *     the canvas with a fresh clone so Three.js can start clean.
  */
 function ensureFreshCanvas(canvas: HTMLCanvasElement): HTMLCanvasElement {
-	if (canvas.dataset.contextLost !== "true") return canvas;
+	if (!canvas.dataset.sceneUsed) return canvas;
 
+	// Canvas was used before — safe to probe because attributes are already set.
+	const gl = canvas.getContext("webgl2") ?? canvas.getContext("webgl");
+	if (gl && !gl.isContextLost()) return canvas;
+
+	// Context lost — swap in a fresh canvas.
 	const fresh = canvas.cloneNode(false) as HTMLCanvasElement;
-	delete fresh.dataset.contextLost;
+	delete fresh.dataset.sceneUsed;
 	canvas.replaceWith(fresh);
 	return fresh;
 }
@@ -119,9 +123,9 @@ export function mountSceneApp(): () => void {
 			// Re-check the canvas after the async gap — another mount could
 			// have replaced it, or the context could have been lost while we
 			// were waiting for the dynamic import.
-			let currentCanvas = document.getElementById("scene-canvas");
-			if (!(currentCanvas instanceof HTMLCanvasElement)) return;
-			currentCanvas = ensureFreshCanvas(currentCanvas);
+			const rawCanvas = document.getElementById("scene-canvas");
+			if (!(rawCanvas instanceof HTMLCanvasElement)) return;
+			const currentCanvas = ensureFreshCanvas(rawCanvas);
 
 			const skipIntro = hasPlayedIntro();
 
@@ -205,7 +209,7 @@ export function mountSceneApp(): () => void {
 
 	function cleanup(): void {
 		generation++; // Invalidate any in-flight async work (e.g. dynamic import)
-		listenerAc.abort(); // Remove astro:before-preparation and beforeunload listeners
+		listenerAc.abort(); // Remove astro:before-preparation and pagehide listeners
 		sceneHandle?.cleanup();
 		sceneHandle = null;
 		activeMode = null;
