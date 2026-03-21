@@ -521,7 +521,7 @@ export function initUnifiedScene(
 			...shelf,
 			entryByTarget: new Map(shelf.entries.map((entry) => [entry.target, entry])),
 			decorByTarget: new Map(shelf.decor.map((d) => [d.target, d])),
-			hoverTargets: [...shelf.entries.map((e) => e.target), ...shelf.decor.map((d) => d.target)],
+			hoverTargets: shelf.entries.map((e) => e.target),
 			cleanup: shelf.cleanup,
 		};
 		room.add(shelf.wall);
