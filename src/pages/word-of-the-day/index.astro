@@ -2,17 +2,17 @@
 import { getSectionById } from "../../config";
 import { getAllWords } from "../../content/selectors";
 import ContentPage from "../../layouts/ContentPage.astro";
-import { formatDate } from "../../utils";
+import { formatDateUTC } from "../../utils";
 
 const section = getSectionById("wordOfTheDay");
 const words = await getAllWords();
-const todaysWord = words[0];
+const latestWord = words[0];
 const archive = words.slice(1);
 ---
 
 <ContentPage section={section} surface={false} containerWidthClass="max-w-3xl" showIntro={false}>
   <div class="wotd-page" data-animate>
-    {!todaysWord ? (
+    {!latestWord ? (
       <p class="wotd-empty">no words yet :)</p>
     ) : (
       <>
@@ -20,23 +20,23 @@ const archive = words.slice(1);
         <div class="wotd-card">
           <div class="wotd-card-tab">
             <span class="wotd-tab-label">Word of the Day</span>
-            <span class="wotd-tab-date">{formatDate(todaysWord.date, "long")}</span>
+            <span class="wotd-tab-date">{formatDateUTC(latestWord.date, "long")}</span>
           </div>
 
           <div class="wotd-card-body">
-            <h1 class="wotd-word">{todaysWord.word}</h1>
+            <h1 class="wotd-word">{latestWord.word}</h1>
 
-            {todaysWord.partOfSpeech && (
-              <span class="wotd-pos">/{todaysWord.partOfSpeech}/</span>
+            {latestWord.partOfSpeech && (
+              <span class="wotd-pos">/{latestWord.partOfSpeech}/</span>
             )}
 
-            <div class="wotd-accent-line"></div>
+            <div class="wotd-accent-line" aria-hidden="true"></div>
 
-            <p class="wotd-quip">{todaysWord.quip}</p>
+            <p class="wotd-quip">{latestWord.quip}</p>
 
-            {todaysWord.image && (
+            {latestWord.image && (
               <div class="wotd-image">
-                <img src={todaysWord.image} alt={todaysWord.word} loading="lazy" />
+                <img src={latestWord.image} alt={latestWord.word} loading="lazy" />
               </div>
             )}
           </div>
@@ -54,7 +54,7 @@ const archive = words.slice(1);
                     {entry.partOfSpeech && (
                       <span class="wotd-archive-pos">/{entry.partOfSpeech}/</span>
                     )}
-                    <span class="wotd-archive-date">{formatDate(entry.date)}</span>
+                    <span class="wotd-archive-date">{formatDateUTC(entry.date)}</span>
                   </div>
                   <p class="wotd-archive-quip">{entry.quip}</p>
                 </div>

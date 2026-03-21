@@ -538,13 +538,14 @@ export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
 	const restCover = getRest(frontCoverPivot, "rz");
 	const restBlockScaleY = getRest(basePageBlock, "sy");
 	const restBlockY = getRest(basePageBlock, "y");
+	// Half-height of base page block (BASE_PAGE_THICK / 2 from dictionary geometry)
+	const halfBlockH = 0.05;
 	const n = pageLeaves.length;
 
 	// Pre-compute per-joint bend deltas (constant for the entire animation)
 	const leafData = pageLeaves.map(({ flipPivot, curveJoints }, i) => {
 		const t = n <= 1 ? 0.5 : i / (n - 1);
 		const beta = lerp(DICT_BETA_INNER, DICT_BETA_OUTER, t);
-		const restRZ = getRest(flipPivot, "rz");
 		const jointBends = curveJoints.map((joint, j) => {
 			const jCount = curveJoints.length;
 			const tHere = (j + 1) / jCount;
@@ -557,7 +558,7 @@ export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
 					dictPageAngle(tPrev, beta, DICT_COVER_ANGLE, DICT_OVERSHOOT),
 			};
 		});
-		return { flipPivot, restRZ, t, jointBends };
+		return { flipPivot, t, jointBends };
 	});
 
 	return animate(`dict-${dict.root.uuid}`, DICT_OPEN_MS, (p) => {
@@ -567,7 +568,7 @@ export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
 
 		// Pages flip with staggered timing
 		for (let i = 0; i < n; i++) {
-			const { flipPivot, restRZ, t, jointBends } = leafData[i];
+			const { flipPivot, t, jointBends } = leafData[i];
 
 			const delay = DICT_LEAF_OPEN_START + t * DICT_LEAF_STAGGER * (n - 1);
 			const leafPhase = clamp((p - delay) / DICT_LEAF_DURATION, 0, 1);
@@ -576,7 +577,6 @@ export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
 			if (leafPhase <= 0.001) continue;
 
 			flipPivot.visible = true;
-			flipPivot.rotation.z = restRZ;
 
 			// Apply pre-computed bend deltas scaled by travel progress
 			for (const { joint, restJRZ, bend } of jointBends) {
@@ -584,17 +584,13 @@ export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
 			}
 		}
 
-		// Base page block shrinks — scale from top, keep bottom edge anchored
+		// Base page block shrinks — keep bottom edge anchored
 		const riffleP = easeInOutCubic(clamp((p - 0.22) / 0.68, 0, 1));
 		const scale = lerp(1, DICT_BLOCK_MIN_SCALE, riffleP);
 		basePageBlock.scale.y = restBlockScaleY * scale;
-		// position.y = bottomEdge + (height * scale) / 2
-		// bottomEdge = restBlockY - restBlockY (= 0... no)
-		// Actually: restBlockY IS the center Y. Bottom edge = restBlockY - halfHeight.
-		// Scaled center = bottomEdge + halfHeight * scale = (restBlockY - hh) + hh * scale
-		// = restBlockY - hh * (1 - scale) = restBlockY * (1 - (1 - scale) / 2)...
-		// Simpler: just lerp position between rest and a lower target
-		basePageBlock.position.y = lerp(restBlockY, restBlockY * DICT_BLOCK_MIN_SCALE, riffleP);
+		// Correct: newCenter = bottomEdge + halfHeight * scale
+		// = (restBlockY - halfBlockH) + halfBlockH * scale
+		basePageBlock.position.y = restBlockY - halfBlockH * (1 - scale);
 	});
 }
 
@@ -636,9 +632,9 @@ export function animateDictionaryClose(dict: DictionaryObject): Promise<void> {
 			if (pageP >= 0.99) s.flipPivot.visible = false;
 		}
 
-		// Base block grows back
-		basePageBlock.scale.y = lerp(curBlockScaleY, restBlockScaleY, easeInOutCubic(p));
-		basePageBlock.position.y = lerp(curBlockY, restBlockY, easeInOutCubic(p));
+		// Base block grows back (p is already eased by animate(), no double-ease)
+		basePageBlock.scale.y = lerp(curBlockScaleY, restBlockScaleY, p);
+		basePageBlock.position.y = lerp(curBlockY, restBlockY, p);
 
 		// Cover closes
 		const coverP = easeInOutCubic(clamp((p - 0.4) / 0.55, 0, 1));

@@ -1,4 +1,4 @@
-import { Color, MeshPhysicalMaterial, MeshStandardMaterial } from "three";
+import { Color, DoubleSide, MeshPhysicalMaterial, MeshStandardMaterial } from "three";
 import {
 	ACCENT,
 	CERAMIC,
@@ -143,4 +143,13 @@ export const dictionarySpineMaterial = new MeshStandardMaterial({
 	color: new Color(DICTIONARY_SPINE),
 	roughness: 0.7,
 	metalness: 0.0,
+});
+
+export const dictionaryGoldBorderMaterial = new MeshStandardMaterial({
+	color: new Color(DICTIONARY_GOLD),
+	roughness: 0.3,
+	metalness: 0.55,
+	transparent: true,
+	opacity: 0.45,
+	side: DoubleSide,
 });

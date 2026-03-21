@@ -1,15 +1,7 @@
-import {
-	BoxGeometry,
-	Color,
-	DoubleSide,
-	Group,
-	Mesh,
-	MeshStandardMaterial,
-	PlaneGeometry,
-} from "three";
-import { DICTIONARY_GOLD } from "../colors";
+import { BoxGeometry, Color, Group, Mesh, MeshStandardMaterial, PlaneGeometry } from "three";
 import { applySectionInteraction } from "../interactive-section";
 import {
+	dictionaryGoldBorderMaterial,
 	dictionaryGoldMaterial,
 	dictionaryLeatherMaterial,
 	dictionaryPagesMaterial,
@@ -53,12 +45,14 @@ const LEAF_SPINE_SHOULDER_Y = 0.012;
 const COVER_CLEARANCE = 0.002;
 
 // ─── Segment widths (computed once at module scope) ─────────────
+/** Compute N segment widths distributed by linearly interpolated weights. */
 function createSegmentWidths(
 	totalWidth: number,
 	segmentCount: number,
 	startWeight: number,
 	endWeight: number,
 ): number[] {
+	if (segmentCount <= 0) return [];
 	const weights: number[] = [];
 	let totalWeight = 0;
 	for (let i = 0; i < segmentCount; i++) {
@@ -77,18 +71,10 @@ const SEGMENT_GEOS = SEGMENT_WIDTHS.map(
 	(w) => new BoxGeometry(w + LEAF_SEGMENT_OVERLAP, LEAF_THICK, PAGE_D),
 );
 
-// Two shared leaf materials instead of 8 individual ones
+// Shared geometries and materials for reuse
+const COVER_GEO = new BoxGeometry(COVER_W, COVER_THICK, DEPTH);
 const LEAF_MAT_LIGHT = new MeshStandardMaterial({ color: new Color("#f0e8d8"), roughness: 1.0 });
 const LEAF_MAT_DARK = new MeshStandardMaterial({ color: new Color("#e4dcc8"), roughness: 1.0 });
-
-const dictionaryGoldBorderMaterial = new MeshStandardMaterial({
-	color: new Color(DICTIONARY_GOLD),
-	roughness: 0.3,
-	metalness: 0.55,
-	transparent: true,
-	opacity: 0.45,
-	side: DoubleSide,
-});
 
 /** Dictionary → links to /word-of-the-day
  *
@@ -124,10 +110,7 @@ export function createDictionary(): DictionaryObject {
 	dictionary.add(spineLabel);
 
 	// ─── Back cover ──────────────────────────────────────────────
-	const backCover = new Mesh(
-		new BoxGeometry(COVER_W, COVER_THICK, DEPTH),
-		dictionaryLeatherMaterial,
-	);
+	const backCover = new Mesh(COVER_GEO, dictionaryLeatherMaterial);
 	backCover.position.set(HINGE_X + COVER_W / 2, COVER_THICK / 2, 0);
 	backCover.castShadow = true;
 	backCover.receiveShadow = true;
@@ -192,10 +175,7 @@ export function createDictionary(): DictionaryObject {
 	);
 	dictionary.add(frontCoverPivot);
 
-	const frontCover = new Mesh(
-		new BoxGeometry(COVER_W, COVER_THICK, DEPTH),
-		dictionaryLeatherMaterial,
-	);
+	const frontCover = new Mesh(COVER_GEO, dictionaryLeatherMaterial);
 	frontCover.position.set(COVER_W / 2, COVER_THICK / 2, 0);
 	frontCover.castShadow = true;
 	frontCover.receiveShadow = true;

@@ -906,6 +906,7 @@ html[data-scene-ready="true"] #scene-fallback {
 	line-height: 1.05;
 	color: var(--color-cream);
 	margin-bottom: 0.5rem;
+	overflow-wrap: break-word;
 }
 
 @media (min-width: 48rem) {
@@ -1029,6 +1030,13 @@ html[data-scene-ready="true"] #scene-fallback {
 
 .wotd-page[data-animate].is-visible {
 	animation: wotd-page-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.wotd-page[data-animate].is-visible {
+		animation: none;
+		opacity: 1;
+	}
 }
 
 /* ── Projects — The Laptop ───────────────────── */
