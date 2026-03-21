@@ -644,7 +644,7 @@ export function initUnifiedScene(
 				const shelfYs = [SHELF_BOT_Y, SHELF_MID_Y, SHELF_TOP_Y];
 				const byRow = new Map<number, { target: Object3D; z: number }[]>();
 				for (const entry of shelf.entries) {
-					const y = entry.item.position.y;
+					const y = entry.target.position.y;
 					let row = 0;
 					let bestDist = Math.abs(y - shelfYs[0]);
 					for (let i = 1; i < shelfYs.length; i++) {
@@ -655,7 +655,7 @@ export function initUnifiedScene(
 						}
 					}
 					if (!byRow.has(row)) byRow.set(row, []);
-					byRow.get(row)?.push({ target: entry.target, z: entry.item.position.z });
+					byRow.get(row)?.push({ target: entry.target, z: entry.target.position.z });
 				}
 				// Within each row, sort by Z ascending (lower Z = first/left pan snap)
 				for (const items of byRow.values()) {
@@ -785,16 +785,18 @@ export function initUnifiedScene(
 				(interaction) => {
 					currentHover = interaction;
 					dirty = true;
-					// Scroll the shelf camera to the focused item on keyboard Tab
-					if (interaction) {
+				},
+				handleShelfInteraction,
+				{
+					enableHover: true,
+					enablePointerClick: false,
+					onTabNavigate: (interaction) => {
 						const stopIdx = shelfStopByTarget.get(interaction.object);
 						if (stopIdx !== undefined && sc.navigateToLinearStop(stopIdx)) {
 							dirty = true;
 						}
-					}
+					},
 				},
-				handleShelfInteraction,
-				{ enableHover: true, enablePointerClick: false },
 			);
 		}
 

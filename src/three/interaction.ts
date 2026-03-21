@@ -43,7 +43,11 @@ export function setupInteraction(
 	scene: Scene,
 	onHover: (interaction: DeskInteraction | null) => void,
 	onClick: (interaction: DeskInteraction) => void,
-	options?: { enableHover?: boolean; enablePointerClick?: boolean },
+	options?: {
+		enableHover?: boolean;
+		enablePointerClick?: boolean;
+		onTabNavigate?: (interaction: DeskInteraction) => void;
+	},
 ): () => void {
 	const picker = createInteractionPicker(canvas, camera, scene);
 	const groups = collectGroupsBy(scene, "interactive");
@@ -112,7 +116,13 @@ export function setupInteraction(
 			focusIndex =
 				(focusIndex + (e.shiftKey ? -1 : 1) + navigableGroups.length) % navigableGroups.length;
 			const obj = navigableGroups[focusIndex];
-			setHover({ href: obj.userData.href, label: obj.userData.label, object: obj });
+			const interaction: DeskInteraction = {
+				href: obj.userData.href,
+				label: obj.userData.label,
+				object: obj,
+			};
+			setHover(interaction);
+			options?.onTabNavigate?.(interaction);
 		} else if ((e.key === "Enter" || e.key === " ") && hovered) {
 			e.preventDefault();
 			onClick(hovered);

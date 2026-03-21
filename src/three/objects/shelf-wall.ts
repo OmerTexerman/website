@@ -443,7 +443,7 @@ export function createShelfWall(books?: ShelfBook[]): ShelfWallResult {
 	for (const layout of shelfLayouts) {
 		const target = new Group();
 		applySectionInteraction(target, layout.sectionId);
-		layout.item.position.set(layout.position[0], layout.position[1], layout.position[2]);
+		target.position.set(layout.position[0], layout.position[1], layout.position[2]);
 		layout.item.rotation.y = layout.rotationY;
 		enableShadows(layout.item);
 		target.add(layout.item);
