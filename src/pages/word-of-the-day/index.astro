@@ -2,7 +2,7 @@
 import { getSectionById } from "../../config";
 import { getAllWords } from "../../content/selectors";
 import ContentPage from "../../layouts/ContentPage.astro";
-import { formatDateUTC } from "../../utils";
+import { formatDate } from "../../utils";
 
 const section = getSectionById("wordOfTheDay");
 const words = await getAllWords();
@@ -20,7 +20,7 @@ const archive = words.slice(1);
         <div class="wotd-card">
           <div class="wotd-card-tab">
             <span class="wotd-tab-label">Word of the Day</span>
-            <span class="wotd-tab-date">{formatDateUTC(latestWord.date, "long")}</span>
+            <span class="wotd-tab-date">{formatDate(latestWord.date, "long", { utc: true })}</span>
           </div>
 
           <div class="wotd-card-body">
@@ -36,7 +36,7 @@ const archive = words.slice(1);
 
             {latestWord.image && (
               <div class="wotd-image">
-                <img src={latestWord.image} alt={latestWord.word} loading="lazy" />
+                <img src={latestWord.image} alt={latestWord.word} loading="eager" />
               </div>
             )}
           </div>
@@ -54,7 +54,7 @@ const archive = words.slice(1);
                     {entry.partOfSpeech && (
                       <span class="wotd-archive-pos">/{entry.partOfSpeech}/</span>
                     )}
-                    <span class="wotd-archive-date">{formatDateUTC(entry.date)}</span>
+                    <span class="wotd-archive-date">{formatDate(entry.date, "short", { utc: true })}</span>
                   </div>
                   <p class="wotd-archive-quip">{entry.quip}</p>
                 </div>

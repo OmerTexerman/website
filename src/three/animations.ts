@@ -1,7 +1,7 @@
 import { MeshStandardMaterial, type Object3D, Vector3 } from "three";
 import { clamp, lerp } from "./math-utils";
 import type { BookStackObject } from "./objects/book-stack";
-import type { DictionaryObject } from "./objects/dictionary";
+import { BASE_PAGE_THICK, type DictionaryObject } from "./objects/dictionary";
 import type { LaptopObject } from "./objects/laptop";
 import type { NotebookObject } from "./objects/notebook";
 import type { PhotoFrameObject } from "./objects/photo-frame";
@@ -502,6 +502,8 @@ const DICT_BETA_INNER = 3.5;
 const DICT_BETA_OUTER = 1.8;
 const DICT_OVERSHOOT = 1.0; // how far past cover angle pages droop
 const DICT_BLEND_START = 0.65; // where droop-back begins (0–1 along page)
+const DICT_CLOSE_STAGGER = 0.3; // reverse stagger spread for close
+const DICT_CLOSE_PAGE_DURATION = 0.5; // per-page close duration (fraction of total)
 
 /** Compute the page angle at position t (0=spine, 1=tip) using
  *  rational remap with overshoot and blend-back to cover angle. */
@@ -526,8 +528,7 @@ export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
 	saveRest(frontCoverPivot, "rz", frontCoverPivot.rotation.z);
 	saveRest(basePageBlock, "sy", basePageBlock.scale.y);
 	saveRest(basePageBlock, "y", basePageBlock.position.y);
-	for (const { flipPivot, curveJoints } of pageLeaves) {
-		saveRest(flipPivot, "rz", flipPivot.rotation.z);
+	for (const { curveJoints } of pageLeaves) {
 		for (const joint of curveJoints) {
 			saveRest(joint, "rz", joint.rotation.z);
 		}
@@ -538,8 +539,7 @@ export function animateDictionaryOpen(dict: DictionaryObject): Promise<void> {
 	const restCover = getRest(frontCoverPivot, "rz");
 	const restBlockScaleY = getRest(basePageBlock, "sy");
 	const restBlockY = getRest(basePageBlock, "y");
-	// Half-height of base page block (BASE_PAGE_THICK / 2 from dictionary geometry)
-	const halfBlockH = 0.05;
+	const halfBlockH = BASE_PAGE_THICK / 2;
 	const n = pageLeaves.length;
 
 	// Pre-compute per-joint bend deltas (constant for the entire animation)
@@ -623,7 +623,9 @@ export function animateDictionaryClose(dict: DictionaryObject): Promise<void> {
 		for (let i = 0; i < nLeaves; i++) {
 			const s = leafStates[i];
 			const reverseT = nLeaves <= 1 ? 0 : (nLeaves - 1 - i) / (nLeaves - 1);
-			const pageP = easeInOutCubic(clamp((p - reverseT * 0.3) / 0.5, 0, 1));
+			const pageP = easeInOutCubic(
+				clamp((p - reverseT * DICT_CLOSE_STAGGER) / DICT_CLOSE_PAGE_DURATION, 0, 1),
+			);
 
 			s.flipPivot.rotation.z = lerp(s.curRZ, s.restRZ, pageP);
 			for (const js of s.jointStates) {
