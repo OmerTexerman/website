@@ -1,6 +1,6 @@
-# Portfolio
+# Website
 
-My personal portfolio site — an interactive 3D desk scene built with [Three.js](https://threejs.org/) and [Astro](https://astro.build/).
+My personal website — an interactive 3D desk scene built with [Three.js](https://threejs.org/) and [Astro](https://astro.build/).
 
 Clickable objects on the desk (notebook, laptop, book stack, photo frame) open content sections. Decorative items are draggable with physics.
 
