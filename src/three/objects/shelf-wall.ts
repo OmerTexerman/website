@@ -13,6 +13,7 @@ import {
 } from "three";
 import type { SectionId } from "../../config";
 import type { ShelfBook } from "../../content/types";
+import { animateClockSpin, animateHeadphonePulse } from "../animations";
 import {
 	BOOK_COLORS,
 	CERAMIC,
@@ -39,10 +40,21 @@ import {
 } from "../materials";
 import { SHELF_BOT_Y, SHELF_MID_Y, SHELF_TOP_Y, SHELF_WALL_X, SHELF_WALL_Z } from "../shelf-layout";
 import { createSpineTexture } from "../spine-texture";
+import { createShelfCandle, toggleCandle } from "./shelf-candle";
+import { createShelfClock, syncClockToTime } from "./shelf-clock";
+import { createShelfHeadphones } from "./shelf-headphones";
+
+export interface ShelfDecorEntry {
+	label: string;
+	target: Group;
+	activate: () => void;
+}
 
 export interface ShelfWallResult {
 	wall: Group;
 	entries: ShelfSceneEntry[];
+	decor: ShelfDecorEntry[];
+	cleanup?: () => void;
 }
 
 export interface ShelfSceneEntry {
@@ -396,5 +408,74 @@ export function createShelfWall(books?: ShelfBook[]): ShelfWallResult {
 		});
 	}
 
-	return { wall, entries };
+	// ── Decorative micro-interaction items ──────────────────────
+	const decor: ShelfDecorEntry[] = [];
+
+	// Candle — top shelf, right side (next to books)
+	const candle = createShelfCandle();
+	candle.position.set(SHELF_CENTER_X + 0.06, TOP_Y + SHELF_THICK / 2, WALL_Z + 0.6);
+	candle.rotation.y = -Math.PI / 2;
+	enableShadows(candle);
+	const candleTarget = new Group();
+	candleTarget.userData = { interactive: true };
+	candleTarget.add(candle);
+	addHitbox(candleTarget, 0.06);
+	wall.add(candleTarget);
+	decor.push({
+		label: "Candle",
+		target: candleTarget,
+		activate: () => {
+			toggleCandle(candle);
+		},
+	});
+
+	// Clock — wall-mounted between top and mid shelves
+	const clock = createShelfClock();
+	// Place on the wall plane (flush with wall), between shelves
+	const clockWallY = (TOP_Y + MID_Y) / 2;
+	clock.position.set(WALL_X + 0.01, clockWallY, WALL_Z + 0.55);
+	clock.rotation.y = -Math.PI / 2;
+	enableShadows(clock);
+	const clockTarget = new Group();
+	clockTarget.userData = { interactive: true };
+	clockTarget.add(clock);
+	addHitbox(clockTarget, 0.06);
+	wall.add(clockTarget);
+	decor.push({
+		label: "Clock",
+		target: clockTarget,
+		activate: () => {
+			void animateClockSpin(clock);
+		},
+	});
+
+	// Headphones — bottom shelf, leaning against back wall (next to camera)
+	const headphones = createShelfHeadphones();
+	headphones.position.set(SHELF_CENTER_X + 0.16, BOT_Y + SHELF_THICK / 2, WALL_Z + 0.62);
+	headphones.rotation.y = -Math.PI / 2;
+	enableShadows(headphones);
+	const hpTarget = new Group();
+	hpTarget.userData = { interactive: true };
+	hpTarget.add(headphones);
+	addHitbox(hpTarget, 0.06);
+	wall.add(hpTarget);
+	decor.push({
+		label: "Headphones",
+		target: hpTarget,
+		activate: () => {
+			void animateHeadphonePulse(headphones);
+		},
+	});
+
+	// Resync clock hands to actual time every 30 s
+	const clockSyncInterval = window.setInterval(() => syncClockToTime(clock), 30_000);
+
+	return {
+		wall,
+		entries,
+		decor,
+		cleanup: () => {
+			window.clearInterval(clockSyncInterval);
+		},
+	};
 }

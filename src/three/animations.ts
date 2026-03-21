@@ -1,9 +1,10 @@
-import { MeshStandardMaterial, type Object3D, Vector3 } from "three";
+import { type Group, MeshStandardMaterial, type Object3D, Vector3 } from "three";
 import { clamp, lerp } from "./math-utils";
 import type { BookStackObject } from "./objects/book-stack";
 import type { LaptopObject } from "./objects/laptop";
 import type { NotebookObject } from "./objects/notebook";
 import type { PhotoFrameObject } from "./objects/photo-frame";
+import { getClockAngles } from "./objects/shelf-clock";
 
 type AnimationCallback = (progress: number) => void;
 
@@ -502,6 +503,41 @@ export function animateSpin(obj: Object3D): Promise<void> {
 	const baseY = obj.rotation.y;
 	return animate(`spin-${obj.uuid}`, 500, (p) => {
 		obj.rotation.y = baseY + p * Math.PI * 2;
+	});
+}
+
+/** Spin clock hands rapidly then settle back to the current time. */
+export function animateClockSpin(clock: Group): Promise<void> {
+	const { minutePivot, hourPivot } = clock.userData.clockParts as {
+		minutePivot: Object3D;
+		hourPivot: Object3D;
+	};
+	const baseMin = minutePivot.rotation.z;
+	const baseHour = hourPivot.rotation.z;
+	const target = getClockAngles();
+	const minSpin = Math.PI * 2 * 3; // 3 full spins
+	const hourSpin = Math.PI * 2 * 1.5;
+	return animate(`clock-spin-${clock.uuid}`, 900, (p) => {
+		// Spin past then settle to real time
+		minutePivot.rotation.z = lerp(baseMin - minSpin, target.minute, p);
+		hourPivot.rotation.z = lerp(baseHour - hourSpin, target.hour, p);
+	});
+}
+
+/** Pulse headphone ear cups like they're playing music */
+export function animateHeadphonePulse(hp: Group): Promise<void> {
+	const { left, right } = hp.userData.cups as { left: Object3D; right: Object3D };
+	const leftZ = left.position.z;
+	const rightZ = right.position.z;
+	return animate(`hp-pulse-${hp.uuid}`, 600, (p) => {
+		const decay = 1 - p;
+		const beat = Math.sin(p * Math.PI * 6) * 0.15 * decay;
+		const offBeat = Math.sin(p * Math.PI * 6 + 0.5) * 0.15 * decay;
+		left.scale.setScalar(1 + beat);
+		right.scale.setScalar(1 + offBeat);
+		// Slight forward bounce (cups face outward along Z)
+		left.position.z = leftZ + Math.abs(beat) * 0.02;
+		right.position.z = rightZ + Math.abs(offBeat) * 0.02;
 	});
 }
 

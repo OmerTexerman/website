@@ -77,7 +77,7 @@ import { createMug } from "./objects/mug";
 import { createNotebook } from "./objects/notebook";
 import { createPen } from "./objects/pen";
 import { createPhotoFrame } from "./objects/photo-frame";
-import { createShelfWall, type ShelfSceneEntry } from "./objects/shelf-wall";
+import { createShelfWall, type ShelfDecorEntry, type ShelfSceneEntry } from "./objects/shelf-wall";
 import {
 	MOBILE_SHELF_SCROLL,
 	MOBILE_SHELF_STOPS,
@@ -118,6 +118,8 @@ interface ShelfSceneData {
 	wall: Group;
 	entries: ShelfSceneEntry[];
 	entryByTarget: Map<Object3D, ShelfSceneEntry>;
+	decorByTarget: Map<Object3D, ShelfDecorEntry>;
+	cleanup?: () => void;
 }
 
 type OpenSelection =
@@ -499,6 +501,8 @@ export function initUnifiedScene(
 		shelfScene = {
 			...shelf,
 			entryByTarget: new Map(shelf.entries.map((entry) => [entry.target, entry])),
+			decorByTarget: new Map(shelf.decor.map((d) => [d.target, d])),
+			cleanup: shelf.cleanup,
 		};
 		room.add(shelf.wall);
 	}
@@ -617,10 +621,21 @@ export function initUnifiedScene(
 
 			function handleShelfInteraction(interaction: DeskInteraction): void {
 				if (!introComplete || transitioning) return;
+				if (performance.now() < clickLockedUntil) return;
+
+				// Check decorative items first
+				const decorEntry = shelf.decorByTarget.get(interaction.object);
+				if (decorEntry) {
+					clickLockedUntil = performance.now() + 1000;
+					decorEntry.activate();
+					dirty = true;
+					trackEvent("shelf_decor_tap", { label: decorEntry.label });
+					return;
+				}
+
 				const entry = shelf.entryByTarget.get(interaction.object);
 				if (!entry) return;
 				if (openSelection?.mode === "mobile" && openSelection.entry === entry) return;
-				if (performance.now() < clickLockedUntil) return;
 				clickLockedUntil = performance.now() + CLICK_COOLDOWN_MS;
 
 				if (openSelection?.mode === "mobile") {
@@ -1098,6 +1113,7 @@ export function initUnifiedScene(
 		if (cleanupDrag) cleanupDrag();
 		if (cleanupMobileShelfControls) cleanupMobileShelfControls();
 		cleanupModalClose?.();
+		shelfScene?.cleanup?.();
 		labelController.dispose();
 		disposeObjectResources(scene);
 
