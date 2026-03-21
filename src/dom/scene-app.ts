@@ -226,14 +226,12 @@ export function mountSceneApp(): () => void {
 		once: true,
 		signal: listenerAc.signal,
 	});
-	// pagehide fires reliably before bfcache storage (and permanent unloads)
-	// in all modern browsers.  Keep beforeunload as a belt-and-suspenders
-	// fallback — whichever fires first aborts the other via listenerAc.
+	// pagehide is the web-platform-recommended event for teardown before
+	// bfcache storage or permanent unload (web.dev, Chrome DevRel).
+	// beforeunload is intentionally omitted — it adds no safety since
+	// pagehide fires in every modern browser (IE 11+) and web.dev
+	// explicitly discourages beforeunload for non-prompt cleanup work.
 	window.addEventListener("pagehide", cleanup, {
-		once: true,
-		signal: listenerAc.signal,
-	});
-	window.addEventListener("beforeunload", cleanup, {
 		once: true,
 		signal: listenerAc.signal,
 	});
