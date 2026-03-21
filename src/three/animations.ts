@@ -675,7 +675,7 @@ export function animateClockSpin(clock: Group): Promise<void> {
 	const baseHour = hourPivot.rotation.z;
 	const target = getClockAngles();
 	const minSpin = Math.PI * 2 * 3; // 3 full spins
-	const hourSpin = Math.PI * 2 * 1.5;
+	const hourSpin = Math.PI * 2 * 2;
 	return animate(`clock-spin-${clock.uuid}`, 900, (p) => {
 		// Spin past then settle to real time
 		minutePivot.rotation.z = lerp(baseMin - minSpin, target.minute, p);
