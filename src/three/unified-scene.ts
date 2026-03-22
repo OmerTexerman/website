@@ -839,6 +839,24 @@ export function initUnifiedScene(
 	let lastFrame = 0;
 	let targetInterval = 0;
 
+	// Responsive-adjusted intro end vectors so the last frame of
+	// animateMobileIntro matches the pose syncMobileShelfCamera produces.
+	const _mobileIntroEndPos = new Vector3();
+	const _mobileIntroEndLook = new Vector3();
+	function updateMobileIntroEndPose(): void {
+		_mobileIntroEndPos.set(
+			MOBILE_POS.x + cachedResponsive.cameraX,
+			MOBILE_POS.y,
+			MOBILE_POS.z,
+		);
+		_mobileIntroEndLook.set(
+			MOBILE_LOOK.x + cachedResponsive.lookX,
+			MOBILE_LOOK.y,
+			MOBILE_LOOK.z,
+		);
+	}
+	updateMobileIntroEndPose();
+
 	function render(now: number): void {
 		if (disposed || contextLost) return;
 		animationId = requestAnimationFrame(render);
@@ -854,7 +872,7 @@ export function initUnifiedScene(
 			if (currentMode === "desktop") {
 				introComplete = animateIntro(camera, startTime, now);
 			} else {
-				introComplete = animateMobileIntro(camera, startTime, now);
+				introComplete = animateMobileIntro(camera, startTime, now, _mobileIntroEndPos, _mobileIntroEndLook);
 				if (introComplete) syncMobileShelfCamera(scrollController?.verticalT ?? 0.5);
 			}
 			if (currentMode === "desktop") {
@@ -927,6 +945,7 @@ export function initUnifiedScene(
 		lastCanvasWidth = width;
 		lastCanvasHeight = height;
 		updateResponsiveLayout();
+		if (!introComplete) updateMobileIntroEndPose();
 
 		applyRenderSettings(currentMode);
 		renderer.setSize(width, height, false);
