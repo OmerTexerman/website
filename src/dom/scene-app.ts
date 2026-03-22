@@ -7,12 +7,8 @@ import {
 } from "../content/types";
 import { getContentModal } from "../modal/api";
 
-// Only install once per session
-if (typeof window !== "undefined" && !window.__unhandledRejectionInstalled) {
-	window.__unhandledRejectionInstalled = true;
-	window.addEventListener("unhandledrejection", (event) => {
-		console.error("[scene] Unhandled promise rejection:", event.reason);
-	});
+function onUnhandledRejection(event: PromiseRejectionEvent): void {
+	console.error("[scene] Unhandled promise rejection:", event.reason);
 }
 
 function parseBooks(sceneRoot: HTMLElement): ShelfBook[] | undefined {
@@ -109,6 +105,8 @@ export function mountSceneApp(): () => void {
 
 	if (!(sceneRoot instanceof HTMLElement)) return () => {};
 	const root = sceneRoot;
+
+	window.addEventListener("unhandledrejection", onUnhandledRejection);
 
 	let sceneHandle: SceneHandle | null = null;
 	let activeMode: "desktop" | "mobile" | null = null;
@@ -283,6 +281,7 @@ export function mountSceneApp(): () => void {
 	function cleanup(): void {
 		generation++; // Invalidate any in-flight async work (e.g. dynamic import)
 		listenerAc.abort(); // Remove astro:before-preparation and pagehide listeners
+		window.removeEventListener("unhandledrejection", onUnhandledRejection);
 		sceneHandle?.cleanup();
 		sceneHandle = null;
 		activeMode = null;

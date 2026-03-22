@@ -1,15 +1,12 @@
 ---
 import type { PhotoGalleryPhoto } from "../dom/photo-gallery";
+import { safeJson } from "../utils";
 
 interface Props {
 	photos: PhotoGalleryPhoto[];
 }
 
 const { photos } = Astro.props;
-
-/** Escape </script> sequences so embedded JSON cannot break the script block. */
-const safeJson = (v: unknown) =>
-	JSON.stringify(v).replace(/</g, "\\u003c").replace(/>/g, "\\u003e");
 ---
 
 <div data-photo-gallery>

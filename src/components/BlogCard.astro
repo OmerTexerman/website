@@ -13,7 +13,7 @@ const { title, description, pubDate, tags, slug } = Astro.props;
 ---
 
 <a href={`/blog/${slug}`} class="notebook-entry group">
-  <time class="notebook-entry-date">{formatDate(pubDate)}</time>
+  <time class="notebook-entry-date" datetime={pubDate.toISOString()}>{formatDate(pubDate)}</time>
   <div class="notebook-entry-content">
     <h2 class="notebook-entry-title">{title}</h2>
     <p class="notebook-entry-desc">{description}</p>

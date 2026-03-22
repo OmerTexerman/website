@@ -60,7 +60,7 @@ const books = defineCollection({
 const photos = defineCollection({
 	loader: glob({ pattern: "**/*.yaml", base: "./src/content/photos" }),
 	schema: z.object({
-		title: z.string(),
+		title: z.string().min(1),
 		location: z.string().optional(),
 		date: z.string().optional(),
 		description: z.string().optional(),
@@ -79,7 +79,7 @@ const photos = defineCollection({
 const spotlight = defineCollection({
 	loader: glob({ pattern: "**/*.yaml", base: "./src/content/spotlight" }),
 	schema: z.object({
-		title: z.string(),
+		title: z.string().min(1),
 		name: z.string().optional(),
 		image: z.string().regex(photoSource, "Image must be an absolute path or URL."),
 	}),
@@ -105,9 +105,9 @@ const setup = defineCollection({
 const words = defineCollection({
 	loader: glob({ pattern: "**/*.yaml", base: "./src/content/words" }),
 	schema: z.object({
-		word: z.string(),
+		word: z.string().min(1),
 		partOfSpeech: z.string().optional(),
-		quip: z.string(),
+		quip: z.string().min(1),
 		date: z.coerce.date().transform((d) => {
 			// Shift to noon UTC so the date displays correctly in any timezone
 			const noon = new Date(d);

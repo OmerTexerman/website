@@ -33,12 +33,16 @@ const pathname = Astro.url.pathname;
 </header>
 
 <script>
+  const navLinksEl = document.querySelector<HTMLElement>("[data-nav-links]");
+  const cleanupAc = new AbortController();
+
   function syncNavHighlight(): void {
     const path = window.location.pathname;
-    const links = document.querySelectorAll<HTMLAnchorElement>("[data-nav-links] a[href]");
+    const links = navLinksEl?.querySelectorAll<HTMLAnchorElement>("a[href]") ?? [];
     for (const link of links) {
       const active = path.startsWith(link.getAttribute("href")!);
-      link.setAttribute("aria-current", active ? "page" : "false");
+      if (active) link.setAttribute("aria-current", "page");
+      else link.removeAttribute("aria-current");
       link.classList.toggle("text-cream", active);
       link.classList.toggle("font-medium", active);
       link.classList.toggle("text-muted", !active);
@@ -48,9 +52,13 @@ const pathname = Astro.url.pathname;
 
   window.addEventListener("pageshow", (e) => {
     if (e.persisted) syncNavHighlight();
-  });
+  }, { signal: cleanupAc.signal });
 
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") syncNavHighlight();
-  });
+  }, { signal: cleanupAc.signal });
+
+  const cleanup = () => cleanupAc.abort();
+  document.addEventListener("astro:before-preparation", cleanup, { once: true });
+  window.addEventListener("pagehide", cleanup, { once: true });
 </script>

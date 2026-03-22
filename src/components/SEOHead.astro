@@ -1,5 +1,6 @@
 ---
 import { site } from "../config";
+import { safeJson } from "../utils";
 
 interface Props {
 	title: string;
@@ -11,10 +12,6 @@ interface Props {
 }
 
 const { title, description, image, type = "website", publishedDate, noindex = false } = Astro.props;
-
-/** Escape </script> sequences so embedded JSON cannot break the script block. */
-const safeJson = (v: unknown) =>
-	JSON.stringify(v).replace(/</g, "\\u003c").replace(/>/g, "\\u003e");
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 /** Default PNG so Open Graph / Twitter get a raster image (SVG is not reliably supported). */

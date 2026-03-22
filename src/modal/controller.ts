@@ -290,7 +290,6 @@ function createContentModalController(elements: ContentModalElements): {
 		activeRequest?.abort();
 		const request = new AbortController();
 		activeRequest = request;
-		const timeoutId = setTimeout(() => request.abort(), 10_000);
 
 		titleEl.textContent = label;
 		linkEl.href = safeTargetHref;
@@ -327,7 +326,9 @@ function createContentModalController(elements: ContentModalElements): {
 			modalState = "open";
 		}
 
+		let timeoutId = 0;
 		try {
+			timeoutId = window.setTimeout(() => request.abort(), 10_000);
 			const result = await loadContentPreview(safeTargetHref, request.signal);
 			if (isStalePreviewRequest(requestId)) return;
 
@@ -344,6 +345,9 @@ function createContentModalController(elements: ContentModalElements): {
 			renderMessage("Could not load preview.", safeTargetHref);
 		} finally {
 			clearTimeout(timeoutId);
+			if (activeRequest === request) {
+				activeRequest = null;
+			}
 		}
 	}
 

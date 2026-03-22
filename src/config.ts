@@ -12,7 +12,7 @@ export const brandTheme = {
 	accentHover: "#f07368",
 	cream: "#f0ece4",
 	creamDark: "#e0dbd2",
-	muted: "#8a8a8a",
+	muted: "#9a9a9a",
 	mutedLight: "#b0b0b0",
 } as const;
 

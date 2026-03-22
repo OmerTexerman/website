@@ -1,12 +1,9 @@
 ---
 import { getFeaturedShelfBooks, getSpotlight } from "../content/selectors";
+import { safeJson } from "../utils";
 
 const featuredBooks = await getFeaturedShelfBooks();
 const spotlight = await getSpotlight();
-
-/** Escape </script> sequences so embedded JSON cannot break the script block. */
-const safeJson = (v: unknown) =>
-	JSON.stringify(v).replace(/</g, "\\u003c").replace(/>/g, "\\u003e");
 ---
 
 <div id="scene-root" class="absolute inset-0">

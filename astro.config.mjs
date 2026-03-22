@@ -13,5 +13,13 @@ export default defineConfig({
 	integrations: [sitemap(), icon()],
 	vite: {
 		plugins: [tailwindcss()],
+		optimizeDeps: {
+			include: [
+				"three",
+				"three/examples/jsm/postprocessing/EffectComposer.js",
+				"three/examples/jsm/postprocessing/RenderPass.js",
+				"three/examples/jsm/postprocessing/UnrealBloomPass.js",
+			],
+		},
 	},
 });

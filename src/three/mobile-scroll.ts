@@ -13,7 +13,6 @@ export interface MobileScrollConfig {
 
 interface LinearStop {
 	stopIndex: number;
-	verticalT: number;
 	panTarget: number;
 	row: number;
 }
@@ -26,13 +25,12 @@ function buildLinearSequence(config: MobileScrollConfig): LinearStop[] {
 		if (!points || points.length <= 1) {
 			sequence.push({
 				stopIndex: i,
-				verticalT: verticalStops[i],
 				panTarget: points?.[0] ?? 0,
 				row: i,
 			});
 		} else {
 			for (const p of points) {
-				sequence.push({ stopIndex: i, verticalT: verticalStops[i], panTarget: p, row: i });
+				sequence.push({ stopIndex: i, panTarget: p, row: i });
 			}
 		}
 	}
@@ -56,8 +54,6 @@ export interface MobileScrollController {
 	consumeTap(): { clientX: number; clientY: number } | null;
 	/** Animate to a specific linear stop by index. Returns true if animation started. */
 	navigateToLinearStop(idx: number): boolean;
-	/** Total number of linear stops (rows × pan snap points). */
-	readonly linearStopCount: number;
 	/** Hard-reset position (used after transitions) */
 	resetTo(t: number): boolean;
 	dispose(): void;
@@ -80,12 +76,13 @@ const VELOCITY_WINDOW_MS = 100;
 const WHEEL_LINE_PIXELS = 16;
 const WHEEL_PAGE_THRESHOLD = 40;
 const WHEEL_COOLDOWN_MS = 200;
-const WHEEL_SETTLE_DELAY_MS = 150;
-const WHEEL_CONTINUOUS_VERTICAL_SPEED = 0.0004;
-const WHEEL_CONTINUOUS_PAN_SPEED = 0.0004;
+const WHEEL_SETTLE_DELAY_MS = 100;
+const WHEEL_CONTINUOUS_VERTICAL_SPEED = 0.001;
+const WHEEL_CONTINUOUS_PAN_SPEED = 0.001;
 const WHEEL_INERTIA_THRESHOLD = 2;
 const DRAG_VERTICAL_SPEED = 0.003;
 const DRAG_PAN_SPEED = 0.003;
+const DISCRETE_PIXEL_WHEEL_STEPS = new Set([100, 120]);
 
 interface PointerSample {
 	x: number;
@@ -170,6 +167,17 @@ function normalizeWheelDelta(delta: number, deltaMode: number): number {
 		return delta * (typeof window !== "undefined" ? window.innerHeight : 800);
 	}
 	return delta;
+}
+
+function isLikelyDiscretePixelWheelEvent(e: WheelEvent): boolean {
+	if (e.deltaMode !== 0) return true;
+
+	const absX = Math.abs(e.deltaX);
+	const absY = Math.abs(e.deltaY);
+	if (absX > 0 || absY < 80) return false;
+	if (!Number.isInteger(e.deltaX) || !Number.isInteger(e.deltaY)) return false;
+
+	return DISCRETE_PIXEL_WHEEL_STEPS.has(absY);
 }
 
 export function createMobileScrollController(
@@ -742,16 +750,10 @@ export function createMobileScrollController(
 		const rawY = normalizeWheelDelta(e.deltaY, e.deltaMode);
 		const rawX = normalizeWheelDelta(e.deltaX, e.deltaMode);
 
-		// deltaMode !== 0 means line or page units (discrete mouse wheel).
-		// Chrome/Edge always report deltaMode 0 even for mouse wheels, so add a
-		// secondary heuristic: physical wheels produce quantized deltas (typically
-		// 100 or 120 px, multiples of 40) with no horizontal component.  Trackpads
-		// produce small, non-quantized deltas that won't match this pattern.
-		const discrete =
-			e.deltaMode !== 0 ||
-			(Math.abs(e.deltaY) >= 50 &&
-				(Math.abs(e.deltaY) % 40 < 4 || Math.abs(e.deltaY) % 100 < 4) &&
-				e.deltaX === 0);
+		// Keep trackpads on the continuous path. Pixel-mode mouse wheels on
+		// Chrome/Edge usually arrive as isolated 100/120-step vertical deltas,
+		// while trackpads are much more variable and often include horizontal data.
+		const discrete = isLikelyDiscretePixelWheelEvent(e);
 
 		if (discrete) {
 			// Linear item navigation — no axis lock needed, vertical only
@@ -850,9 +852,6 @@ export function createMobileScrollController(
 		navigateToLinearStop(idx: number): boolean {
 			const clamped = clamp(idx, 0, linearSequence.length - 1);
 			return navigateToLinearStop(clamped) ? markChanged() : false;
-		},
-		get linearStopCount() {
-			return linearSequence.length;
 		},
 		resetTo,
 		dispose,

@@ -204,6 +204,7 @@ const FOG_DENSITY = 0.04;
 const MAX_FRAME_DELTA_SEC = 0.05;
 const CAMERA_DELTA_THRESHOLD = 0.001;
 const IDLE_INTERVAL = 1000 / 30; // cap at 30 FPS when idle
+const IDLE_RESTORE_DELAY_MS = 150;
 
 // ─── Unified scene ───────────────────────────────────────────────
 export function initUnifiedScene(
@@ -223,23 +224,25 @@ export function initUnifiedScene(
 	scene.background = new Color(DARK);
 	scene.fog = new FogExp2(new Color(DARK), FOG_DENSITY);
 
-	const isInitiallyMobile = initialMode === "mobile";
-
 	const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 	const renderer = new WebGLRenderer({
 		canvas,
-		antialias: !isInitiallyMobile,
+		// Antialiasing cannot be changed without recreating the WebGL context.
+		// Keep it stable so transitions don't inherit the initial mode's setting.
+		antialias: true,
 		powerPreference: "high-performance",
 	});
 
 	// Mark the canvas so scene-app knows it already has a WebGL context with
 	// the correct attributes and can probe it on re-mount instead of replacing.
 	canvas.dataset.sceneUsed = "true";
+	let roomLighting: ReturnType<typeof setupRoomLighting> | null = null;
 
 	function applyRenderSettings(mode: "desktop" | "mobile"): void {
 		renderer.setPixelRatio(Math.min(window.devicePixelRatio, mode === "mobile" ? 1.25 : 2));
 		renderer.shadowMap.enabled = true;
+		roomLighting?.updateForMode(mode === "mobile");
 		// Disable auto shadow updates — shadows only change when objects move
 		// (animations, transitions), not during camera scroll. Trigger manually
 		// via renderer.shadowMap.needsUpdate = true where needed.
@@ -262,12 +265,11 @@ export function initUnifiedScene(
 	}
 
 	const initialSize = getCanvasSize();
-	applyRenderSettings(initialMode);
-	renderer.setSize(initialSize.width, initialSize.height, false);
-
 	const camera = createCamera(initialSize.width / initialSize.height);
 	const labelController = createLabelController(labelContainer);
 	const deskPhysics = createDeskPhysicsController();
+	applyRenderSettings(initialMode);
+	renderer.setSize(initialSize.width, initialSize.height, false);
 
 	// Post-processing — bloom for screen glow (desktop/transition)
 	const composer = new EffectComposer(renderer);
@@ -284,6 +286,7 @@ export function initUnifiedScene(
 	// ─── Room group ──────────────────────────────────────────────
 	const room = new Group();
 	scene.add(room);
+	roomLighting = setupRoomLighting(room, initialMode === "mobile");
 
 	// Shared ground plane — single floor for both desk and shelf scenes
 	const groundMat = new MeshStandardMaterial({
@@ -299,7 +302,7 @@ export function initUnifiedScene(
 
 	// Scene-level lighting (direction-independent)
 	setupSceneLighting(scene);
-	setupRoomLighting(room, isInitiallyMobile);
+	applyRenderSettings(initialMode);
 
 	// ─── State ───────────────────────────────────────────────────
 	let currentMode: "desktop" | "mobile" = initialMode;
@@ -614,11 +617,11 @@ export function initUnifiedScene(
 	}
 
 	// ─── Create shelf content ────────────────────────────────────
-	function createShelfContent(): void {
+	function createShelfContent(mobileMode = currentMode === "mobile"): void {
 		if (shelfCreated) return;
 		shelfCreated = true;
 
-		cleanupShelfLights = setupShelfLighting(room, currentMode === "mobile");
+		cleanupShelfLights = setupShelfLighting(room, mobileMode);
 		const shelf = createShelfWall(books, options?.spotlight);
 		shelfScene = {
 			...shelf,
@@ -651,6 +654,7 @@ export function initUnifiedScene(
 			room.remove(root);
 			disposeObjectResources(root);
 		}
+		deskPhysics.dispose();
 		deskScene = null;
 		deskCreated = false;
 	}
@@ -699,7 +703,7 @@ export function initUnifiedScene(
 				scene,
 				(dragging) => {
 					isDragging = dragging;
-					targetInterval = dragging ? 0 : IDLE_INTERVAL;
+					markSceneActive();
 					dirty = true;
 				},
 				() => {
@@ -714,7 +718,7 @@ export function initUnifiedScene(
 				(interaction) => {
 					if (isDragging) return;
 					currentHover = interaction;
-					targetInterval = interaction ? 0 : IDLE_INTERVAL;
+					markSceneActive();
 					dirty = true;
 				},
 				(interaction) => {
@@ -726,7 +730,7 @@ export function initUnifiedScene(
 
 					if (entity.kind === "micro") {
 						clickLockedUntil = performance.now() + 200;
-						targetInterval = 0;
+						markSceneActive();
 						entity.activate();
 						dirty = true;
 						return;
@@ -739,7 +743,7 @@ export function initUnifiedScene(
 						void openSelection.entity.close();
 					}
 					openSelection = { mode: "desktop", entity };
-					targetInterval = 0;
+					markSceneActive();
 					void entity.open();
 
 					if (pendingModalTimeout) window.clearTimeout(pendingModalTimeout);
@@ -766,9 +770,6 @@ export function initUnifiedScene(
 			const sc = scrollController;
 			const shelf = shelfScene;
 			const interactionPicker = createInteractionPicker(canvas, camera, scene);
-
-			// Build a map from shelf entry target → linear scroll stop index so
-			// keyboard Tab navigation can scroll the camera to the focused item.
 			const shelfStopByTarget = new Map<Object3D, number>();
 			{
 				const shelfYs = [SHELF_BOT_Y, SHELF_MID_Y, SHELF_TOP_Y];
@@ -787,11 +788,9 @@ export function initUnifiedScene(
 					if (!byRow.has(row)) byRow.set(row, []);
 					byRow.get(row)?.push({ target: entry.target, z: entry.target.position.z });
 				}
-				// Within each row, sort by Z ascending (lower Z = first/left pan snap)
 				for (const items of byRow.values()) {
 					items.sort((a, b) => a.z - b.z);
 				}
-				// Compute linear index: sum of pan snap counts for preceding rows + pan index
 				let offset = 0;
 				for (let row = 0; row < MOBILE_SHELF_SCROLL.panSnapPoints.length; row++) {
 					const rowItems = byRow.get(row);
@@ -814,7 +813,7 @@ export function initUnifiedScene(
 				const decorEntry = shelf.decorByTarget.get(interaction.object);
 				if (decorEntry) {
 					clickLockedUntil = performance.now() + 1000;
-					targetInterval = 0;
+					markSceneActive();
 					decorEntry.activate();
 					dirty = true;
 					trackEvent("shelf_decor_tap", { label: decorEntry.label });
@@ -828,7 +827,7 @@ export function initUnifiedScene(
 
 				if (openSelection?.mode === "mobile") resetShelfSelection();
 				openSelection = { mode: "mobile", entry };
-				targetInterval = 0;
+				markSceneActive();
 				const activeSelection = openSelection;
 				const section = getSectionById(entry.sectionId);
 
@@ -853,7 +852,8 @@ export function initUnifiedScene(
 
 			function onPointerDown(e: PointerEvent): void {
 				if (currentMode !== "mobile" || transitioning || !introComplete) return;
-				targetInterval = 0;
+				currentHover = null;
+				markSceneActive();
 				if (sc.onPointerDown(e)) dirty = true;
 			}
 
@@ -864,7 +864,7 @@ export function initUnifiedScene(
 
 			function onPointerUp(e: PointerEvent): void {
 				if (sc.onPointerUp(e)) dirty = true;
-				else targetInterval = IDLE_INTERVAL;
+				else markSceneActive();
 				const tap = sc.consumeTap();
 				if (tap) {
 					const interaction = interactionPicker.getInteractionAt(tap.clientX, tap.clientY);
@@ -891,7 +891,8 @@ export function initUnifiedScene(
 
 			function onWheel(e: WheelEvent): void {
 				if (currentMode !== "mobile" || transitioning || !introComplete) return;
-				targetInterval = 0;
+				currentHover = null;
+				markSceneActive();
 				if (sc.onWheel(e)) dirty = true;
 			}
 
@@ -923,13 +924,14 @@ export function initUnifiedScene(
 				scene,
 				(interaction) => {
 					currentHover = interaction;
-					targetInterval = interaction ? 0 : IDLE_INTERVAL;
+					markSceneActive();
 					dirty = true;
 				},
 				handleShelfInteraction,
 				{
-					enableHover: true,
+					enableHover: false,
 					enablePointerClick: false,
+					focusOnPointerDown: false,
 					onTabNavigate: (interaction) => {
 						const stopIdx = shelfStopByTarget.get(interaction.object);
 						if (stopIdx !== undefined && sc.navigateToLinearStop(stopIdx)) {
@@ -943,7 +945,7 @@ export function initUnifiedScene(
 		// Modal close handler
 		const onClose = () => {
 			if (!openSelection) return;
-			targetInterval = 0;
+			markSceneActive();
 			if (openSelection.mode === "desktop") {
 				void openSelection.entity.close();
 			} else {
@@ -974,6 +976,80 @@ export function initUnifiedScene(
 	let animationId: number;
 	let lastFrame = 0;
 	let targetInterval = introComplete ? IDLE_INTERVAL : 0;
+	let lastActiveAt = performance.now();
+	let lastAnimating = false;
+	let lastPhysicsActive = false;
+	let lastScrollActivity = false;
+
+	function markSceneActive(now = performance.now()): void {
+		lastActiveAt = now;
+		targetInterval = 0;
+	}
+
+	function canRestoreIdle(now: number): boolean {
+		return now - lastActiveAt >= IDLE_RESTORE_DELAY_MS;
+	}
+
+	function isSceneRenderIdle(now: number): boolean {
+		return (
+			targetInterval === IDLE_INTERVAL &&
+			introComplete &&
+			!transitioning &&
+			!isDragging &&
+			!lastAnimating &&
+			!lastPhysicsActive &&
+			!lastScrollActivity &&
+			canRestoreIdle(now)
+		);
+	}
+
+	window.__sceneDebug = {
+		get mode() {
+			return currentMode;
+		},
+		get targetInterval() {
+			return targetInterval;
+		},
+		get idleInterval() {
+			return IDLE_INTERVAL;
+		},
+		get idleRestoreDelayMs() {
+			return IDLE_RESTORE_DELAY_MS;
+		},
+		get isIdle() {
+			return isSceneRenderIdle(performance.now());
+		},
+		get lastActiveAt() {
+			return lastActiveAt;
+		},
+		get introComplete() {
+			return introComplete;
+		},
+		get transitioning() {
+			return transitioning;
+		},
+		get isDragging() {
+			return isDragging;
+		},
+		get hasHover() {
+			return currentHover !== null;
+		},
+		get animating() {
+			return lastAnimating;
+		},
+		get physicsActive() {
+			return lastPhysicsActive;
+		},
+		get scrolling() {
+			return lastScrollActivity;
+		},
+		get contextLost() {
+			return contextLost;
+		},
+		get disposed() {
+			return disposed;
+		},
+	};
 
 	// Responsive-adjusted intro end vectors so the last frame of
 	// animateMobileIntro matches the pose syncMobileShelfCamera produces.
@@ -1009,6 +1085,10 @@ export function initUnifiedScene(
 		const animating = tickAnimations(now);
 		const physicsDt = Math.min(frameDeltaMs / 1000, 1 / 30);
 		const physicsActive = currentMode === "desktop" ? deskPhysics.tick(physicsDt) : false;
+		lastAnimating = animating;
+		lastPhysicsActive = physicsActive;
+		lastScrollActivity = false;
+		if (animating || physicsActive) lastActiveAt = now;
 		if (animating || physicsActive) {
 			dirty = true;
 			// Objects moved — shadow maps need recomputing
@@ -1028,6 +1108,7 @@ export function initUnifiedScene(
 				);
 				if (introComplete) syncMobileShelfCamera(scrollController?.verticalT ?? 0.5);
 			}
+			lastActiveAt = now;
 			if (introComplete) targetInterval = IDLE_INTERVAL;
 			if (currentMode === "desktop") {
 				composer.render();
@@ -1050,6 +1131,8 @@ export function initUnifiedScene(
 			lastRenderTime = now;
 
 			scrolling = scrollController.tick(dt);
+			lastScrollActivity = scrolling;
+			if (scrolling) lastActiveAt = now;
 			if (scrolling) {
 				syncMobileShelfCamera(scrollController.verticalT);
 				dirty = true;
@@ -1066,30 +1149,32 @@ export function initUnifiedScene(
 					const delta = target - obj.scale.x;
 					if (Math.abs(delta) > CAMERA_DELTA_THRESHOLD) {
 						obj.scale.setScalar(obj.scale.x + delta * HOVER_LERP);
+						renderer.shadowMap.needsUpdate = true;
+						lastActiveAt = now;
 						dirty = true;
 					}
 				}
 			}
 		}
 
-		// Update labels (not during transition; in mobile mode only keyboard
-		// Tab sets currentHover since pointer hover is disabled)
 		if (!transitioning) {
 			labelController.update(currentHover, camera, lastCanvasWidth, lastCanvasHeight);
 		} else {
 			labelController.update(null, camera, lastCanvasWidth, lastCanvasHeight);
 		}
 
-		// Restore idle framerate cap once all activity sources settle
+		// Restore idle framerate cap once all activity sources settle and stay
+		// quiet for a short grace window. This avoids oscillating between the
+		// idle cap and full-rate rendering during bursty trackpad input.
 		if (
 			targetInterval === 0 &&
 			introComplete &&
 			!transitioning &&
 			!isDragging &&
-			!currentHover &&
 			!animating &&
 			!physicsActive &&
-			!scrolling
+			!scrolling &&
+			canRestoreIdle(now)
 		) {
 			targetInterval = IDLE_INTERVAL;
 		}
@@ -1257,7 +1342,7 @@ export function initUnifiedScene(
 
 		// Lazy-create target wall
 		if (target === "desktop") createDeskContent();
-		else createShelfContent();
+		else createShelfContent(target === "mobile");
 
 		// Make both walls visible during transition
 		setDeskVisible(true);
@@ -1266,7 +1351,7 @@ export function initUnifiedScene(
 		// Compute shadow maps once for the transition (objects don't move during it)
 		renderer.shadowMap.enabled = true;
 		renderer.shadowMap.needsUpdate = true;
-		targetInterval = 0; // Full framerate during transition
+		markSceneActive(); // Full framerate during transition
 
 		// Determine rotation and camera poses
 		const fromRotY = room.rotation.y;
@@ -1370,14 +1455,14 @@ export function initUnifiedScene(
 			composer.setSize(lastCanvasWidth, lastCanvasHeight);
 			bloomPass.resolution.set(lastCanvasWidth, lastCanvasHeight);
 			composer.render();
-			targetInterval = IDLE_INTERVAL;
+			markSceneActive();
 		} else {
 			syncMobileShelfCamera(0.5, [0, 0, 0]);
 			disposeDeskScene();
 			disposeSpotlightTextures();
 			applyRenderSettings("mobile");
 			renderer.render(scene, camera);
-			targetInterval = IDLE_INTERVAL;
+			markSceneActive();
 		}
 
 		transitioning = false;
@@ -1419,6 +1504,7 @@ export function initUnifiedScene(
 		dismissSpotlightPopup();
 		cleanupDeskLights?.();
 		cleanupShelfLights?.();
+		roomLighting?.cleanup();
 		shelfScene?.cleanup?.();
 		labelController.dispose();
 		disposeObjectResources(scene);
@@ -1435,6 +1521,7 @@ export function initUnifiedScene(
 		// alive so the browser can preserve it through bfcache.
 		// MDN WebGL best practices: don't call loseContext() on navigation.
 		renderer.dispose();
+		delete window.__sceneDebug;
 	}
 
 	return { cleanup, transition };

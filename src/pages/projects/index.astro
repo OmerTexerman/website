@@ -151,6 +151,18 @@ const setupCategories = await getSetup();
 <script>
   // ── Live clock + cpu jitter ─────────────────────────────────
   const eventAc = new AbortController();
+  const timeoutIds = new Set<number>();
+  let cleanedUp = false;
+
+  function scheduleTimeout(cb: () => void, delay: number): number {
+    const id = window.setTimeout(() => {
+      timeoutIds.delete(id);
+      if (cleanedUp) return;
+      cb();
+    }, delay);
+    timeoutIds.add(id);
+    return id;
+  }
 
   function updateClock() {
     const now = new Date();
@@ -179,9 +191,13 @@ const setupCategories = await getSetup();
 
   // ── Cleanup timers and event listeners on navigation / page hide ─
   function clearTimers() {
+    if (cleanedUp) return;
+    cleanedUp = true;
     clearInterval(clockId);
     clearInterval(cpuId);
     clearInterval(uptimeId);
+    for (const timeoutId of timeoutIds) clearTimeout(timeoutId);
+    timeoutIds.clear();
     eventAc.abort();
   }
   document.addEventListener("astro:before-preparation", clearTimers, { once: true });
@@ -230,10 +246,10 @@ const setupCategories = await getSetup();
       if (ci < command.length) {
         ffCmd!.textContent += command[ci];
         ci++;
-        setTimeout(typeCmd, 30 + Math.random() * 50);
+        scheduleTimeout(typeCmd, 30 + Math.random() * 50);
       } else {
         ffCursor!.style.display = "none";
-        setTimeout(() => {
+        scheduleTimeout(() => {
           const prompt = ffCmd!.parentElement;
           if (prompt) prompt.style.display = "none";
           const lines = output.split("\n");
@@ -250,14 +266,14 @@ const setupCategories = await getSetup();
               });
               ffOutput!.insertAdjacentHTML("beforeend", cleaned + "\n");
               li++;
-              setTimeout(typeLine, 25 + Math.random() * 35);
+              scheduleTimeout(typeLine, 25 + Math.random() * 35);
             }
           }
           typeLine();
         }, 200);
       }
     }
-    setTimeout(typeCmd, 800);
+    scheduleTimeout(typeCmd, 800);
   }
 </script>
 

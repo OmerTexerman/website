@@ -48,6 +48,7 @@ export function setupInteraction(
 		enableHover?: boolean;
 		enablePointerClick?: boolean;
 		onTabNavigate?: (interaction: DeskInteraction) => void;
+		focusOnPointerDown?: boolean;
 	},
 ): () => void {
 	const picker = createInteractionPicker(canvas, camera, scene);
@@ -56,6 +57,7 @@ export function setupInteraction(
 	const navigableGroups = groups.filter((g) => g.userData.href);
 	const enableHover = options?.enableHover ?? true;
 	const enablePointerClick = options?.enablePointerClick ?? true;
+	const focusOnPointerDown = options?.focusOnPointerDown ?? true;
 	let hovered: DeskInteraction | null = null;
 	let focusIndex = -1;
 	let pendingHoverFrame = 0;
@@ -65,9 +67,11 @@ export function setupInteraction(
 	let pointerDownY = 0;
 	const CLICK_THRESHOLD = CLICK_DISTANCE_THRESHOLD;
 
+	const previousTabIndex = canvas.getAttribute("tabindex");
 	canvas.tabIndex = 0;
 	const previousTouchAction = canvas.style.touchAction;
 	canvas.style.touchAction = "none";
+	const shouldHandlePointerDown = focusOnPointerDown || enablePointerClick || enableHover;
 
 	function raycast(): DeskInteraction | null {
 		return picker.getInteractionAt(pointerX, pointerY);
@@ -100,7 +104,9 @@ export function setupInteraction(
 		pointerY = e.clientY;
 		pointerDownX = e.clientX;
 		pointerDownY = e.clientY;
-		if (document.activeElement !== canvas) canvas.focus({ preventScroll: true });
+		if (focusOnPointerDown && document.activeElement !== canvas) {
+			canvas.focus({ preventScroll: true });
+		}
 	}
 
 	function onPointerUp(e: PointerEvent): void {
@@ -141,7 +147,9 @@ export function setupInteraction(
 		setHover(null);
 	};
 
-	canvas.addEventListener("pointerdown", onPointerDown);
+	if (shouldHandlePointerDown) {
+		canvas.addEventListener("pointerdown", onPointerDown);
+	}
 	if (enableHover) {
 		canvas.addEventListener("pointerleave", onPointerLeave);
 		canvas.addEventListener("pointermove", onPointerMove, { passive: true });
@@ -154,7 +162,9 @@ export function setupInteraction(
 	return () => {
 		if (pendingHoverFrame) cancelAnimationFrame(pendingHoverFrame);
 		hovered = null;
-		canvas.removeEventListener("pointerdown", onPointerDown);
+		if (shouldHandlePointerDown) {
+			canvas.removeEventListener("pointerdown", onPointerDown);
+		}
 		if (enableHover) {
 			canvas.removeEventListener("pointerleave", onPointerLeave);
 			canvas.removeEventListener("pointermove", onPointerMove);
@@ -163,6 +173,9 @@ export function setupInteraction(
 			canvas.removeEventListener("pointerup", onPointerUp);
 		}
 		window.removeEventListener("keydown", onKeydown);
+		if (document.activeElement === canvas) canvas.blur();
+		if (previousTabIndex === null) canvas.removeAttribute("tabindex");
+		else canvas.setAttribute("tabindex", previousTabIndex);
 		canvas.style.cursor = "default";
 		canvas.style.touchAction = previousTouchAction;
 	};

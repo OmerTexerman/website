@@ -1,4 +1,4 @@
-import { getSameOriginUrl, isSafeHttpUrl } from "../url-utils";
+import { getSameOriginUrl, isSafeHttpUrl, toRelativeHref } from "../url-utils";
 
 export type ContentPreviewResult =
 	| { kind: "content"; html: string }
@@ -47,15 +47,23 @@ export async function loadContentPreview(
 	return result;
 }
 
-function isSafeSameOriginUrl(value: string, baseUrl: string): boolean {
-	if (!value) return false;
-	if (value.startsWith("#")) return true;
-	return getSameOriginUrl(value, baseUrl) !== null;
-}
-
 function isSafeAssetUrl(value: string, baseUrl: string): boolean {
 	if (!value) return false;
 	return isSafeHttpUrl(value, baseUrl);
+}
+
+function normalizeSameOriginUrl(value: string, baseUrl: string): string | null {
+	const url = getSameOriginUrl(value, baseUrl);
+	return url ? toRelativeHref(url) : null;
+}
+
+function normalizeHttpUrl(value: string, baseUrl: string): string | null {
+	if (!isSafeAssetUrl(value, baseUrl)) return null;
+	try {
+		return new URL(value, baseUrl).href;
+	} catch {
+		return null;
+	}
 }
 
 /** HTML `rel` is a space-separated token list; `includes("noop")` is spoofable (e.g. `xnoopenerx`). */
@@ -83,9 +91,11 @@ function sanitizeSrcset(value: string, baseUrl: string, allowExternal: boolean):
 		.filter(Boolean);
 	const safeEntries = entries.flatMap((entry) => {
 		const [url, ...descriptor] = entry.split(/\s+/);
-		const isSafe = allowExternal ? isSafeAssetUrl(url, baseUrl) : isSafeSameOriginUrl(url, baseUrl);
-		if (!isSafe) return [];
-		return [`${url}${descriptor.length > 0 ? ` ${descriptor.join(" ")}` : ""}`];
+		const normalizedUrl = allowExternal
+			? normalizeHttpUrl(url, baseUrl)
+			: normalizeSameOriginUrl(url, baseUrl);
+		if (!normalizedUrl) return [];
+		return [`${normalizedUrl}${descriptor.length > 0 ? ` ${descriptor.join(" ")}` : ""}`];
 	});
 
 	return safeEntries.length > 0 ? safeEntries.join(", ") : null;
@@ -119,11 +129,12 @@ function sanitizeNode(root: Element, baseUrl: string): void {
 			} else if (name === "href" || name === "src" || name === "poster" || name === "xlink:href") {
 				// Allow external hrefs on links that open in new tabs (e.g. project repo/live links)
 				const isExternalLink = isBlankTargetExternalLink(el, name);
-				const isSafe =
+				const normalizedUrl =
 					allowExternalAsset || isExternalLink
-						? isSafeAssetUrl(value, baseUrl)
-						: isSafeSameOriginUrl(value, baseUrl);
-				if (!isSafe) el.removeAttribute(attr.name);
+						? normalizeHttpUrl(value, baseUrl)
+						: normalizeSameOriginUrl(value, baseUrl);
+				if (normalizedUrl) el.setAttribute(attr.name, normalizedUrl);
+				else el.removeAttribute(attr.name);
 			} else if (name === "autofocus") {
 				el.removeAttribute(attr.name);
 			}

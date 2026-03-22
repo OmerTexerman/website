@@ -13,8 +13,9 @@ interface Props {
 
 const { title, author, spineColor, cover, url, post, size = "shelf" } = Astro.props;
 
-const Tag = url ? "a" : "div";
-const linkProps = url ? { href: url, target: "_blank", rel: "noopener noreferrer" } : {};
+const wrapsWholeCard = !!url && (size === "hero" || !post);
+const Tag = wrapsWholeCard ? "a" : "div";
+const linkProps = wrapsWholeCard ? { href: url, target: "_blank", rel: "noopener noreferrer" } : {};
 ---
 
 <Tag
@@ -52,6 +53,16 @@ const linkProps = url ? { href: url, target: "_blank", rel: "noopener noreferrer
     <div class="book-info">
       <p class="book-title">{title}</p>
       <p class="book-author">{author}</p>
+      {url && !wrapsWholeCard && (
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex items-center gap-1.5 font-mono text-xs text-accent transition-colors hover:text-accent-hover"
+        >
+          External link
+        </a>
+      )}
       {post && (
         <div class="mt-1.5">
           <RelatedPost slug={post} />

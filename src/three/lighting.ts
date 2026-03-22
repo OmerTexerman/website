@@ -28,6 +28,8 @@ function configureShadowLight(light: SpotLight | PointLight, mapSize = SHADOW_MA
 	light.shadow.mapSize.width = mapSize;
 	light.shadow.mapSize.height = mapSize;
 	light.shadow.bias = SHADOW_BIAS;
+	light.shadow.map?.dispose();
+	light.shadow.needsUpdate = true;
 }
 
 /** Scene-level direction-independent lighting (stays fixed during rotation) */
@@ -39,21 +41,38 @@ export function setupSceneLighting(scene: Scene): void {
 	scene.add(ambient);
 }
 
-/** Shared room lights so desk and shelf read as the same physical space */
-export function setupRoomLighting(roomGroup: Group, mobile = false): void {
-	const shadowRes = mobile ? SHADOW_MAP_SIZE_LOW : SHADOW_MAP_SIZE_HIGH;
-
+/** Shared room lights so desk and shelf read as the same physical space. */
+export function setupRoomLighting(
+	roomGroup: Group,
+	mobile = false,
+): {
+	updateForMode: (mobile: boolean) => void;
+	cleanup: () => void;
+} {
 	const ceilingKey = new SpotLight(new Color(LIGHT_CEILING_KEY), 4.6, 28, Math.PI / 5, 0.35, 1.4);
 	ceilingKey.position.set(2.6, 7.2, 4.3);
 	ceilingKey.target.position.set(3.3, 0.9, 3.9);
-	configureShadowLight(ceilingKey, shadowRes);
 	roomGroup.add(ceilingKey);
 	roomGroup.add(ceilingKey.target);
 
 	const shelfSideFill = new PointLight(new Color(LIGHT_SHELF_SIDE_FILL), 0.9, 20, 1.6);
 	shelfSideFill.position.set(7.4, 4.9, 6.8);
-	configureShadowLight(shelfSideFill, shadowRes);
 	roomGroup.add(shelfSideFill);
+
+	function updateForMode(nextMobile: boolean): void {
+		configureShadowLight(ceilingKey, nextMobile ? SHADOW_MAP_SIZE_LOW : SHADOW_MAP_SIZE_HIGH);
+	}
+
+	updateForMode(mobile);
+
+	return {
+		updateForMode,
+		cleanup: () => {
+			roomGroup.remove(ceilingKey, ceilingKey.target, shelfSideFill);
+			ceilingKey.dispose();
+			shelfSideFill.dispose();
+		},
+	};
 }
 
 /** Desk-specific positional lights — added to the room group so they rotate with it.

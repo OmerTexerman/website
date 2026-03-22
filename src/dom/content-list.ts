@@ -29,7 +29,7 @@ export function mountContentList(options: ContentListOptions): () => void {
 		searchInput = null,
 		showMoreButton = null,
 		noResultsEl = null,
-		groupSelector = null,
+		groupSelector = undefined,
 	} = options;
 
 	const allItems = [...container.querySelectorAll<HTMLElement>(itemSelector)];

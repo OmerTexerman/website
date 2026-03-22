@@ -64,8 +64,8 @@ collections:
       - { label: Description, name: description, widget: text }
       - { label: Tech Stack, name: tech, widget: list }
       - { label: Image, name: image, widget: image, required: false }
-      - { label: Live URL, name: url, widget: string, required: false, pattern: ['^https?:\/\/.+$', 'Must be a valid URL (https://...)'] }
-      - { label: Repository URL, name: repo, widget: string, required: false, pattern: ['^https?:\/\/.+$', 'Must be a valid URL (https://...)'] }
+      - { label: Live URL, name: url, widget: string, required: false, pattern: ['^https:\/\/.+$', 'Must be a valid URL (https://...)'] }
+      - { label: Repository URL, name: repo, widget: string, required: false, pattern: ['^https:\/\/.+$', 'Must be a valid URL (https://...)'] }
       - { label: Display Order, name: order, widget: number, default: 0, value_type: int }
       - { label: Related Post Slug, name: post, widget: string, required: false }
       - { label: Body, name: body, widget: markdown }
@@ -83,7 +83,7 @@ collections:
       - { label: Spine Color, name: spineColor, widget: color, default: "#2a4a6a" }
       - { label: Cover Image, name: cover, widget: image, required: false }
       - { label: Status, name: status, widget: select, options: [reading, finished, want-to-read] }
-      - { label: URL, name: url, widget: string, required: false, pattern: ['^https?:\/\/.+$', 'Must be a valid URL (https://...)'] }
+      - { label: URL, name: url, widget: string, required: false, pattern: ['^https:\/\/.+$', 'Must be a valid URL (https://...)'] }
       - { label: Related Post, name: post, widget: string, required: false }
 
   - name: words

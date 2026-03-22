@@ -58,6 +58,7 @@ export function mountPhotoGalleries(root: ParentNode = document): () => void {
 		let lastTrigger: HTMLButtonElement | null = null;
 		let touchStartX = 0;
 		let touchStartY = 0;
+		let savedBodyOverflow: string | null = null;
 		const SWIPE_THRESHOLD = 50;
 
 		const buttons = [...gallery.querySelectorAll<HTMLButtonElement>("[data-photo-index]")];
@@ -114,6 +115,9 @@ export function mountPhotoGalleries(root: ParentNode = document): () => void {
 			dlg.showModal();
 			const closeBtn = dlg.querySelector<HTMLButtonElement>("button[data-photo-lightbox-close]");
 			closeBtn?.focus();
+			if (savedBodyOverflow === null) {
+				savedBodyOverflow = document.body.style.overflow;
+			}
 			document.body.style.overflow = "hidden";
 		}
 
@@ -153,7 +157,10 @@ export function mountPhotoGalleries(root: ParentNode = document): () => void {
 		dlg.addEventListener("click", onDialogClick);
 
 		const onClose = () => {
-			document.body.style.overflow = "";
+			if (savedBodyOverflow !== null) {
+				document.body.style.overflow = savedBodyOverflow;
+				savedBodyOverflow = null;
+			}
 			lastTrigger?.focus();
 			lastTrigger = null;
 		};
@@ -208,7 +215,10 @@ export function mountPhotoGalleries(root: ParentNode = document): () => void {
 			dlg.removeEventListener("touchend", onTouchEnd);
 			document.removeEventListener("keydown", onKeydown);
 			if (dlg.open) dlg.close();
-			document.body.style.overflow = "";
+			if (savedBodyOverflow !== null) {
+				document.body.style.overflow = savedBodyOverflow;
+				savedBodyOverflow = null;
+			}
 			delete gallery.dataset.photoGalleryMounted;
 		});
 	}
