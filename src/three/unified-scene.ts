@@ -15,8 +15,7 @@ import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { getSectionById, type SiteSection } from "../config";
-import type { ShelfBook } from "../content/types";
-import { getContentModal } from "../modal/api";
+import type { ShelfBook, SpotlightInfo } from "../content/types";
 import {
 	animateBookClose,
 	animateBookLift,
@@ -24,10 +23,13 @@ import {
 	animateDictionaryOpen,
 	animateFrameClose,
 	animateFrameReveal,
+	animateFrameWobble,
 	animateLaptopClose,
 	animateLaptopOpen,
 	animateNotebookClose,
 	animateNotebookOpen,
+	animatePhoneSleep,
+	animatePhoneWake,
 	animateShelfPresent,
 	animateShelfReset,
 	animateSpin,
@@ -81,6 +83,8 @@ import { createNotebook } from "./objects/notebook";
 import { createPen } from "./objects/pen";
 import { createPhotoFrame } from "./objects/photo-frame";
 import { createShelfWall, type ShelfDecorEntry, type ShelfSceneEntry } from "./objects/shelf-wall";
+import { createSpotlightFrame, disposeSpotlightTextures } from "./objects/spotlight-frame";
+import { invalidateCanvasRect } from "./raycast-utils";
 import {
 	MOBILE_SHELF_SCROLL,
 	MOBILE_SHELF_STOPS,
@@ -140,10 +144,7 @@ type OpenSelection =
 	  };
 
 function trackEvent(event: string, props: Record<string, string>): void {
-	const w = window as Window & {
-		posthog?: { capture: (e: string, p: Record<string, string>) => void };
-	};
-	w.posthog?.capture(event, props);
+	window.posthog?.capture(event, props);
 }
 
 function easeInOutSine(t: number): number {
@@ -198,33 +199,55 @@ function sampleMobileShelfTrack(
 	};
 }
 
+// ─── Scene constants ────────────────────────────────────────────
+const FOG_DENSITY = 0.04;
+const MAX_FRAME_DELTA_SEC = 0.05;
+const CAMERA_DELTA_THRESHOLD = 0.001;
+const IDLE_INTERVAL = 1000 / 30; // cap at 30 FPS when idle
+const IDLE_RESTORE_DELAY_MS = 150;
+
 // ─── Unified scene ───────────────────────────────────────────────
 export function initUnifiedScene(
 	canvas: HTMLCanvasElement,
 	labelContainer: HTMLElement,
 	initialMode: "desktop" | "mobile",
 	books?: ShelfBook[],
-	options?: { skipIntro?: boolean },
+	options?: {
+		skipIntro?: boolean;
+		spotlight?: SpotlightInfo;
+		onContextRestored?: () => void;
+		onSectionClick?: (label: string, href: string, source?: string) => void;
+		onSectionClose?: (cb: () => void) => (() => void) | undefined;
+	},
 ): { cleanup: () => void; transition: (target: "desktop" | "mobile") => Promise<void> } {
 	const scene = new Scene();
 	scene.background = new Color(DARK);
-	scene.fog = new FogExp2(new Color(DARK), 0.04);
+	scene.fog = new FogExp2(new Color(DARK), FOG_DENSITY);
 
-	const isInitiallyMobile = initialMode === "mobile";
+	const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 	const renderer = new WebGLRenderer({
 		canvas,
-		antialias: !isInitiallyMobile,
+		// Antialiasing cannot be changed without recreating the WebGL context.
+		// Keep it stable so transitions don't inherit the initial mode's setting.
+		antialias: true,
 		powerPreference: "high-performance",
 	});
 
 	// Mark the canvas so scene-app knows it already has a WebGL context with
 	// the correct attributes and can probe it on re-mount instead of replacing.
 	canvas.dataset.sceneUsed = "true";
+	let roomLighting: ReturnType<typeof setupRoomLighting> | null = null;
 
 	function applyRenderSettings(mode: "desktop" | "mobile"): void {
 		renderer.setPixelRatio(Math.min(window.devicePixelRatio, mode === "mobile" ? 1.25 : 2));
 		renderer.shadowMap.enabled = true;
+		roomLighting?.updateForMode(mode === "mobile");
+		// Disable auto shadow updates — shadows only change when objects move
+		// (animations, transitions), not during camera scroll. Trigger manually
+		// via renderer.shadowMap.needsUpdate = true where needed.
+		renderer.shadowMap.autoUpdate = false;
+		renderer.shadowMap.needsUpdate = true;
 	}
 
 	function getCanvasSize(): { width: number; height: number } {
@@ -242,12 +265,11 @@ export function initUnifiedScene(
 	}
 
 	const initialSize = getCanvasSize();
-	applyRenderSettings(initialMode);
-	renderer.setSize(initialSize.width, initialSize.height, false);
-
 	const camera = createCamera(initialSize.width / initialSize.height);
 	const labelController = createLabelController(labelContainer);
 	const deskPhysics = createDeskPhysicsController();
+	applyRenderSettings(initialMode);
+	renderer.setSize(initialSize.width, initialSize.height, false);
 
 	// Post-processing — bloom for screen glow (desktop/transition)
 	const composer = new EffectComposer(renderer);
@@ -264,6 +286,7 @@ export function initUnifiedScene(
 	// ─── Room group ──────────────────────────────────────────────
 	const room = new Group();
 	scene.add(room);
+	roomLighting = setupRoomLighting(room, initialMode === "mobile");
 
 	// Shared ground plane — single floor for both desk and shelf scenes
 	const groundMat = new MeshStandardMaterial({
@@ -279,7 +302,7 @@ export function initUnifiedScene(
 
 	// Scene-level lighting (direction-independent)
 	setupSceneLighting(scene);
-	setupRoomLighting(room, isInitiallyMobile);
+	applyRenderSettings(initialMode);
 
 	// ─── State ───────────────────────────────────────────────────
 	let currentMode: "desktop" | "mobile" = initialMode;
@@ -303,6 +326,8 @@ export function initUnifiedScene(
 	let shelfCreated = false;
 	let deskScene: DeskSceneData | null = null;
 	let shelfScene: ShelfSceneData | null = null;
+	let cleanupDeskLights: (() => void) | null = null;
+	let cleanupShelfLights: (() => void) | null = null;
 
 	// Interaction & drag cleanup references
 	let cleanupInteraction: (() => void) | null = null;
@@ -375,12 +400,71 @@ export function initUnifiedScene(
 		);
 	}
 
+	// ─── Spotlight popup ─────────────────────────────────────────
+	let spotlightPopupEl: HTMLElement | null = null;
+	let spotlightDismissHandler: ((e: MouseEvent) => void) | null = null;
+	let spotlightDismissTimeout = 0;
+
+	function dismissSpotlightPopup(): void {
+		if (spotlightDismissTimeout) {
+			clearTimeout(spotlightDismissTimeout);
+			spotlightDismissTimeout = 0;
+		}
+		if (spotlightPopupEl) {
+			spotlightPopupEl.remove();
+			spotlightPopupEl = null;
+		}
+		if (spotlightDismissHandler) {
+			document.removeEventListener("pointerdown", spotlightDismissHandler);
+			spotlightDismissHandler = null;
+		}
+	}
+
+	function showSpotlightPopup(root: Object3D, spotlight?: SpotlightInfo | null): void {
+		if (!spotlight) return;
+		dismissSpotlightPopup();
+
+		const pos = new Vector3();
+		root.getWorldPosition(pos);
+		pos.project(camera);
+		const rect = canvas.getBoundingClientRect();
+		const x = ((pos.x + 1) / 2) * rect.width + rect.left;
+		const y = ((-pos.y + 1) / 2) * rect.height + rect.top;
+
+		const popup = document.createElement("div");
+		popup.className = "spotlight-popup";
+
+		const img = document.createElement("img");
+		img.src = spotlight.image;
+		img.alt = spotlight.title;
+		popup.appendChild(img);
+
+		const p = document.createElement("p");
+		p.textContent = spotlight.name ? `${spotlight.title} — ${spotlight.name}` : spotlight.title;
+		popup.appendChild(p);
+
+		popup.style.cssText = `position:fixed;left:${x}px;top:${y - 20}px;transform:translate(-50%,-100%);z-index:60;`;
+
+		document.body.appendChild(popup);
+		spotlightPopupEl = popup;
+
+		const dismiss = (e: MouseEvent) => {
+			if (!(e.target instanceof Node) || !popup.contains(e.target)) dismissSpotlightPopup();
+		};
+		spotlightDismissHandler = dismiss;
+		// Delay so the current click doesn't immediately dismiss
+		spotlightDismissTimeout = window.setTimeout(() => {
+			spotlightDismissTimeout = 0;
+			document.addEventListener("pointerdown", dismiss);
+		}, 100);
+	}
+
 	// ─── Create desk content ─────────────────────────────────────
 	function createDeskContent(): void {
 		if (deskCreated) return;
 		deskCreated = true;
 
-		setupDeskLighting(room);
+		cleanupDeskLights = setupDeskLighting(room);
 
 		const desk = createDesk();
 		const deskLamp = createDeskLamp();
@@ -391,6 +475,7 @@ export function initUnifiedScene(
 		const mug = createMug();
 		const pen = createPen();
 		const dictionary = createDictionary();
+		const spotlightFrame = createSpotlightFrame(options?.spotlight);
 		const roots: Object3D[] = [
 			desk,
 			deskLamp,
@@ -399,6 +484,7 @@ export function initUnifiedScene(
 			bookStack.root,
 			photoFrame.root,
 			dictionary.root,
+			spotlightFrame.root,
 			mug,
 			pen,
 		];
@@ -407,7 +493,7 @@ export function initUnifiedScene(
 			room.add(root);
 		}
 
-		if (window.innerWidth >= MOBILE_BREAKPOINT) {
+		if (lastCanvasWidth >= MOBILE_BREAKPOINT) {
 			const guitarPick = createGuitarPick();
 			const circuitBoard = createCircuitBoard();
 			roots.push(guitarPick, circuitBoard);
@@ -494,6 +580,16 @@ export function initUnifiedScene(
 					void animateSpin(pen);
 				},
 			},
+			{
+				kind: "micro",
+				root: spotlightFrame.root,
+				hitboxPadding: 0.15,
+				hoverScale: true,
+				activate: () => {
+					void animateFrameWobble(spotlightFrame.parts.frame);
+					showSpotlightPopup(spotlightFrame.root, options?.spotlight);
+				},
+			},
 		];
 
 		for (const entity of interactiveEntities) {
@@ -514,13 +610,19 @@ export function initUnifiedScene(
 		};
 	}
 
+	function resetShelfSelection(): void {
+		if (!openSelection || openSelection.mode !== "mobile") return;
+		void animateShelfReset(openSelection.entry.item);
+		if (openSelection.entry.source === "phone") void animatePhoneSleep(openSelection.entry.item);
+	}
+
 	// ─── Create shelf content ────────────────────────────────────
-	function createShelfContent(): void {
+	function createShelfContent(mobileMode = currentMode === "mobile"): void {
 		if (shelfCreated) return;
 		shelfCreated = true;
 
-		setupShelfLighting(room, currentMode === "mobile");
-		const shelf = createShelfWall(books);
+		cleanupShelfLights = setupShelfLighting(room, mobileMode);
+		const shelf = createShelfWall(books, options?.spotlight);
 		shelfScene = {
 			...shelf,
 			entryByTarget: new Map(shelf.entries.map((entry) => [entry.target, entry])),
@@ -541,6 +643,31 @@ export function initUnifiedScene(
 
 	function setShelfVisible(visible: boolean): void {
 		if (shelfScene) shelfScene.wall.visible = visible;
+	}
+
+	// ─── Disposal helpers for scene transitions ──────────────────
+	function disposeDeskScene(): void {
+		if (!deskScene) return;
+		cleanupDeskLights?.();
+		cleanupDeskLights = null;
+		for (const root of deskScene.roots) {
+			room.remove(root);
+			disposeObjectResources(root);
+		}
+		deskPhysics.dispose();
+		deskScene = null;
+		deskCreated = false;
+	}
+
+	function disposeShelfScene(): void {
+		if (!shelfScene) return;
+		cleanupShelfLights?.();
+		cleanupShelfLights = null;
+		shelfScene.cleanup?.();
+		room.remove(shelfScene.wall);
+		disposeObjectResources(shelfScene.wall);
+		shelfScene = null;
+		shelfCreated = false;
 	}
 
 	// ─── Setup interactions for current mode ─────────────────────
@@ -566,7 +693,7 @@ export function initUnifiedScene(
 		}
 		currentHover = null;
 		openSelection = null;
-		labelController.update(null, camera, canvas);
+		labelController.update(null, camera, lastCanvasWidth, lastCanvasHeight);
 
 		if (currentMode === "desktop" && deskScene) {
 			const desk = deskScene;
@@ -576,6 +703,7 @@ export function initUnifiedScene(
 				scene,
 				(dragging) => {
 					isDragging = dragging;
+					markSceneActive();
 					dirty = true;
 				},
 				() => {
@@ -590,6 +718,7 @@ export function initUnifiedScene(
 				(interaction) => {
 					if (isDragging) return;
 					currentHover = interaction;
+					markSceneActive();
 					dirty = true;
 				},
 				(interaction) => {
@@ -601,6 +730,7 @@ export function initUnifiedScene(
 
 					if (entity.kind === "micro") {
 						clickLockedUntil = performance.now() + 200;
+						markSceneActive();
 						entity.activate();
 						dirty = true;
 						return;
@@ -613,6 +743,7 @@ export function initUnifiedScene(
 						void openSelection.entity.close();
 					}
 					openSelection = { mode: "desktop", entity };
+					markSceneActive();
 					void entity.open();
 
 					if (pendingModalTimeout) window.clearTimeout(pendingModalTimeout);
@@ -620,8 +751,7 @@ export function initUnifiedScene(
 					pendingModalTimeout = window.setTimeout(() => {
 						pendingModalTimeout = 0;
 						if (disposed) return;
-						const modal = getContentModal();
-						if (modal) modal.open(label, href);
+						if (options?.onSectionClick) options.onSectionClick(label, href);
 						else window.location.href = href;
 					}, entity.modalDelayMs);
 
@@ -640,9 +770,6 @@ export function initUnifiedScene(
 			const sc = scrollController;
 			const shelf = shelfScene;
 			const interactionPicker = createInteractionPicker(canvas, camera, scene);
-
-			// Build a map from shelf entry target → linear scroll stop index so
-			// keyboard Tab navigation can scroll the camera to the focused item.
 			const shelfStopByTarget = new Map<Object3D, number>();
 			{
 				const shelfYs = [SHELF_BOT_Y, SHELF_MID_Y, SHELF_TOP_Y];
@@ -661,11 +788,9 @@ export function initUnifiedScene(
 					if (!byRow.has(row)) byRow.set(row, []);
 					byRow.get(row)?.push({ target: entry.target, z: entry.target.position.z });
 				}
-				// Within each row, sort by Z ascending (lower Z = first/left pan snap)
 				for (const items of byRow.values()) {
 					items.sort((a, b) => a.z - b.z);
 				}
-				// Compute linear index: sum of pan snap counts for preceding rows + pan index
 				let offset = 0;
 				for (let row = 0; row < MOBILE_SHELF_SCROLL.panSnapPoints.length; row++) {
 					const rowItems = byRow.get(row);
@@ -688,6 +813,7 @@ export function initUnifiedScene(
 				const decorEntry = shelf.decorByTarget.get(interaction.object);
 				if (decorEntry) {
 					clickLockedUntil = performance.now() + 1000;
+					markSceneActive();
 					decorEntry.activate();
 					dirty = true;
 					trackEvent("shelf_decor_tap", { label: decorEntry.label });
@@ -699,18 +825,23 @@ export function initUnifiedScene(
 				if (openSelection?.mode === "mobile" && openSelection.entry === entry) return;
 				clickLockedUntil = performance.now() + CLICK_COOLDOWN_MS;
 
-				if (openSelection?.mode === "mobile") {
-					void animateShelfReset(openSelection.entry.item);
-				}
+				if (openSelection?.mode === "mobile") resetShelfSelection();
 				openSelection = { mode: "mobile", entry };
+				markSceneActive();
 				const activeSelection = openSelection;
 				const section = getSectionById(entry.sectionId);
-				void animateShelfPresent(entry.item)
+
+				// If this is the phone, glow the screen before falling
+				const isPhone = entry.source === "phone";
+				const presentChain = isPhone
+					? animatePhoneWake(entry.item).then(() => animateShelfPresent(entry.item))
+					: animateShelfPresent(entry.item);
+
+				void presentChain
 					.then(() => {
 						if (disposed || openSelection !== activeSelection) return;
-						const modal = getContentModal();
 						const href = entry.href ?? section.href;
-						if (modal) modal.open(section.label, href, entry.source);
+						if (options?.onSectionClick) options.onSectionClick(section.label, href, entry.source);
 						else window.location.href = href;
 					})
 					.catch(() => {});
@@ -721,6 +852,8 @@ export function initUnifiedScene(
 
 			function onPointerDown(e: PointerEvent): void {
 				if (currentMode !== "mobile" || transitioning || !introComplete) return;
+				currentHover = null;
+				markSceneActive();
 				if (sc.onPointerDown(e)) dirty = true;
 			}
 
@@ -731,6 +864,7 @@ export function initUnifiedScene(
 
 			function onPointerUp(e: PointerEvent): void {
 				if (sc.onPointerUp(e)) dirty = true;
+				else markSceneActive();
 				const tap = sc.consumeTap();
 				if (tap) {
 					const interaction = interactionPicker.getInteractionAt(tap.clientX, tap.clientY);
@@ -757,12 +891,14 @@ export function initUnifiedScene(
 
 			function onWheel(e: WheelEvent): void {
 				if (currentMode !== "mobile" || transitioning || !introComplete) return;
+				currentHover = null;
+				markSceneActive();
 				if (sc.onWheel(e)) dirty = true;
 			}
 
 			canvas.addEventListener("wheel", onWheel, { passive: false });
 			canvas.addEventListener("pointerdown", onPointerDown);
-			canvas.addEventListener("pointermove", onPointerMove);
+			canvas.addEventListener("pointermove", onPointerMove, { passive: true });
 			canvas.addEventListener("pointerup", onPointerUp);
 			canvas.addEventListener("pointercancel", onPointerCancel);
 			canvas.addEventListener("lostpointercapture", onLostPointerCapture);
@@ -788,12 +924,14 @@ export function initUnifiedScene(
 				scene,
 				(interaction) => {
 					currentHover = interaction;
+					markSceneActive();
 					dirty = true;
 				},
 				handleShelfInteraction,
 				{
-					enableHover: true,
+					enableHover: false,
 					enablePointerClick: false,
+					focusOnPointerDown: false,
 					onTabNavigate: (interaction) => {
 						const stopIdx = shelfStopByTarget.get(interaction.object);
 						if (stopIdx !== undefined && sc.navigateToLinearStop(stopIdx)) {
@@ -805,18 +943,18 @@ export function initUnifiedScene(
 		}
 
 		// Modal close handler
-		const modal = getContentModal();
-		cleanupModalClose =
-			modal?.onClose(() => {
-				if (!openSelection) return;
-				if (openSelection.mode === "desktop") {
-					void openSelection.entity.close();
-				} else {
-					void animateShelfReset(openSelection.entry.item);
-				}
-				openSelection = null;
-				dirty = true;
-			}) ?? null;
+		const onClose = () => {
+			if (!openSelection) return;
+			markSceneActive();
+			if (openSelection.mode === "desktop") {
+				void openSelection.entity.close();
+			} else {
+				resetShelfSelection();
+			}
+			openSelection = null;
+			dirty = true;
+		};
+		cleanupModalClose = options?.onSectionClose?.(onClose) ?? null;
 	}
 
 	// ─── Initial setup ───────────────────────────────────────────
@@ -837,44 +975,141 @@ export function initUnifiedScene(
 	const startTime = performance.now();
 	let animationId: number;
 	let lastFrame = 0;
-	let targetInterval = 0;
+	let targetInterval = introComplete ? IDLE_INTERVAL : 0;
+	let lastActiveAt = performance.now();
+	let lastAnimating = false;
+	let lastPhysicsActive = false;
+	let lastScrollActivity = false;
+
+	function markSceneActive(now = performance.now()): void {
+		lastActiveAt = now;
+		targetInterval = 0;
+	}
+
+	function canRestoreIdle(now: number): boolean {
+		return now - lastActiveAt >= IDLE_RESTORE_DELAY_MS;
+	}
+
+	function isSceneRenderIdle(now: number): boolean {
+		return (
+			targetInterval === IDLE_INTERVAL &&
+			introComplete &&
+			!transitioning &&
+			!isDragging &&
+			!lastAnimating &&
+			!lastPhysicsActive &&
+			!lastScrollActivity &&
+			canRestoreIdle(now)
+		);
+	}
+
+	window.__sceneDebug = {
+		get mode() {
+			return currentMode;
+		},
+		get targetInterval() {
+			return targetInterval;
+		},
+		get idleInterval() {
+			return IDLE_INTERVAL;
+		},
+		get idleRestoreDelayMs() {
+			return IDLE_RESTORE_DELAY_MS;
+		},
+		get isIdle() {
+			return isSceneRenderIdle(performance.now());
+		},
+		get lastActiveAt() {
+			return lastActiveAt;
+		},
+		get introComplete() {
+			return introComplete;
+		},
+		get transitioning() {
+			return transitioning;
+		},
+		get isDragging() {
+			return isDragging;
+		},
+		get hasHover() {
+			return currentHover !== null;
+		},
+		get animating() {
+			return lastAnimating;
+		},
+		get physicsActive() {
+			return lastPhysicsActive;
+		},
+		get scrolling() {
+			return lastScrollActivity;
+		},
+		get contextLost() {
+			return contextLost;
+		},
+		get disposed() {
+			return disposed;
+		},
+	};
 
 	// Responsive-adjusted intro end vectors so the last frame of
 	// animateMobileIntro matches the pose syncMobileShelfCamera produces.
 	const _mobileIntroEndPos = new Vector3();
 	const _mobileIntroEndLook = new Vector3();
 	function updateMobileIntroEndPose(): void {
-		_mobileIntroEndPos.set(
-			MOBILE_POS.x + cachedResponsive.cameraX,
-			MOBILE_POS.y,
-			MOBILE_POS.z,
-		);
-		_mobileIntroEndLook.set(
-			MOBILE_LOOK.x + cachedResponsive.lookX,
-			MOBILE_LOOK.y,
-			MOBILE_LOOK.z,
-		);
+		_mobileIntroEndPos.set(MOBILE_POS.x + cachedResponsive.cameraX, MOBILE_POS.y, MOBILE_POS.z);
+		_mobileIntroEndLook.set(MOBILE_LOOK.x + cachedResponsive.lookX, MOBILE_LOOK.y, MOBILE_LOOK.z);
 	}
 	updateMobileIntroEndPose();
+
+	// If user prefers reduced motion, skip the intro animation entirely
+	// and place the camera at its final resting position.
+	if (prefersReducedMotion && !introComplete) {
+		introComplete = true;
+		targetInterval = IDLE_INTERVAL;
+		if (currentMode === "desktop") {
+			camera.position.copy(DESKTOP_POS);
+			camera.lookAt(DESKTOP_LOOK);
+		} else {
+			syncMobileShelfCamera(0.5);
+		}
+	}
 
 	function render(now: number): void {
 		if (disposed || contextLost) return;
 		animationId = requestAnimationFrame(render);
 
 		if (!transitioning && targetInterval > 0 && now - lastFrame < targetInterval) return;
+		const frameDeltaMs = lastFrame > 0 ? now - lastFrame : 1000 / 60;
 		lastFrame = now;
 
 		const animating = tickAnimations(now);
-		const physicsActive = currentMode === "desktop" ? deskPhysics.tick(1 / 60) : false;
-		if (animating || physicsActive) dirty = true;
+		const physicsDt = Math.min(frameDeltaMs / 1000, 1 / 30);
+		const physicsActive = currentMode === "desktop" ? deskPhysics.tick(physicsDt) : false;
+		lastAnimating = animating;
+		lastPhysicsActive = physicsActive;
+		lastScrollActivity = false;
+		if (animating || physicsActive) lastActiveAt = now;
+		if (animating || physicsActive) {
+			dirty = true;
+			// Objects moved — shadow maps need recomputing
+			renderer.shadowMap.needsUpdate = true;
+		}
 
 		if (!introComplete) {
 			if (currentMode === "desktop") {
 				introComplete = animateIntro(camera, startTime, now);
 			} else {
-				introComplete = animateMobileIntro(camera, startTime, now, _mobileIntroEndPos, _mobileIntroEndLook);
+				introComplete = animateMobileIntro(
+					camera,
+					startTime,
+					now,
+					_mobileIntroEndPos,
+					_mobileIntroEndLook,
+				);
 				if (introComplete) syncMobileShelfCamera(scrollController?.verticalT ?? 0.5);
 			}
+			lastActiveAt = now;
+			if (introComplete) targetInterval = IDLE_INTERVAL;
 			if (currentMode === "desktop") {
 				composer.render();
 			} else {
@@ -883,17 +1118,22 @@ export function initUnifiedScene(
 			return;
 		}
 
-		// Desktop idle float
-		if (currentMode === "desktop" && !transitioning) {
+		// Desktop idle float (skip when user prefers reduced motion)
+		if (currentMode === "desktop" && !transitioning && !prefersReducedMotion) {
 			if (idleFloat(camera, now)) dirty = true;
 		}
 
+		let scrolling = false;
 		if (currentMode === "mobile" && !transitioning && scrollController) {
 			// Compute dt from last frame (frame-rate independent)
-			const dt = lastRenderTime > 0 ? Math.min((now - lastRenderTime) / 1000, 0.05) : 1 / 60;
+			const dt =
+				lastRenderTime > 0 ? Math.min((now - lastRenderTime) / 1000, MAX_FRAME_DELTA_SEC) : 1 / 60;
 			lastRenderTime = now;
 
-			if (scrollController.tick(dt)) {
+			scrolling = scrollController.tick(dt);
+			lastScrollActivity = scrolling;
+			if (scrolling) lastActiveAt = now;
+			if (scrolling) {
 				syncMobileShelfCamera(scrollController.verticalT);
 				dirty = true;
 			}
@@ -907,25 +1147,46 @@ export function initUnifiedScene(
 				for (const obj of hoverTargets) {
 					const target = currentHover?.object === obj ? HOVER_SCALE : 1;
 					const delta = target - obj.scale.x;
-					if (Math.abs(delta) > 0.001) {
+					if (Math.abs(delta) > CAMERA_DELTA_THRESHOLD) {
 						obj.scale.setScalar(obj.scale.x + delta * HOVER_LERP);
+						renderer.shadowMap.needsUpdate = true;
+						lastActiveAt = now;
 						dirty = true;
 					}
 				}
 			}
 		}
 
-		// Update labels (not during transition; in mobile mode only keyboard
-		// Tab sets currentHover since pointer hover is disabled)
 		if (!transitioning) {
-			labelController.update(currentHover, camera, canvas);
+			labelController.update(currentHover, camera, lastCanvasWidth, lastCanvasHeight);
 		} else {
-			labelController.update(null, camera, canvas);
+			labelController.update(null, camera, lastCanvasWidth, lastCanvasHeight);
+		}
+
+		// Restore idle framerate cap once all activity sources settle and stay
+		// quiet for a short grace window. This avoids oscillating between the
+		// idle cap and full-rate rendering during bursty trackpad input.
+		if (
+			targetInterval === 0 &&
+			introComplete &&
+			!transitioning &&
+			!isDragging &&
+			!animating &&
+			!physicsActive &&
+			!scrolling &&
+			canRestoreIdle(now)
+		) {
+			targetInterval = IDLE_INTERVAL;
 		}
 
 		if (dirty || transitioning) {
 			if (currentMode === "desktop" || transitioning) {
-				composer.render();
+				// Skip bloom pass when its strength is negligible to save GPU work
+				if (bloomPass.strength > 0.01) {
+					composer.render();
+				} else {
+					renderer.render(scene, camera);
+				}
 			} else {
 				renderer.render(scene, camera);
 			}
@@ -944,6 +1205,7 @@ export function initUnifiedScene(
 		if (width === lastCanvasWidth && height === lastCanvasHeight) return;
 		lastCanvasWidth = width;
 		lastCanvasHeight = height;
+		invalidateCanvasRect();
 		updateResponsiveLayout();
 		if (!introComplete) updateMobileIntroEndPose();
 
@@ -994,16 +1256,42 @@ export function initUnifiedScene(
 			cancelAnimationFrame(resizeFrame);
 			resizeFrame = 0;
 		}
+		// Stop transition RAF — same as main loop; otherwise tick() keeps scheduling
+		if (transitionAnimationId) {
+			cancelAnimationFrame(transitionAnimationId);
+			transitionAnimationId = 0;
+		}
+		// Resolve any in-flight transition promise so the async chain doesn't hang
+		if (transitionResolve) {
+			transitionResolve();
+			transitionResolve = null;
+		}
 	}
 
 	function onContextRestored(): void {
-		contextLost = false;
-		dirty = true;
-		animationId = requestAnimationFrame(render);
+		if (disposed) return;
+		// After context restore ALL GPU resources (textures, buffers, programs)
+		// are invalidated per the Khronos WebGL spec. The only safe recovery
+		// is a full scene teardown and re-mount with a fresh renderer.
+		cleanup();
+		options?.onContextRestored?.();
 	}
 
 	canvas.addEventListener("webglcontextlost", onContextLost);
 	canvas.addEventListener("webglcontextrestored", onContextRestored);
+
+	// ─── Page Visibility API: pause render loop when tab is hidden ──
+	function onPageVisibilityChange(): void {
+		if (disposed || contextLost) return;
+		if (document.visibilityState === "hidden") {
+			cancelAnimationFrame(animationId);
+		} else {
+			lastRenderTime = 0; // Reset to avoid large delta jump
+			dirty = true;
+			animationId = requestAnimationFrame(render);
+		}
+	}
+	document.addEventListener("visibilitychange", onPageVisibilityChange);
 
 	// ─── Transition ──────────────────────────────────────────────
 	let transitionPromise: Promise<void> | null = null;
@@ -1039,7 +1327,7 @@ export function initUnifiedScene(
 			cleanupMobileShelfControls();
 			cleanupMobileShelfControls = null;
 		}
-		labelController.update(null, camera, canvas);
+		labelController.update(null, camera, lastCanvasWidth, lastCanvasHeight);
 		currentHover = null;
 
 		// Close any open object
@@ -1047,22 +1335,23 @@ export function initUnifiedScene(
 			if (openSelection.mode === "desktop") {
 				void openSelection.entity.close();
 			} else {
-				void animateShelfReset(openSelection.entry.item);
+				resetShelfSelection();
 			}
 			openSelection = null;
 		}
 
 		// Lazy-create target wall
 		if (target === "desktop") createDeskContent();
-		else createShelfContent();
+		else createShelfContent(target === "mobile");
 
 		// Make both walls visible during transition
 		setDeskVisible(true);
 		setShelfVisible(true);
 
-		// Enable bloom and shadows during transition
+		// Compute shadow maps once for the transition (objects don't move during it)
 		renderer.shadowMap.enabled = true;
-		targetInterval = 0; // Full framerate during transition
+		renderer.shadowMap.needsUpdate = true;
+		markSceneActive(); // Full framerate during transition
 
 		// Determine rotation and camera poses
 		const fromRotY = room.rotation.y;
@@ -1079,92 +1368,101 @@ export function initUnifiedScene(
 		const bloomTo = target === "desktop" ? 0.6 : 0;
 		bloomPass.strength = bloomFrom;
 
-		// Animate transition
-		await new Promise<void>((resolve) => {
-			transitionResolve = resolve;
-			const transitionStart = performance.now();
-			const transitionDuration =
-				currentMode === "desktop" && target === "mobile"
-					? DESKTOP_TO_SHELF_TRANSITION_DURATION
-					: TRANSITION_DURATION;
+		// Animate transition (or teleport instantly under reduced motion)
+		if (prefersReducedMotion) {
+			room.rotation.y = toRotY;
+			lerpCameraPose(camera, toPos, toPos, toLook, toLook, 1);
+			bloomPass.strength = bloomTo;
+			dirty = true;
+		} else {
+			await new Promise<void>((resolve) => {
+				transitionResolve = resolve;
+				const transitionStart = performance.now();
+				const transitionDuration =
+					currentMode === "desktop" && target === "mobile"
+						? DESKTOP_TO_SHELF_TRANSITION_DURATION
+						: TRANSITION_DURATION;
 
-			function tick(): void {
-				if (disposed) {
-					resolve();
-					return;
-				}
-
-				const now = performance.now();
-				const elapsed = now - transitionStart;
-				const t = Math.min(elapsed / transitionDuration, 1);
-				const eased =
-					currentMode === "desktop" && target === "mobile" ? easeInOutSine(t) : easeInOutCubic(t);
-
-				// Rotate room
-				room.rotation.y = fromRotY + (toRotY - fromRotY) * eased;
-
-				// Interpolate camera
-				if (currentMode === "desktop" && target === "mobile") {
-					if (eased < 0.5) {
-						lerpCameraPose(
-							camera,
-							fromPos,
-							MOBILE_TRANSITION_MID_POS,
-							fromLook,
-							MOBILE_TRANSITION_MID_LOOK,
-							eased * 2,
-						);
-					} else {
-						lerpCameraPose(
-							camera,
-							MOBILE_TRANSITION_MID_POS,
-							toPos,
-							MOBILE_TRANSITION_MID_LOOK,
-							toLook,
-							(eased - 0.5) * 2,
-						);
+				function tick(): void {
+					if (disposed || contextLost) {
+						transitionAnimationId = 0;
+						resolve();
+						return;
 					}
-				} else {
-					lerpCameraPose(camera, fromPos, toPos, fromLook, toLook, eased);
+
+					const now = performance.now();
+					const elapsed = now - transitionStart;
+					const t = Math.min(elapsed / transitionDuration, 1);
+					const eased =
+						currentMode === "desktop" && target === "mobile" ? easeInOutSine(t) : easeInOutCubic(t);
+
+					// Rotate room
+					room.rotation.y = fromRotY + (toRotY - fromRotY) * eased;
+
+					// Interpolate camera
+					if (currentMode === "desktop" && target === "mobile") {
+						if (eased < 0.5) {
+							lerpCameraPose(
+								camera,
+								fromPos,
+								MOBILE_TRANSITION_MID_POS,
+								fromLook,
+								MOBILE_TRANSITION_MID_LOOK,
+								eased * 2,
+							);
+						} else {
+							lerpCameraPose(
+								camera,
+								MOBILE_TRANSITION_MID_POS,
+								toPos,
+								MOBILE_TRANSITION_MID_LOOK,
+								toLook,
+								(eased - 0.5) * 2,
+							);
+						}
+					} else {
+						lerpCameraPose(camera, fromPos, toPos, fromLook, toLook, eased);
+					}
+
+					// Fade bloom so the composer→renderer switch is invisible
+					bloomPass.strength = bloomFrom + (bloomTo - bloomFrom) * eased;
+
+					dirty = true;
+
+					if (t < 1) {
+						transitionAnimationId = requestAnimationFrame(tick);
+					} else {
+						transitionAnimationId = 0;
+						resolve();
+					}
 				}
 
-				// Fade bloom so the composer→renderer switch is invisible
-				bloomPass.strength = bloomFrom + (bloomTo - bloomFrom) * eased;
-
-				dirty = true;
-
-				if (t < 1) {
-					transitionAnimationId = requestAnimationFrame(tick);
-				} else {
-					transitionAnimationId = 0;
-					resolve();
-				}
-			}
-
-			transitionAnimationId = requestAnimationFrame(tick);
-		});
-		transitionResolve = null;
+				transitionAnimationId = requestAnimationFrame(tick);
+			});
+			transitionResolve = null;
+		}
 
 		// Settle into target mode
 		currentMode = target;
 		room.rotation.y = toRotY;
 
-		// Hide the wall we're not looking at
+		// Hide the wall we're not looking at, then dispose it to free GPU memory
 		if (target === "desktop") {
-			setShelfVisible(false);
+			disposeShelfScene();
 			applyRenderSettings("desktop");
 			// setPixelRatio clears the canvas buffer — re-sync composer and
 			// render immediately so the browser never paints a black frame
 			composer.setSize(lastCanvasWidth, lastCanvasHeight);
 			bloomPass.resolution.set(lastCanvasWidth, lastCanvasHeight);
 			composer.render();
-			targetInterval = 0;
+			markSceneActive();
 		} else {
 			syncMobileShelfCamera(0.5, [0, 0, 0]);
-			setDeskVisible(false);
+			disposeDeskScene();
+			disposeSpotlightTextures();
 			applyRenderSettings("mobile");
 			renderer.render(scene, camera);
-			targetInterval = 0;
+			markSceneActive();
 		}
 
 		transitioning = false;
@@ -1180,29 +1478,42 @@ export function initUnifiedScene(
 		if (disposed) return;
 		disposed = true;
 
+		// Clear pending modal timeout early to prevent stale callbacks
+		if (pendingModalTimeout) {
+			clearTimeout(pendingModalTimeout);
+			pendingModalTimeout = 0;
+		}
+
 		canvas.removeEventListener("webglcontextlost", onContextLost);
 		canvas.removeEventListener("webglcontextrestored", onContextRestored);
+		document.removeEventListener("visibilitychange", onPageVisibilityChange);
 		resizeObserver?.disconnect();
 		cancelAnimationFrame(animationId);
 		if (resizeFrame) cancelAnimationFrame(resizeFrame);
+		// Cancel transition animation frame BEFORE resolving the promise
 		if (transitionAnimationId) cancelAnimationFrame(transitionAnimationId);
 		// Settle any in-flight transition promise so the async chain can GC
 		if (transitionResolve) {
 			transitionResolve();
 			transitionResolve = null;
 		}
-		if (pendingModalTimeout) window.clearTimeout(pendingModalTimeout);
 		if (cleanupInteraction) cleanupInteraction();
 		if (cleanupDrag) cleanupDrag();
 		if (cleanupMobileShelfControls) cleanupMobileShelfControls();
 		cleanupModalClose?.();
+		dismissSpotlightPopup();
+		cleanupDeskLights?.();
+		cleanupShelfLights?.();
+		roomLighting?.cleanup();
 		shelfScene?.cleanup?.();
 		labelController.dispose();
 		disposeObjectResources(scene);
+		disposeSpotlightTextures();
 
 		disposeAnimations();
 		deskPhysics.dispose();
 		bloomPass.dispose();
+		renderPass.dispose();
 		composer.dispose();
 
 		// renderer.dispose() frees all heavy GPU resources (textures, buffers,
@@ -1210,6 +1521,7 @@ export function initUnifiedScene(
 		// alive so the browser can preserve it through bfcache.
 		// MDN WebGL best practices: don't call loseContext() on navigation.
 		renderer.dispose();
+		delete window.__sceneDebug;
 	}
 
 	return { cleanup, transition };

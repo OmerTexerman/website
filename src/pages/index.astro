@@ -1,4 +1,11 @@
 ---
+import "../styles/blog.css";
+import "../styles/phone.css";
+import "../styles/photos.css";
+import "../styles/projects.css";
+import "../styles/reading.css";
+import "../styles/spotlight.css";
+import "../styles/wotd.css";
 import ContentModal from "../components/ContentModal.astro";
 import SceneCanvas from "../components/SceneCanvas.astro";
 import { orderedSections, site } from "../config";
@@ -10,8 +17,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
   description={site.description}
   fullscreen
 >
-  <div class="fixed inset-0 h-dvh min-h-screen overflow-hidden bg-dark">
-    <div id="scene-fallback" class="absolute inset-0 z-10 flex items-end sm:items-center justify-center px-4 py-8 sm:px-6 pointer-events-none" inert aria-hidden="true">
+  <main class="fixed inset-0 h-dvh min-h-screen overflow-hidden bg-dark">
+    <div id="scene-fallback" class="absolute inset-0 z-10 flex items-end sm:items-center justify-center px-4 py-8 sm:px-6 pointer-events-none">
       <div class="max-w-xl rounded-2xl border border-white/10 bg-dark-surface/90 p-6 sm:p-8 shadow-2xl backdrop-blur-md">
         <p class="font-mono text-xs uppercase tracking-[0.3em] text-accent mb-3">Portfolio</p>
         <h1 class="font-display text-4xl sm:text-5xl font-bold tracking-tight text-cream mb-4">
@@ -25,10 +32,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         </div>
       </div>
     </div>
-    <SceneCanvas />
-    <ContentModal />
-
-    <!-- Accessibility: skip to nav + hidden text nav -->
+    <!-- Accessibility: skip to nav + hidden text nav (before canvas so skip link is reachable) -->
     <a
       href="#text-nav"
       class="skip-link"
@@ -42,7 +46,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         ))}
       </ul>
     </nav>
-  </div>
+    <SceneCanvas />
+    <ContentModal />
+  </main>
 
   <noscript>
     <style>
@@ -59,6 +65,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     import { bootstrapContentModal } from "../modal/bootstrap";
 
     let cleanup = mountSceneApp();
+    const listenerAc = new AbortController();
 
     // Re-mount after bfcache restore.  The pagehide cleanup disposed GPU
     // resources but left the context alive for bfcache.  mountSceneApp
@@ -69,10 +76,16 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       cleanup();
       cleanup = mountSceneApp();
       bootstrapContentModal();
-    });
+    }, { signal: listenerAc.signal });
+
+    // Clean up listener on bfcache storage or page unload
+    window.addEventListener("pagehide", () => listenerAc.abort(), { once: true });
 
     if (import.meta.hot) {
-      import.meta.hot.dispose(cleanup);
+      import.meta.hot.dispose(() => {
+        cleanup();
+        listenerAc.abort();
+      });
     }
   </script>
 </BaseLayout>

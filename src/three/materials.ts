@@ -153,3 +153,30 @@ export const dictionaryGoldBorderMaterial = new MeshStandardMaterial({
 	opacity: 0.45,
 	side: DoubleSide,
 });
+
+// Mark all module-level materials as shared so disposeObjectResources does not
+// free their GPU resources during scene teardowns — they are reused across rebuilds.
+for (const mat of [
+	woodMaterial,
+	darkWoodMaterial,
+	paperMaterial,
+	metalMaterial,
+	screenMaterial,
+	darkMetalMaterial,
+	accentMaterial,
+	corkMaterial,
+	ceramicMaterial,
+	pcbMaterial,
+	shelfWoodMaterial,
+	spiralRingMaterial,
+	notebookCoverMaterial,
+	shelfNotebookCoverMaterial,
+	cameraBodyMaterial,
+	dictionaryLeatherMaterial,
+	dictionaryGoldMaterial,
+	dictionaryPagesMaterial,
+	dictionarySpineMaterial,
+	dictionaryGoldBorderMaterial,
+]) {
+	mat.userData.shared = true;
+}

@@ -5,7 +5,7 @@ const pathname = Astro.url.pathname;
 ---
 
 <header class="fixed top-0 left-0 right-0 z-40 bg-dark/90 backdrop-blur-sm border-b border-white/10">
-  <nav class="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
+  <nav class="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3" aria-label="Main navigation">
     <a href="/" class="group flex items-center gap-2" aria-label="Back home">
       <span class="inline-flex items-center justify-center w-9 h-9 bg-accent text-white font-display font-bold text-sm rounded-lg transition-transform group-hover:scale-105">
         {site.initials}
@@ -33,12 +33,16 @@ const pathname = Astro.url.pathname;
 </header>
 
 <script>
+  const navLinksEl = document.querySelector<HTMLElement>("[data-nav-links]");
+  const cleanupAc = new AbortController();
+
   function syncNavHighlight(): void {
     const path = window.location.pathname;
-    const links = document.querySelectorAll<HTMLAnchorElement>("[data-nav-links] a[href]");
+    const links = navLinksEl?.querySelectorAll<HTMLAnchorElement>("a[href]") ?? [];
     for (const link of links) {
       const active = path.startsWith(link.getAttribute("href")!);
-      link.setAttribute("aria-current", active ? "page" : "false");
+      if (active) link.setAttribute("aria-current", "page");
+      else link.removeAttribute("aria-current");
       link.classList.toggle("text-cream", active);
       link.classList.toggle("font-medium", active);
       link.classList.toggle("text-muted", !active);
@@ -48,9 +52,13 @@ const pathname = Astro.url.pathname;
 
   window.addEventListener("pageshow", (e) => {
     if (e.persisted) syncNavHighlight();
-  });
+  }, { signal: cleanupAc.signal });
 
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") syncNavHighlight();
-  });
+  }, { signal: cleanupAc.signal });
+
+  const cleanup = () => cleanupAc.abort();
+  document.addEventListener("astro:before-preparation", cleanup, { once: true });
+  window.addEventListener("pagehide", cleanup, { once: true });
 </script>

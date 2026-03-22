@@ -20,13 +20,16 @@ import {
 	LIGHT_SHELF_KEY,
 	LIGHT_SHELF_SIDE_FILL,
 } from "./colors";
+import { SHADOW_BIAS, SHADOW_MAP_SIZE_HIGH, SHADOW_MAP_SIZE_LOW } from "./constants";
 import { SHELF_BOT_Y, SHELF_MID_Y, SHELF_TOP_Y, SHELF_WALL_X, SHELF_WALL_Z } from "./shelf-layout";
 
-function configureShadowLight(light: SpotLight | PointLight, mapSize = 1024): void {
+function configureShadowLight(light: SpotLight | PointLight, mapSize = SHADOW_MAP_SIZE_HIGH): void {
 	light.castShadow = true;
 	light.shadow.mapSize.width = mapSize;
 	light.shadow.mapSize.height = mapSize;
-	light.shadow.bias = -0.0002;
+	light.shadow.bias = SHADOW_BIAS;
+	light.shadow.map?.dispose();
+	light.shadow.needsUpdate = true;
 }
 
 /** Scene-level direction-independent lighting (stays fixed during rotation) */
@@ -38,25 +41,43 @@ export function setupSceneLighting(scene: Scene): void {
 	scene.add(ambient);
 }
 
-/** Shared room lights so desk and shelf read as the same physical space */
-export function setupRoomLighting(roomGroup: Group, mobile = false): void {
-	const shadowRes = mobile ? 512 : 1024;
-
+/** Shared room lights so desk and shelf read as the same physical space. */
+export function setupRoomLighting(
+	roomGroup: Group,
+	mobile = false,
+): {
+	updateForMode: (mobile: boolean) => void;
+	cleanup: () => void;
+} {
 	const ceilingKey = new SpotLight(new Color(LIGHT_CEILING_KEY), 4.6, 28, Math.PI / 5, 0.35, 1.4);
 	ceilingKey.position.set(2.6, 7.2, 4.3);
 	ceilingKey.target.position.set(3.3, 0.9, 3.9);
-	configureShadowLight(ceilingKey, shadowRes);
 	roomGroup.add(ceilingKey);
 	roomGroup.add(ceilingKey.target);
 
 	const shelfSideFill = new PointLight(new Color(LIGHT_SHELF_SIDE_FILL), 0.9, 20, 1.6);
 	shelfSideFill.position.set(7.4, 4.9, 6.8);
-	configureShadowLight(shelfSideFill, shadowRes);
 	roomGroup.add(shelfSideFill);
+
+	function updateForMode(nextMobile: boolean): void {
+		configureShadowLight(ceilingKey, nextMobile ? SHADOW_MAP_SIZE_LOW : SHADOW_MAP_SIZE_HIGH);
+	}
+
+	updateForMode(mobile);
+
+	return {
+		updateForMode,
+		cleanup: () => {
+			roomGroup.remove(ceilingKey, ceilingKey.target, shelfSideFill);
+			ceilingKey.dispose();
+			shelfSideFill.dispose();
+		},
+	};
 }
 
-/** Desk-specific positional lights — added to the room group so they rotate with it */
-export function setupDeskLighting(roomGroup: Group): void {
+/** Desk-specific positional lights — added to the room group so they rotate with it.
+ *  Returns a cleanup function that removes and disposes all lights added. */
+export function setupDeskLighting(roomGroup: Group): () => void {
 	// Warm overhead fill
 	const roomFill = new PointLight(new Color(LIGHT_ROOM_FILL), 1.4, 30, 1.1);
 	roomFill.position.set(0, 6, 2);
@@ -71,11 +92,19 @@ export function setupDeskLighting(roomGroup: Group): void {
 	const safelight = new PointLight(new Color(ACCENT), 0.28, 12, 2);
 	safelight.position.set(3, 2.5, -1);
 	roomGroup.add(safelight);
+
+	return () => {
+		roomGroup.remove(roomFill, frontFill, safelight);
+		roomFill.dispose();
+		frontFill.dispose();
+		safelight.dispose();
+	};
 }
 
-/** Shelf-specific lighting — tighter key/fill so the shelf reads with stronger shadows */
-export function setupShelfLighting(roomGroup: Group, mobile = false): void {
-	const shadowRes = mobile ? 512 : 1024;
+/** Shelf-specific lighting — tighter key/fill so the shelf reads with stronger shadows.
+ *  Returns a cleanup function that removes and disposes all lights added. */
+export function setupShelfLighting(roomGroup: Group, mobile = false): () => void {
+	const shadowRes = mobile ? SHADOW_MAP_SIZE_LOW : SHADOW_MAP_SIZE_HIGH;
 
 	const shelfKey = new SpotLight(new Color(LIGHT_SHELF_KEY), 5.6, 16, Math.PI / 6, 0.45, 1.6);
 	shelfKey.position.set(SHELF_WALL_X - 1.2, SHELF_TOP_Y + 1.35, SHELF_WALL_Z + 1.4);
@@ -91,4 +120,11 @@ export function setupShelfLighting(roomGroup: Group, mobile = false): void {
 	const bottomFill = new PointLight(new Color(LIGHT_BOTTOM_FILL), 1.2, 10, 1.7);
 	bottomFill.position.set(SHELF_WALL_X - 1.0, SHELF_BOT_Y + 0.75, SHELF_WALL_Z + 0.9);
 	roomGroup.add(bottomFill);
+
+	return () => {
+		roomGroup.remove(shelfKey, shelfKey.target, notebookAccent, bottomFill);
+		shelfKey.dispose();
+		notebookAccent.dispose();
+		bottomFill.dispose();
+	};
 }

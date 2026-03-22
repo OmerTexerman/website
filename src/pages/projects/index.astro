@@ -1,36 +1,282 @@
 ---
+import "../../styles/projects.css";
 import ProjectCard from "../../components/ProjectCard.astro";
 import { getSectionById } from "../../config";
-import { getOrderedProjects } from "../../content/selectors";
+import { getOrderedProjects, getSetup } from "../../content/selectors";
 import ContentPage from "../../layouts/ContentPage.astro";
 
 const section = getSectionById("projects");
 const projects = await getOrderedProjects();
+const setupCategories = await getSetup();
 ---
 
-<ContentPage section={section} surface={false} containerWidthClass="max-w-4xl">
-  <div class="projects-page">
-    {/* Blue screen glow */}
-    <div class="projects-glow"></div>
-
-    {projects.length === 0 ? (
-      <p class="text-muted font-mono">nothing here yet :)</p>
-    ) : (
-      <div class="projects-list">
-        {projects.map((project, i) => (
-          <div data-animate style={`transition-delay: ${i * 0.1}s`}>
-            <ProjectCard
-              title={project.data.title}
-              description={project.data.description}
-              tech={project.data.tech}
-              image={project.data.image}
-              url={project.data.url}
-              repo={project.data.repo}
-              post={project.data.post}
-            />
-          </div>
-        ))}
+<ContentPage section={section} surface={false} containerWidthClass="max-w-7xl" showIntro={false}>
+  <h1 class="sr-only">Projects</h1>
+  <div class="wm-env" data-animate>
+    {/* ── i3bar top ──────────────────────────────── */}
+    <div class="wm-bar wm-bar-top">
+      <div class="wm-bar-left">
+        <span class="wm-ws wm-ws-active">1:projects</span>
+        <a href="/blog" class="wm-ws">2:blog</a>
+        <a href="/reading" class="wm-ws">3:reading</a>
+        <a href="/photos" class="wm-ws">4:photos</a>
       </div>
-    )}
+      <div class="wm-bar-center">
+        <span class="wm-bar-title" id="wm-focused-title">omer@dev ~/projects</span>
+      </div>
+      <div class="wm-bar-right">
+        <span class="wm-bar-mod">cpu <span class="wm-val-ok" id="wm-cpu">3%</span></span>
+        <span class="wm-bar-sep">│</span>
+        <span class="wm-bar-mod">mem <span class="wm-val-ok">2.1G</span></span>
+        <span class="wm-bar-sep">│</span>
+        <time class="wm-bar-clock" id="wm-clock"></time>
+      </div>
+    </div>
+
+    {/* ── Tiling area ────────────────────────────── */}
+    <div class="wm-tiling">
+      {/* ── Main pane: projects ──────────────────── */}
+      <div class="wm-pane wm-pane-main wm-pane-focused">
+        <div class="wm-pane-title">
+          <span class="wm-pane-indicator"></span>
+          <span>projects</span>
+          <span class="wm-pane-count">[{projects.length}]</span>
+          {projects.length > 0 && (
+            <input type="search" class="wm-search" placeholder="/" data-content-search aria-label="Search projects" />
+          )}
+          <span class="wm-pane-mode" id="wm-mode">NORMAL</span>
+        </div>
+        <div class="wm-pane-body">
+          {projects.length === 0 ? (
+            <div class="wm-empty">
+              <span class="wm-empty-prompt">$</span> ls ~/projects<br/>
+              <span class="wm-empty-text">total 0</span>
+            </div>
+          ) : (
+            <>
+              <div class="wm-project-list" data-content-list>
+                {projects.map((project, i) => (
+                  <div data-animate style={`transition-delay: ${i * 0.06}s`}>
+                    <ProjectCard
+                      title={project.data.title}
+                      description={project.data.description}
+                      tech={project.data.tech}
+                      image={project.data.image}
+                      url={project.data.url}
+                      repo={project.data.repo}
+                      post={project.data.post}
+                    />
+                  </div>
+                ))}
+              </div>
+              <p class="content-no-results" data-content-no-results role="status" aria-live="polite">No matching entries.</p>
+              <button class="show-more-btn" data-show-more>Show more</button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* ── Side stack ───────────────────────────── */}
+      <div class="wm-side-stack">
+        {/* ── Setup pane ─────────────────────────── */}
+        {setupCategories.length > 0 && (
+          <div class="wm-pane wm-pane-side" data-animate style="transition-delay: 0.12s">
+            <div class="wm-pane-title">
+              <span class="wm-pane-indicator"></span>
+              <span>setup</span>
+            </div>
+            <div class="wm-pane-body wm-setup-body">
+              {setupCategories.map((cat) => (
+                <div class="wm-setup-section">
+                  <h3 class="wm-setup-heading">{cat.name}</h3>
+                  {cat.items.map((item) => (
+                    <div class="wm-setup-row">
+                      <span class="wm-setup-key">{item.name}</span>
+                      {item.detail && <span class="wm-setup-val">{item.detail}</span>}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── fastfetch pane ─────────────────────── */}
+        <div class="wm-pane wm-pane-side" data-animate style="transition-delay: 0.2s">
+          <div class="wm-pane-title">
+            <span class="wm-pane-indicator"></span>
+            <span>fastfetch</span>
+          </div>
+          <div class="wm-pane-body wm-terminal" id="wm-fastfetch">
+            <div class="wm-terminal-prompt" id="wm-ff-prompt">
+              <span class="wm-prompt-user">omer</span><span class="wm-prompt-sep">@</span><span class="wm-prompt-host">bluefin</span><span class="wm-prompt-path"> ~</span><span class="wm-prompt-dollar"> $</span> <span class="wm-typing" id="wm-ff-cmd"></span><span class="wm-cursor" id="wm-ff-cursor">█</span>
+            </div>
+            <pre class="wm-ff-output" id="wm-ff-output" aria-label="fastfetch output"></pre>
+            {/* Static fallback for modal preview (JS won't run there) */}
+            <pre class="wm-ff-static" aria-label="fastfetch output">{`$ fastfetch --logo none
+  omertexerman@bluefin
+  Bluefin (Fedora 43)
+  Linux 6.18.7-200.fc43.x86_64
+  Laptop 16 (AMD Ryzen AI 300)
+  AMD Ryzen AI 9 HX 370 (24) @ 5.16 GHz
+  AMD Radeon 890M [Integrated]
+  14.66 GiB / 62.57 GiB (23%)
+  2560x1600 @ 165 Hz
+  GNOME 49.4 / Mutter (Wayland)
+  bash 5.3.0`}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {/* ── Status bar bottom ──────────────────────── */}
+    <div class="wm-bar wm-bar-bottom">
+      <div class="wm-bar-left">
+        <span class="wm-bar-mod wm-bar-mode-indicator">NORMAL</span>
+      </div>
+      <div class="wm-bar-center">
+        <span class="wm-bar-mod">projects: {projects.length}</span>
+        <span class="wm-bar-sep">│</span>
+        <span class="wm-bar-mod">layout: <span class="wm-val-ok">splitv</span></span>
+        <span class="wm-bar-sep">│</span>
+        <span class="wm-bar-mod">panes: <span class="wm-val">3</span></span>
+      </div>
+      <div class="wm-bar-right">
+        <span class="wm-bar-mod" id="wm-uptime"></span>
+      </div>
+    </div>
   </div>
 </ContentPage>
+
+<script>
+  // ── Live clock + cpu jitter ─────────────────────────────────
+  const eventAc = new AbortController();
+  const timeoutIds = new Set<number>();
+  let cleanedUp = false;
+
+  function scheduleTimeout(cb: () => void, delay: number): number {
+    const id = window.setTimeout(() => {
+      timeoutIds.delete(id);
+      if (cleanedUp) return;
+      cb();
+    }, delay);
+    timeoutIds.add(id);
+    return id;
+  }
+
+  function updateClock() {
+    const now = new Date();
+    const el = document.getElementById("wm-clock");
+    if (el) el.textContent = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit" });
+  }
+  updateClock();
+  const clockId = setInterval(updateClock, 1000);
+
+  // Simulated cpu jitter
+  const cpuEl = document.getElementById("wm-cpu");
+  const cpuId = setInterval(() => {
+    if (cpuEl) cpuEl.textContent = `${Math.floor(Math.random() * 8) + 1}%`;
+  }, 3000);
+
+  // Live uptime counter
+  const uptimeEl = document.getElementById("wm-uptime");
+  const startTime = Date.now();
+  function updateUptime() {
+    const s = Math.floor((Date.now() - startTime) / 1000);
+    const m = Math.floor(s / 60);
+    if (uptimeEl) uptimeEl.textContent = `session: ${m}m ${s % 60}s`;
+  }
+  updateUptime();
+  const uptimeId = setInterval(updateUptime, 1000);
+
+  // ── Cleanup timers and event listeners on navigation / page hide ─
+  function clearTimers() {
+    if (cleanedUp) return;
+    cleanedUp = true;
+    clearInterval(clockId);
+    clearInterval(cpuId);
+    clearInterval(uptimeId);
+    for (const timeoutId of timeoutIds) clearTimeout(timeoutId);
+    timeoutIds.clear();
+    eventAc.abort();
+  }
+  document.addEventListener("astro:before-preparation", clearTimers, { once: true });
+  window.addEventListener("pagehide", clearTimers, { once: true });
+
+  // ── Pane focus interaction ──────────────────────────────────
+  for (const pane of document.querySelectorAll<HTMLElement>(".wm-pane")) {
+    pane.addEventListener("click", () => {
+      for (const p of document.querySelectorAll(".wm-pane-focused")) p.classList.remove("wm-pane-focused");
+      pane.classList.add("wm-pane-focused");
+      const title = pane.querySelector(".wm-pane-title span:nth-child(2)")?.textContent ?? "";
+      const titleEl = document.getElementById("wm-focused-title");
+      if (titleEl) titleEl.textContent = `omer@dev ~/${title}`;
+    }, { signal: eventAc.signal });
+  }
+
+  // ── Search mode indicator ──────────────────────────────────
+  const searchInput = document.querySelector<HTMLInputElement>(".wm-search");
+  const modeEl = document.getElementById("wm-mode");
+  if (searchInput && modeEl) {
+    searchInput.addEventListener("focus", () => { modeEl.textContent = "SEARCH"; modeEl.classList.add("wm-mode-search"); }, { signal: eventAc.signal });
+    searchInput.addEventListener("blur", () => { modeEl.textContent = "NORMAL"; modeEl.classList.remove("wm-mode-search"); }, { signal: eventAc.signal });
+  }
+
+  // ── Fastfetch typewriter ───────────────────────────────────
+  const ffCmd = document.getElementById("wm-ff-cmd");
+  const ffCursor = document.getElementById("wm-ff-cursor");
+  const ffOutput = document.getElementById("wm-ff-output");
+  const command = "fastfetch --logo none";
+  const output = `  omertexerman@bluefin
+  Bluefin (Fedora 43)
+  Linux 6.18.7-200.fc43.x86_64
+  3 hours, 18 mins
+  Laptop 16 (AMD Ryzen AI 300)
+  AMD Ryzen AI 9 HX 370 (24) @ 5.16 GHz
+  AMD Radeon 890M [Integrated]
+  14.66 GiB / 62.57 GiB (23%)
+  2560x1600 @ 165 Hz
+  GNOME 49.4 / Mutter (Wayland)
+  bash 5.3.0
+  \x1b[40m  \x1b[41m  \x1b[42m  \x1b[43m  \x1b[44m  \x1b[45m  \x1b[46m  \x1b[47m  `;
+
+  if (ffCmd && ffOutput && ffCursor) {
+    let ci = 0;
+    function typeCmd() {
+      if (ci < command.length) {
+        ffCmd!.textContent += command[ci];
+        ci++;
+        scheduleTimeout(typeCmd, 30 + Math.random() * 50);
+      } else {
+        ffCursor!.style.display = "none";
+        scheduleTimeout(() => {
+          const prompt = ffCmd!.parentElement;
+          if (prompt) prompt.style.display = "none";
+          const lines = output.split("\n");
+          let li = 0;
+          function typeLine() {
+            if (li < lines.length) {
+              const line = lines[li];
+              const cleaned = line.replace(/\x1b\[(\d+)m\s\s/g, (_, code: string) => {
+                const colors: Record<string, string> = {
+                  "40": "#1a1a2e", "41": "#ed655b", "42": "#28c840", "43": "#febc2e",
+                  "44": "#6a9fcc", "45": "#b48ead", "46": "#88c0d0", "47": "#d8dee9",
+                };
+                return `<span style="background:${colors[code] ?? "#888"};display:inline-block;width:12px;height:12px;border-radius:1px;margin-right:2px;vertical-align:middle"></span>`;
+              });
+              ffOutput!.insertAdjacentHTML("beforeend", cleaned + "\n");
+              li++;
+              scheduleTimeout(typeLine, 25 + Math.random() * 35);
+            }
+          }
+          typeLine();
+        }, 200);
+      }
+    }
+    scheduleTimeout(typeCmd, 800);
+  }
+</script>
+
+<script>
+  import "../../dom/content-list-boot";
+</script>

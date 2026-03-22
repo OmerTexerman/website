@@ -1,0 +1,213 @@
+/* ── Word of the Day — Desk Calendar ─────────── */
+
+.wotd-page {
+	position: relative;
+}
+
+.wotd-empty {
+	font-family: var(--font-mono);
+	font-size: 0.8125rem;
+	color: var(--color-muted);
+	text-align: center;
+	padding: 3rem 0;
+}
+
+/* Hero card — dark surface, not paper */
+.wotd-card {
+	position: relative;
+	border-radius: 10px;
+	overflow: hidden;
+	box-shadow:
+		0 8px 32px rgba(0, 0, 0, 0.4),
+		0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.wotd-card-tab {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 0.75rem 1.5rem;
+	background: var(--color-accent);
+	color: #fff;
+}
+
+.wotd-tab-label {
+	font-family: var(--font-mono);
+	font-size: 0.6875rem;
+	letter-spacing: 0.15em;
+	text-transform: uppercase;
+	font-weight: 600;
+}
+
+.wotd-tab-date {
+	font-family: var(--font-mono);
+	font-size: 0.6875rem;
+	opacity: 0.85;
+}
+
+.wotd-card-body {
+	background: var(--color-dark-surface-elevated);
+	padding: 2.5rem 2rem;
+}
+
+@media (min-width: 48rem) {
+	.wotd-card-body {
+		padding: 3rem 2.5rem;
+	}
+}
+
+.wotd-word {
+	font-family: var(--font-display);
+	font-weight: 700;
+	font-size: 3.5rem;
+	line-height: 1.05;
+	color: var(--color-cream);
+	margin-bottom: 0.5rem;
+	overflow-wrap: break-word;
+}
+
+@media (min-width: 48rem) {
+	.wotd-word {
+		font-size: 5rem;
+	}
+}
+
+.wotd-pos {
+	display: inline-block;
+	font-family: var(--font-mono);
+	font-size: 0.875rem;
+	font-style: italic;
+	color: var(--color-muted-light);
+	margin-bottom: 1rem;
+}
+
+.wotd-accent-line {
+	height: 2px;
+	width: 4rem;
+	background: var(--color-accent);
+	margin-bottom: 1.25rem;
+}
+
+.wotd-quip {
+	font-size: 1.125rem;
+	line-height: 1.7;
+	color: var(--color-cream-dark);
+	max-width: 36rem;
+}
+
+.wotd-image {
+	margin-top: 1.5rem;
+	border-radius: 6px;
+	overflow: hidden;
+	border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.wotd-image img {
+	width: 100%;
+	height: auto;
+	display: block;
+}
+
+/* Archive */
+.wotd-archive {
+	margin-top: 2.5rem;
+}
+
+.wotd-archive-heading {
+	font-family: var(--font-mono);
+	font-size: 0.6875rem;
+	letter-spacing: 0.15em;
+	text-transform: uppercase;
+	color: var(--color-muted);
+	margin-bottom: 1rem;
+	padding-bottom: 0.5rem;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.wotd-archive-list {
+	display: flex;
+	flex-direction: column;
+}
+
+.wotd-archive-item {
+	padding: 1rem 0;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.wotd-archive-item:last-child {
+	border-bottom: none;
+}
+
+.wotd-archive-word-row {
+	display: flex;
+	align-items: baseline;
+	gap: 0.5rem;
+	flex-wrap: wrap;
+	margin-bottom: 0.25rem;
+}
+
+.wotd-archive-word {
+	font-family: var(--font-display);
+	font-weight: 600;
+	font-size: 1.25rem;
+	color: var(--color-cream);
+}
+
+.wotd-archive-pos {
+	font-family: var(--font-mono);
+	font-size: 0.75rem;
+	font-style: italic;
+	color: var(--color-muted-light);
+}
+
+.wotd-archive-date {
+	font-family: var(--font-mono);
+	font-size: 0.6875rem;
+	color: var(--color-muted);
+	margin-left: auto;
+}
+
+.wotd-archive-quip {
+	font-size: 0.9375rem;
+	line-height: 1.5;
+	color: var(--color-cream-dark);
+}
+
+/* Animation */
+@keyframes wotd-page-in {
+	from {
+		opacity: 0;
+		transform: translateY(16px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.wotd-page[data-animate].is-visible {
+	animation: wotd-page-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.wotd-page[data-animate].is-visible {
+		animation: none;
+		opacity: 1;
+		transform: none;
+	}
+}
+
+/* ── Modal overrides — Word of the Day ───────── */
+
+#content-modal-body .wotd-card {
+	border-radius: 0;
+	box-shadow: none;
+}
+
+#content-modal-body .wotd-card-body {
+	padding: 1.5rem;
+}
+
+#content-modal-body .wotd-archive {
+	margin-top: 1.5rem;
+}

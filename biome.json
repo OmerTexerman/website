@@ -17,6 +17,12 @@
 			"correctness": {
 				"noUnusedImports": "warn",
 				"noUnusedVariables": "warn"
+			},
+			"complexity": {
+				"noImportantStyles": "off"
+			},
+			"style": {
+				"noDescendingSpecificity": "off"
 			}
 		}
 	},
@@ -33,9 +39,20 @@
 	},
 	"overrides": [
 		{
-			"includes": ["src/**/*.astro", "src/**/*.css", "src/**/*.md", "src/**/*.yaml", "*.yml"],
+			"includes": ["src/content/**/*.md", "src/content/**/*.yaml", "*.yml"],
 			"linter": {
 				"enabled": false
+			}
+		},
+		{
+			"includes": ["src/**/*.astro"],
+			"linter": {
+				"rules": {
+					"correctness": {
+						"noUnusedImports": "off",
+						"noUnusedVariables": "off"
+					}
+				}
 			}
 		}
 	],

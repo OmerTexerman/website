@@ -1,12 +1,12 @@
 /**
  * Shared scene configuration constants.
  *
- * Centralises breakpoints, animation timings, and interaction parameters
+ * Centralises animation timings and interaction parameters
  * that define the overall feel of the Three.js scene.
  */
 
-// ─── Layout breakpoints ─────────────────────────────────────────
-export const MOBILE_BREAKPOINT = 768;
+// ─── Layout breakpoints (re-exported from site config) ──────────
+export { MOBILE_BREAKPOINT } from "../config";
 
 // ─── Intro / transition durations (ms) ──────────────────────────
 export const INTRO_DURATION = 2800;
@@ -22,3 +22,11 @@ export const CLICK_COOLDOWN_MS = 420;
 // ─── Desktop idle camera float ──────────────────────────────────
 export const IDLE_AMPLITUDE = 0.03;
 export const IDLE_SPEED = 0.0005;
+
+// ─── Interaction raycasting ─────────────────────────────────────
+export const CLICK_DISTANCE_THRESHOLD = 10;
+
+// ─── Shadow mapping ─────────────────────────────────────────────
+export const SHADOW_MAP_SIZE_HIGH = 1024;
+export const SHADOW_MAP_SIZE_LOW = 512;
+export const SHADOW_BIAS = -0.0002;

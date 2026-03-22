@@ -12,15 +12,13 @@ import {
 	TorusGeometry,
 } from "three";
 import type { SectionId } from "../../config";
-import type { ShelfBook } from "../../content/types";
-import { animateClockSpin, animateHeadphonePulse } from "../animations";
+import type { ShelfBook, SpotlightInfo } from "../../content/types";
+import { animateClockSpin, animateFrameWobble, animateHeadphonePulse } from "../animations";
 import {
 	BOOK_COLORS,
 	CERAMIC,
-	DARK_GRAY,
 	DARK_METAL,
 	SCREEN_BLUE,
-	SCREEN_GLOW,
 	SHELL_RETURN,
 	SHELL_SHADOW,
 	SHELL_WALL,
@@ -35,7 +33,6 @@ import {
 	dictionaryGoldMaterial,
 	dictionaryLeatherMaterial,
 	dictionaryPagesMaterial,
-	metalMaterial,
 	paperMaterial,
 	shelfNotebookCoverMaterial,
 	shelfWoodMaterial,
@@ -46,6 +43,8 @@ import { createSpineTexture } from "../spine-texture";
 import { createShelfCandle, toggleCandle } from "./shelf-candle";
 import { createShelfClock, syncClockToTime } from "./shelf-clock";
 import { createShelfHeadphones } from "./shelf-headphones";
+import { createShelfPhone } from "./shelf-phone";
+import { createShelfSpotlightFrame } from "./spotlight-frame";
 
 export interface ShelfDecorEntry {
 	label: string;
@@ -202,40 +201,6 @@ function createShelfNotebook(): Group {
 	return g;
 }
 
-function createShelfLaptop(): Group {
-	const g = new Group();
-
-	// Base (closed laptop lying flat)
-	const base = new Mesh(new BoxGeometry(0.6, 0.025, 0.4), metalMaterial);
-	g.add(base);
-
-	// Top lid
-	const lidMat = new MeshStandardMaterial({
-		color: new Color(DARK_GRAY),
-		roughness: 0.4,
-		metalness: 0.6,
-	});
-	const lid = new Mesh(new BoxGeometry(0.6, 0.015, 0.4), lidMat);
-	lid.position.y = 0.02;
-	g.add(lid);
-
-	// Small logo/accent on lid
-	const logo = new Mesh(
-		new BoxGeometry(0.08, 0.003, 0.08),
-		new MeshStandardMaterial({
-			color: new Color(SCREEN_GLOW),
-			emissive: new Color(SCREEN_GLOW),
-			emissiveIntensity: 0.5,
-			roughness: 0.2,
-		}),
-	);
-	logo.position.set(0, 0.03, 0);
-	g.add(logo);
-
-	g.position.set(0, 0.02, 0);
-	return g;
-}
-
 function createShelfCamera(): Group {
 	const g = new Group();
 
@@ -375,8 +340,30 @@ function createShelfShell(): Group {
 	return shell;
 }
 
+function addDecorItem(
+	parent: Group,
+	item: Group,
+	position: [number, number, number],
+	label: string,
+	activate: () => void,
+	hitboxPadding = 0.06,
+): ShelfDecorEntry {
+	item.position.set(...position);
+	item.rotation.y = -Math.PI / 2;
+	enableShadows(item);
+	const target = new Group();
+	target.userData = { interactive: true };
+	target.add(item);
+	addHitbox(target, hitboxPadding);
+	parent.add(target);
+	return { label, target, activate };
+}
+
 // ─── Main builder ────────────────────────────────────────────────
-export function createShelfWall(books?: ShelfBook[]): ShelfWallResult {
+export function createShelfWall(
+	books?: ShelfBook[],
+	spotlight?: SpotlightInfo | null,
+): ShelfWallResult {
 	const wall = new Group();
 	wall.userData = { shelfWall: true };
 
@@ -417,8 +404,10 @@ export function createShelfWall(books?: ShelfBook[]): ShelfWallResult {
 		},
 		{
 			sectionId: "projects" as const,
-			item: createShelfLaptop(),
-			position: [SHELF_CENTER_X - 0.14, MID_Y + SHELF_THICK / 2 + 0.025, WALL_Z + 0.62] as const,
+			href: "/projects/phone",
+			source: "phone",
+			item: createShelfPhone(),
+			position: [SHELF_CENTER_X - 0.14, MID_Y + SHELF_THICK / 2 + 0.01, WALL_Z + 0.62] as const,
 			rotationY: -Math.PI / 2,
 			hitboxPadding: 0.1,
 		},
@@ -464,59 +453,54 @@ export function createShelfWall(books?: ShelfBook[]): ShelfWallResult {
 
 	// Candle — top shelf, right side (next to books)
 	const candle = createShelfCandle();
-	candle.position.set(SHELF_CENTER_X + 0.06, TOP_Y + SHELF_THICK / 2, WALL_Z + 0.6);
-	candle.rotation.y = -Math.PI / 2;
-	enableShadows(candle);
-	const candleTarget = new Group();
-	candleTarget.userData = { interactive: true };
-	candleTarget.add(candle);
-	addHitbox(candleTarget, 0.06);
-	wall.add(candleTarget);
-	decor.push({
-		label: "Candle",
-		target: candleTarget,
-		activate: () => {
-			toggleCandle(candle);
-		},
-	});
+	decor.push(
+		addDecorItem(
+			wall,
+			candle,
+			[SHELF_CENTER_X + 0.06, TOP_Y + SHELF_THICK / 2, WALL_Z + 0.6],
+			"Candle",
+			() => {
+				toggleCandle(candle);
+			},
+		),
+	);
 
 	// Clock — wall-mounted between top and mid shelves
 	const clock = createShelfClock();
-	// Place on the wall plane (flush with wall), between shelves
 	const clockWallY = (TOP_Y + MID_Y) / 2;
-	clock.position.set(WALL_X + 0.01, clockWallY, WALL_Z + 0.55);
-	clock.rotation.y = -Math.PI / 2;
-	enableShadows(clock);
-	const clockTarget = new Group();
-	clockTarget.userData = { interactive: true };
-	clockTarget.add(clock);
-	addHitbox(clockTarget, 0.06);
-	wall.add(clockTarget);
-	decor.push({
-		label: "Clock",
-		target: clockTarget,
-		activate: () => {
+	decor.push(
+		addDecorItem(wall, clock, [WALL_X + 0.01, clockWallY, WALL_Z + 0.55], "Clock", () => {
 			void animateClockSpin(clock);
-		},
-	});
+		}),
+	);
 
 	// Headphones — bottom shelf, leaning against back wall (next to camera)
 	const headphones = createShelfHeadphones();
-	headphones.position.set(SHELF_CENTER_X + 0.16, BOT_Y + SHELF_THICK / 2, WALL_Z + 0.62);
-	headphones.rotation.y = -Math.PI / 2;
-	enableShadows(headphones);
-	const hpTarget = new Group();
-	hpTarget.userData = { interactive: true };
-	hpTarget.add(headphones);
-	addHitbox(hpTarget, 0.06);
-	wall.add(hpTarget);
-	decor.push({
-		label: "Headphones",
-		target: hpTarget,
-		activate: () => {
-			void animateHeadphonePulse(headphones);
-		},
-	});
+	decor.push(
+		addDecorItem(
+			wall,
+			headphones,
+			[SHELF_CENTER_X + 0.16, BOT_Y + SHELF_THICK / 2, WALL_Z + 0.62],
+			"Headphones",
+			() => {
+				void animateHeadphonePulse(headphones);
+			},
+		),
+	);
+
+	// Spotlight frame — wall-mounted between mid and bottom shelves
+	const spotlightFrameGroup = createShelfSpotlightFrame(spotlight);
+	decor.push(
+		addDecorItem(
+			wall,
+			spotlightFrameGroup,
+			[WALL_X + 0.01, (MID_Y + BOT_Y) / 2, WALL_Z - 0.3],
+			"Spotlight",
+			() => {
+				void animateFrameWobble(spotlightFrameGroup);
+			},
+		),
+	);
 
 	// Resync clock hands to actual time every 30 s
 	const clockSyncInterval = window.setInterval(() => syncClockToTime(clock), 30_000);

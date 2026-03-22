@@ -1,4 +1,5 @@
 ---
+import "../../styles/photos.css";
 import PhotoCollectionCard from "../../components/PhotoCollectionCard.astro";
 import { getSectionById } from "../../config";
 import { getPhotoCollections } from "../../content/selectors";
@@ -13,16 +14,25 @@ const collections = await getPhotoCollections();
     {collections.length === 0 ? (
       <p class="text-muted font-mono">nothing here yet :)</p>
     ) : (
-      <div class="corkboard-grid">
-        {collections.map((collection, i) => (
-          <div data-animate style={`transition-delay: ${i * 0.1}s`}>
-            <PhotoCollectionCard
-              collection={collection}
-              featured={i === 0 && collections.length > 1}
-            />
-          </div>
-        ))}
-      </div>
+      <>
+        <input type="search" class="content-search" placeholder="search collections..." data-content-search aria-label="Search collections" />
+        <div class="corkboard-grid" data-content-list>
+          {collections.map((collection, i) => (
+            <div data-animate style={`transition-delay: ${i * 0.1}s`}>
+              <PhotoCollectionCard
+                collection={collection}
+                featured={i === 0 && collections.length > 1}
+              />
+            </div>
+          ))}
+        </div>
+        <p class="content-no-results" data-content-no-results role="status" aria-live="polite">No matching entries.</p>
+        <button class="show-more-btn" data-show-more>Show more</button>
+      </>
     )}
   </div>
+
+  <script>
+    import "../../dom/content-list-boot";
+  </script>
 </ContentPage>

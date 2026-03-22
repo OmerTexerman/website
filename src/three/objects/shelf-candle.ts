@@ -11,28 +11,26 @@ import { CERAMIC, WARM_GLOW } from "../colors";
 
 const CANDLE_ON_INTENSITY = 1.2;
 
-const jarMaterial = new MeshStandardMaterial({
-	color: new Color("#3a3632"),
-	roughness: 0.25,
-	metalness: 0.05,
-	transparent: true,
-	opacity: 0.6,
-});
-
-const waxMaterial = new MeshStandardMaterial({
-	color: new Color(CERAMIC),
-	roughness: 0.9,
-	metalness: 0.0,
-});
-
-const wickMaterial = new MeshStandardMaterial({
-	color: new Color("#1a1a1a"),
-	roughness: 1.0,
-	metalness: 0.0,
-});
-
 /** Small jar candle for the shelf. Tap to light / extinguish. */
 export function createShelfCandle(): Group {
+	// Per-call materials so scene teardown can dispose them without corrupting rebuilds.
+	const jarMaterial = new MeshStandardMaterial({
+		color: new Color("#3a3632"),
+		roughness: 0.25,
+		metalness: 0.05,
+		transparent: true,
+		opacity: 0.6,
+	});
+	const waxMaterial = new MeshStandardMaterial({
+		color: new Color(CERAMIC),
+		roughness: 0.9,
+		metalness: 0.0,
+	});
+	const wickMaterial = new MeshStandardMaterial({
+		color: new Color("#1a1a1a"),
+		roughness: 1.0,
+		metalness: 0.0,
+	});
 	const candle = new Group();
 	candle.userData = { interactive: true, candleLit: true };
 

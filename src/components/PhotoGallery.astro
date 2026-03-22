@@ -1,5 +1,6 @@
 ---
 import type { PhotoGalleryPhoto } from "../dom/photo-gallery";
+import { safeJson } from "../utils";
 
 interface Props {
 	photos: PhotoGalleryPhoto[];
@@ -9,7 +10,7 @@ const { photos } = Astro.props;
 ---
 
 <div data-photo-gallery>
-  <script type="application/json" data-photo-gallery-data set:html={JSON.stringify(photos)} />
+  <script is:inline type="application/json" data-photo-gallery-data set:html={safeJson(photos)} />
 
   <!-- Masonry Grid -->
   <div class="photo-masonry">
@@ -24,6 +25,8 @@ const { photos } = Astro.props;
           src={photo.src}
           alt={photo.alt}
           loading="lazy"
+          width="600"
+          height="400"
           class="photo-masonry-img"
         />
         {photo.caption && (
@@ -39,6 +42,7 @@ const { photos } = Astro.props;
   <dialog
     data-photo-lightbox
     class="photo-lightbox"
+    aria-label="Photo viewer"
   >
     <!-- Close -->
     <button
@@ -46,7 +50,7 @@ const { photos } = Astro.props;
       class="photo-lightbox-close"
       aria-label="Close lightbox"
     >
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
       </svg>
     </button>
@@ -57,7 +61,7 @@ const { photos } = Astro.props;
       class="photo-lightbox-nav photo-lightbox-prev"
       aria-label="Previous photo"
     >
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
       </svg>
     </button>
@@ -68,7 +72,7 @@ const { photos } = Astro.props;
       class="photo-lightbox-nav photo-lightbox-next"
       aria-label="Next photo"
     >
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
       </svg>
     </button>
@@ -84,7 +88,7 @@ const { photos } = Astro.props;
     </div>
 
     <!-- Info -->
-    <div class="photo-lightbox-info">
+    <div class="photo-lightbox-info" aria-live="polite">
       <p data-photo-lightbox-caption class="photo-lightbox-info-caption"></p>
       <span data-photo-lightbox-counter class="photo-lightbox-info-counter font-mono"></span>
     </div>
@@ -96,4 +100,5 @@ const { photos } = Astro.props;
 
   const cleanup = mountPhotoGalleries();
   document.addEventListener("astro:before-preparation", cleanup, { once: true });
+  window.addEventListener("pagehide", cleanup, { once: true });
 </script>

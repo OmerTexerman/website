@@ -4,6 +4,22 @@ export interface PhotoGalleryPhoto {
 	caption?: string;
 }
 
+function parsePhotoGalleryPhotos(raw: string): PhotoGalleryPhoto[] {
+	try {
+		const parsed: unknown = JSON.parse(raw);
+		if (!Array.isArray(parsed)) return [];
+		return parsed.filter(
+			(item): item is PhotoGalleryPhoto =>
+				typeof item === "object" &&
+				item !== null &&
+				typeof (item as Record<string, unknown>).src === "string" &&
+				typeof (item as Record<string, unknown>).alt === "string",
+		);
+	} catch {
+		return [];
+	}
+}
+
 export function mountPhotoGalleries(root: ParentNode = document): () => void {
 	const cleanups: Array<() => void> = [];
 	const galleries = [...root.querySelectorAll<HTMLElement>("[data-photo-gallery]")];
@@ -24,13 +40,8 @@ export function mountPhotoGalleries(root: ParentNode = document): () => void {
 			continue;
 		}
 
-		let photos: PhotoGalleryPhoto[] = [];
-		try {
-			const raw = dataEl.textContent?.trim() ?? "";
-			photos = raw ? (JSON.parse(raw) as PhotoGalleryPhoto[]) : [];
-		} catch {
-			continue;
-		}
+		const raw = dataEl.textContent?.trim() ?? "";
+		const photos: PhotoGalleryPhoto[] = raw ? parsePhotoGalleryPhotos(raw) : [];
 
 		if (photos.length === 0) continue;
 
@@ -47,6 +58,7 @@ export function mountPhotoGalleries(root: ParentNode = document): () => void {
 		let lastTrigger: HTMLButtonElement | null = null;
 		let touchStartX = 0;
 		let touchStartY = 0;
+		let savedBodyOverflow: string | null = null;
 		const SWIPE_THRESHOLD = 50;
 
 		const buttons = [...gallery.querySelectorAll<HTMLButtonElement>("[data-photo-index]")];
@@ -71,6 +83,10 @@ export function mountPhotoGalleries(root: ParentNode = document): () => void {
 
 				const onLoad = () => {
 					lbImg.style.opacity = "1";
+				};
+				lbImg.onerror = () => {
+					lbImg.style.opacity = "1";
+					lbImg.alt = "Image failed to load";
 				};
 				if (lbImg.complete && lbImg.src === photo.src) {
 					onLoad();
@@ -97,6 +113,11 @@ export function mountPhotoGalleries(root: ParentNode = document): () => void {
 			lastTrigger = btn;
 			showPhoto(idx);
 			dlg.showModal();
+			const closeBtn = dlg.querySelector<HTMLButtonElement>("button[data-photo-lightbox-close]");
+			closeBtn?.focus();
+			if (savedBodyOverflow === null) {
+				savedBodyOverflow = document.body.style.overflow;
+			}
 			document.body.style.overflow = "hidden";
 		}
 
@@ -128,15 +149,18 @@ export function mountPhotoGalleries(root: ParentNode = document): () => void {
 		closeBtn.addEventListener("click", onCloseClick);
 
 		const onDialogClick = (e: MouseEvent) => {
-			const target = e.target as HTMLElement;
-			if (target === dlg || target.classList.contains("photo-lightbox-content")) {
+			if (!(e.target instanceof HTMLElement)) return;
+			if (e.target === dlg || e.target.classList.contains("photo-lightbox-content")) {
 				closeLightbox();
 			}
 		};
 		dlg.addEventListener("click", onDialogClick);
 
 		const onClose = () => {
-			document.body.style.overflow = "";
+			if (savedBodyOverflow !== null) {
+				document.body.style.overflow = savedBodyOverflow;
+				savedBodyOverflow = null;
+			}
 			lastTrigger?.focus();
 			lastTrigger = null;
 		};
@@ -153,6 +177,10 @@ export function mountPhotoGalleries(root: ParentNode = document): () => void {
 				case "ArrowRight":
 					e.preventDefault();
 					goNext();
+					break;
+				case "Escape":
+					e.preventDefault();
+					closeLightbox();
 					break;
 			}
 		};
@@ -187,7 +215,10 @@ export function mountPhotoGalleries(root: ParentNode = document): () => void {
 			dlg.removeEventListener("touchend", onTouchEnd);
 			document.removeEventListener("keydown", onKeydown);
 			if (dlg.open) dlg.close();
-			document.body.style.overflow = "";
+			if (savedBodyOverflow !== null) {
+				document.body.style.overflow = savedBodyOverflow;
+				savedBodyOverflow = null;
+			}
 			delete gallery.dataset.photoGalleryMounted;
 		});
 	}

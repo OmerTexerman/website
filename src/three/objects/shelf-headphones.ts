@@ -1,29 +1,27 @@
 import { Color, CylinderGeometry, Group, Mesh, MeshStandardMaterial, TorusGeometry } from "three";
 import { DARK_GRAY, DARK_METAL } from "../colors";
 
-const padMaterial = new MeshStandardMaterial({
-	color: new Color(DARK_GRAY),
-	roughness: 0.85,
-	metalness: 0.1,
-});
-
-const bandMaterial = new MeshStandardMaterial({
-	color: new Color(DARK_METAL),
-	roughness: 0.3,
-	metalness: 0.7,
-});
-
-const cushionMaterial = new MeshStandardMaterial({
-	color: new Color("#2a2a2a"),
-	roughness: 0.95,
-	metalness: 0.0,
-});
-
 /**
  * Headphones leaning against the back wall of a shelf.
  * Tap to make the ear cups pulse like they're playing music.
  */
 export function createShelfHeadphones(): Group {
+	// Per-call materials so scene teardown can dispose them without corrupting rebuilds.
+	const padMaterial = new MeshStandardMaterial({
+		color: new Color(DARK_GRAY),
+		roughness: 0.85,
+		metalness: 0.1,
+	});
+	const bandMaterial = new MeshStandardMaterial({
+		color: new Color(DARK_METAL),
+		roughness: 0.3,
+		metalness: 0.7,
+	});
+	const cushionMaterial = new MeshStandardMaterial({
+		color: new Color("#2a2a2a"),
+		roughness: 0.95,
+		metalness: 0.0,
+	});
 	const hp = new Group();
 	hp.userData = { interactive: true };
 

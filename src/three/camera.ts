@@ -62,10 +62,13 @@ export function animateMobileIntro(
 	return progress >= 1;
 }
 
+const IDLE_CAMERA_DELTA_THRESHOLD = 0.0005;
+
 /** Returns true if the camera actually moved enough to warrant a re-render */
 export function idleFloat(camera: PerspectiveCamera, time: number): boolean {
+	if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return false;
 	const newY = END_POS.y + Math.sin(time * IDLE_SPEED) * IDLE_AMPLITUDE;
-	if (Math.abs(newY - lastIdleY) < 0.0005) return false;
+	if (Math.abs(newY - lastIdleY) < IDLE_CAMERA_DELTA_THRESHOLD) return false;
 	lastIdleY = newY;
 	camera.position.y = newY;
 	camera.lookAt(END_LOOK);

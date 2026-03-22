@@ -1,11 +1,12 @@
 import { getBackLabel } from "../config";
 import { getSameOriginReferrer, toRelativeHref } from "../url-utils";
 
-export function mountContextBackLinks(root: ParentNode = document): void {
+export function mountContextBackLinks(root: ParentNode = document): () => void {
 	const referrerUrl = getSameOriginReferrer();
-	if (!referrerUrl) return;
+	if (!referrerUrl) return () => {};
 
 	const referrerHref = toRelativeHref(referrerUrl);
+	const cleanups: Array<{ node: Element; handler: (e: Event) => void }> = [];
 
 	for (const node of root.querySelectorAll("[data-context-back-link]")) {
 		if (!(node instanceof HTMLAnchorElement) || node.dataset.contextBackReady === "true") {
@@ -24,10 +25,18 @@ export function mountContextBackLinks(root: ParentNode = document): void {
 		}
 
 		if (window.history.length > 1) {
-			node.addEventListener("click", (event) => {
+			const handler = (event: Event) => {
 				event.preventDefault();
 				window.history.back();
-			});
+			};
+			node.addEventListener("click", handler);
+			cleanups.push({ node, handler });
 		}
 	}
+
+	return () => {
+		for (const { node, handler } of cleanups) {
+			node.removeEventListener("click", handler);
+		}
+	};
 }

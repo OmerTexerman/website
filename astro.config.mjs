@@ -7,6 +7,7 @@ import { siteOrigin } from "./src/config.ts";
 
 export default defineConfig({
 	site: siteOrigin,
+	trailingSlash: "never",
 	output: "static",
 	adapter: vercel(),
 	integrations: [sitemap(), icon()],

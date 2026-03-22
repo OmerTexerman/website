@@ -1,4 +1,5 @@
 ---
+import "../../styles/reading.css";
 import BookCard from "../../components/BookCard.astro";
 import RelatedPost from "../../components/RelatedPost.astro";
 import { getSectionById } from "../../config";
@@ -17,9 +18,11 @@ const wantToRead = readingSections.find((s) => s.status === "want-to-read");
   {readingSections.length === 0 ? (
     <p class="text-muted font-mono">nothing here yet :)</p>
   ) : (
-    <div class="reading-page">
+    <div class="reading-page" data-content-list data-group-selector=".reading-section" data-item-selector=".book-card" data-page-size="999">
       {/* Warm overhead glow — mimics the desk lamp */}
       <div class="reading-glow"></div>
+
+      <input type="search" class="content-search" placeholder="find a book..." data-content-search aria-label="Search books" style="margin-bottom: 1.5rem;" />
 
       {/* Currently Reading */}
       {currentlyReading && currentlyReading.books.length > 0 && (
@@ -122,6 +125,11 @@ const wantToRead = readingSections.find((s) => s.status === "want-to-read");
           </div>
         </section>
       )}
+      <p class="content-no-results" data-content-no-results role="status" aria-live="polite">No matching entries.</p>
     </div>
   )}
+
+  <script>
+    import "../../dom/content-list-boot";
+  </script>
 </ContentPage>

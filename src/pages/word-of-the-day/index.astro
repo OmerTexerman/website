@@ -1,4 +1,5 @@
 ---
+import "../../styles/wotd.css";
 import { getSectionById } from "../../config";
 import { getAllWords } from "../../content/selectors";
 import ContentPage from "../../layouts/ContentPage.astro";
@@ -36,7 +37,7 @@ const archive = words.slice(1);
 
             {latestWord.image && (
               <div class="wotd-image">
-                <img src={latestWord.image} alt={latestWord.word} loading="eager" />
+                <img src={latestWord.image} alt={latestWord.word} loading="eager" width="600" height="400" />
               </div>
             )}
           </div>
@@ -46,7 +47,8 @@ const archive = words.slice(1);
         {archive.length > 0 && (
           <div class="wotd-archive">
             <h2 class="wotd-archive-heading">Previous Words</h2>
-            <div class="wotd-archive-list">
+            <input type="search" class="content-search" placeholder="search words..." data-content-search aria-label="Search words" />
+            <div class="wotd-archive-list" data-content-list>
               {archive.map((entry, i) => (
                 <div class="wotd-archive-item" data-animate style={`transition-delay: ${Math.min(i * 0.06, 0.5)}s`}>
                   <div class="wotd-archive-word-row">
@@ -60,9 +62,15 @@ const archive = words.slice(1);
                 </div>
               ))}
             </div>
+            <p class="content-no-results" data-content-no-results role="status" aria-live="polite">No matching entries.</p>
+            <button class="show-more-btn" data-show-more>Show more</button>
           </div>
         )}
       </>
     )}
   </div>
+
+  <script>
+    import "../../dom/content-list-boot";
+  </script>
 </ContentPage>

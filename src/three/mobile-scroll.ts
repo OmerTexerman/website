@@ -13,7 +13,6 @@ export interface MobileScrollConfig {
 
 interface LinearStop {
 	stopIndex: number;
-	verticalT: number;
 	panTarget: number;
 	row: number;
 }
@@ -26,13 +25,12 @@ function buildLinearSequence(config: MobileScrollConfig): LinearStop[] {
 		if (!points || points.length <= 1) {
 			sequence.push({
 				stopIndex: i,
-				verticalT: verticalStops[i],
 				panTarget: points?.[0] ?? 0,
 				row: i,
 			});
 		} else {
 			for (const p of points) {
-				sequence.push({ stopIndex: i, verticalT: verticalStops[i], panTarget: p, row: i });
+				sequence.push({ stopIndex: i, panTarget: p, row: i });
 			}
 		}
 	}
@@ -56,8 +54,6 @@ export interface MobileScrollController {
 	consumeTap(): { clientX: number; clientY: number } | null;
 	/** Animate to a specific linear stop by index. Returns true if animation started. */
 	navigateToLinearStop(idx: number): boolean;
-	/** Total number of linear stops (rows × pan snap points). */
-	readonly linearStopCount: number;
 	/** Hard-reset position (used after transitions) */
 	resetTo(t: number): boolean;
 	dispose(): void;
@@ -80,12 +76,13 @@ const VELOCITY_WINDOW_MS = 100;
 const WHEEL_LINE_PIXELS = 16;
 const WHEEL_PAGE_THRESHOLD = 40;
 const WHEEL_COOLDOWN_MS = 200;
-const WHEEL_SETTLE_DELAY_MS = 150;
-const WHEEL_CONTINUOUS_VERTICAL_SPEED = 0.0004;
-const WHEEL_CONTINUOUS_PAN_SPEED = 0.0004;
+const WHEEL_SETTLE_DELAY_MS = 100;
+const WHEEL_CONTINUOUS_VERTICAL_SPEED = 0.001;
+const WHEEL_CONTINUOUS_PAN_SPEED = 0.001;
 const WHEEL_INERTIA_THRESHOLD = 2;
 const DRAG_VERTICAL_SPEED = 0.003;
 const DRAG_PAN_SPEED = 0.003;
+const DISCRETE_PIXEL_WHEEL_STEPS = new Set([100, 120]);
 
 interface PointerSample {
 	x: number;
@@ -170,6 +167,17 @@ function normalizeWheelDelta(delta: number, deltaMode: number): number {
 		return delta * (typeof window !== "undefined" ? window.innerHeight : 800);
 	}
 	return delta;
+}
+
+function isLikelyDiscretePixelWheelEvent(e: WheelEvent): boolean {
+	if (e.deltaMode !== 0) return true;
+
+	const absX = Math.abs(e.deltaX);
+	const absY = Math.abs(e.deltaY);
+	if (absX > 0 || absY < 80) return false;
+	if (!Number.isInteger(e.deltaX) || !Number.isInteger(e.deltaY)) return false;
+
+	return DISCRETE_PIXEL_WHEEL_STEPS.has(absY);
 }
 
 export function createMobileScrollController(
@@ -471,7 +479,9 @@ export function createMobileScrollController(
 		if (activePointerId !== e.pointerId) return false;
 		activePointerId = null;
 		const lockedDir = directionLocked;
-		canvas.releasePointerCapture?.(e.pointerId);
+		if (canvas.hasPointerCapture?.(e.pointerId)) {
+			canvas.releasePointerCapture(e.pointerId);
+		}
 
 		if (state === State.TRACKING) {
 			const dx = e.clientX - pointerDownX;
@@ -515,8 +525,17 @@ export function createMobileScrollController(
 				}
 			}
 		} else if (lockedDir === "h") {
+			// Apply the horizontal velocity only to the currently visible row; settle
+			// all other rows to their nearest snap point without the flick velocity.
+			const visibleRow = dragOriginStop;
 			for (let i = 0; i < numRows; i++) {
-				const target = choosePanTarget(i, -vel.vx);
+				const target =
+					i === visibleRow
+						? choosePanTarget(i, -vel.vx)
+						: (() => {
+								const points = panSnapPoints[i];
+								return points && points.length > 0 ? nearestSnapPoint(panByRow[i], points) : null;
+							})();
 				if (target !== null) {
 					changed = beginPanAnimation(i, target) || changed;
 				}
@@ -531,7 +550,9 @@ export function createMobileScrollController(
 	function onPointerCancel(e: PointerEvent): boolean {
 		if (activePointerId !== e.pointerId) return false;
 		activePointerId = null;
-		canvas.releasePointerCapture?.(e.pointerId);
+		if (canvas.hasPointerCapture?.(e.pointerId)) {
+			canvas.releasePointerCapture(e.pointerId);
+		}
 		clearPointerTracking();
 		pendingTap = null;
 		return settleAll();
@@ -542,6 +563,7 @@ export function createMobileScrollController(
 		resetWheelState();
 		if (activePointerId === null && !hadWheel) return false;
 		clearPointerTracking();
+		state = State.IDLE;
 		pendingTap = null;
 		return settleAll();
 	}
@@ -618,7 +640,7 @@ export function createMobileScrollController(
 
 	function findNearestLinearIndex(): number {
 		const currentStop = nearestStopIndex(verticalT);
-		let bestIdx = 0;
+		let bestIdx = linearIndex;
 		let bestDist = Number.POSITIVE_INFINITY;
 		for (let i = 0; i < linearSequence.length; i++) {
 			const entry = linearSequence[i];
@@ -635,6 +657,22 @@ export function createMobileScrollController(
 	function navigateToLinearStop(idx: number): boolean {
 		const target = linearSequence[idx];
 		linearIndex = idx;
+
+		if (prefersReducedMotion()) {
+			verticalT = verticalStops[target.stopIndex];
+			panByRow[target.row] = target.panTarget;
+			for (let i = 0; i < numRows; i++) {
+				if (i === target.row) continue;
+				const points = panSnapPoints[i];
+				if (points && points.length > 0) {
+					panByRow[i] = nearestSnapPoint(panByRow[i], points);
+				}
+			}
+			state = State.IDLE;
+			stopAllAnimations();
+			return true;
+		}
+
 		let changed = beginVerticalAnimation(target.stopIndex);
 		changed = beginPanAnimation(target.row, target.panTarget) || changed;
 		// Snap other rows to their nearest snap point
@@ -712,9 +750,10 @@ export function createMobileScrollController(
 		const rawY = normalizeWheelDelta(e.deltaY, e.deltaMode);
 		const rawX = normalizeWheelDelta(e.deltaX, e.deltaMode);
 
-		// deltaMode !== 0 means line or page units (discrete mouse wheel)
-		// deltaMode === 0 with pixel values is trackpad/continuous input
-		const discrete = e.deltaMode !== 0;
+		// Keep trackpads on the continuous path. Pixel-mode mouse wheels on
+		// Chrome/Edge usually arrive as isolated 100/120-step vertical deltas,
+		// while trackpads are much more variable and often include horizontal data.
+		const discrete = isLikelyDiscretePixelWheelEvent(e);
 
 		if (discrete) {
 			// Linear item navigation — no axis lock needed, vertical only
@@ -813,9 +852,6 @@ export function createMobileScrollController(
 		navigateToLinearStop(idx: number): boolean {
 			const clamped = clamp(idx, 0, linearSequence.length - 1);
 			return navigateToLinearStop(clamped) ? markChanged() : false;
-		},
-		get linearStopCount() {
-			return linearSequence.length;
 		},
 		resetTo,
 		dispose,

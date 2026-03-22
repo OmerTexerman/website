@@ -34,6 +34,10 @@ function cancelById(id: string): void {
 
 function animate(id: string, duration: number, update: AnimationCallback): Promise<void> {
 	cancelById(id);
+	if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+		update(1); // Apply final state immediately
+		return Promise.resolve();
+	}
 	return new Promise((resolve) => {
 		active.push({ id, start: performance.now(), duration, update, resolve });
 	});
@@ -56,9 +60,23 @@ export function tickAnimations(now: number): boolean {
 }
 
 export function disposeAnimations(): void {
+	// Resolve all pending promises so awaiting callers are not permanently blocked.
+	for (const anim of active) {
+		anim.resolve();
+	}
 	active = [];
 	restValues.clear();
-	flyingPhotoData = null;
+
+	// Return the flying photo to its frame so it is not left dangling in the scene root.
+	if (flyingPhotoData) {
+		const { photo, frame, restLocal } = flyingPhotoData;
+		photo.parent?.remove(photo);
+		photo.position.set(restLocal.x, restLocal.y, restLocal.z);
+		photo.rotation.set(0, 0, restLocal.rz);
+		photo.scale.set(1, 1, 1);
+		frame.add(photo);
+		flyingPhotoData = null;
+	}
 }
 
 // ─── Rest-pose storage: one value per animated property ─────────
@@ -697,6 +715,38 @@ export function animateHeadphonePulse(hp: Group): Promise<void> {
 		// Slight forward bounce (cups face outward along Z)
 		left.position.z = leftZ + Math.abs(beat) * 0.02;
 		right.position.z = rightZ + Math.abs(offBeat) * 0.02;
+	});
+}
+
+// ─── SPOTLIGHT FRAME ────────────────────────────────────────────
+
+/** Wobble the spotlight frame and pulse the nameplate emissive. */
+export function animateFrameWobble(frame: Group): Promise<void> {
+	const baseRot = frame.rotation.z;
+	return animate(`frame-wobble-${frame.uuid}`, 500, (p) => {
+		const decay = 1 - p;
+		frame.rotation.z = baseRot + Math.sin(p * Math.PI * 5) * 0.06 * decay;
+	});
+}
+
+// ─── PHONE (Shelf) ─────────────────────────────────────────────
+
+/** Fade the phone screen on before shelf fall. */
+export function animatePhoneWake(phone: Object3D): Promise<void> {
+	const screenMat = phone.userData.screenMaterial as MeshStandardMaterial | undefined;
+	if (!screenMat) return Promise.resolve();
+	return animate(`phone-screen-${phone.uuid}`, 350, (p) => {
+		screenMat.emissiveIntensity = lerp(0, 1.5, p);
+	});
+}
+
+/** Fade the phone screen back off after modal closes. */
+export function animatePhoneSleep(phone: Object3D): Promise<void> {
+	const screenMat = phone.userData.screenMaterial as MeshStandardMaterial | undefined;
+	if (!screenMat) return Promise.resolve();
+	const current = screenMat.emissiveIntensity;
+	return animate(`phone-screen-${phone.uuid}`, 300, (p) => {
+		screenMat.emissiveIntensity = lerp(current, 0, p);
 	});
 }
 
