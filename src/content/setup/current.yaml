@@ -2,13 +2,15 @@ categories:
   - name: Editor
     items:
       - name: Cursor
-        detail: AI-powered
+        detail: ''
   - name: Terminal
     items:
       - name: GNOME Terminal
+        detail: ''
   - name: Shell
     items:
       - name: Bash
+        detail: ''
   - name: OS
     items:
       - name: Bluefin (Fedora)
