@@ -471,7 +471,9 @@ export function createMobileScrollController(
 		if (activePointerId !== e.pointerId) return false;
 		activePointerId = null;
 		const lockedDir = directionLocked;
-		canvas.releasePointerCapture?.(e.pointerId);
+		if (canvas.hasPointerCapture?.(e.pointerId)) {
+			canvas.releasePointerCapture(e.pointerId);
+		}
 
 		if (state === State.TRACKING) {
 			const dx = e.clientX - pointerDownX;
@@ -515,8 +517,17 @@ export function createMobileScrollController(
 				}
 			}
 		} else if (lockedDir === "h") {
+			// Apply the horizontal velocity only to the currently visible row; settle
+			// all other rows to their nearest snap point without the flick velocity.
+			const visibleRow = dragOriginStop;
 			for (let i = 0; i < numRows; i++) {
-				const target = choosePanTarget(i, -vel.vx);
+				const target =
+					i === visibleRow
+						? choosePanTarget(i, -vel.vx)
+						: (() => {
+								const points = panSnapPoints[i];
+								return points && points.length > 0 ? nearestSnapPoint(panByRow[i], points) : null;
+							})();
 				if (target !== null) {
 					changed = beginPanAnimation(i, target) || changed;
 				}
@@ -531,7 +542,9 @@ export function createMobileScrollController(
 	function onPointerCancel(e: PointerEvent): boolean {
 		if (activePointerId !== e.pointerId) return false;
 		activePointerId = null;
-		canvas.releasePointerCapture?.(e.pointerId);
+		if (canvas.hasPointerCapture?.(e.pointerId)) {
+			canvas.releasePointerCapture(e.pointerId);
+		}
 		clearPointerTracking();
 		pendingTap = null;
 		return settleAll();
@@ -542,6 +555,7 @@ export function createMobileScrollController(
 		resetWheelState();
 		if (activePointerId === null && !hadWheel) return false;
 		clearPointerTracking();
+		state = State.IDLE;
 		pendingTap = null;
 		return settleAll();
 	}
@@ -618,7 +632,7 @@ export function createMobileScrollController(
 
 	function findNearestLinearIndex(): number {
 		const currentStop = nearestStopIndex(verticalT);
-		let bestIdx = 0;
+		let bestIdx = linearIndex;
 		let bestDist = Number.POSITIVE_INFINITY;
 		for (let i = 0; i < linearSequence.length; i++) {
 			const entry = linearSequence[i];
@@ -635,6 +649,22 @@ export function createMobileScrollController(
 	function navigateToLinearStop(idx: number): boolean {
 		const target = linearSequence[idx];
 		linearIndex = idx;
+
+		if (prefersReducedMotion()) {
+			verticalT = verticalStops[target.stopIndex];
+			panByRow[target.row] = target.panTarget;
+			for (let i = 0; i < numRows; i++) {
+				if (i === target.row) continue;
+				const points = panSnapPoints[i];
+				if (points && points.length > 0) {
+					panByRow[i] = nearestSnapPoint(panByRow[i], points);
+				}
+			}
+			state = State.IDLE;
+			stopAllAnimations();
+			return true;
+		}
+
 		let changed = beginVerticalAnimation(target.stopIndex);
 		changed = beginPanAnimation(target.row, target.panTarget) || changed;
 		// Snap other rows to their nearest snap point
@@ -712,9 +742,16 @@ export function createMobileScrollController(
 		const rawY = normalizeWheelDelta(e.deltaY, e.deltaMode);
 		const rawX = normalizeWheelDelta(e.deltaX, e.deltaMode);
 
-		// deltaMode !== 0 means line or page units (discrete mouse wheel)
-		// deltaMode === 0 with pixel values is trackpad/continuous input
-		const discrete = e.deltaMode !== 0;
+		// deltaMode !== 0 means line or page units (discrete mouse wheel).
+		// Chrome/Edge always report deltaMode 0 even for mouse wheels, so add a
+		// secondary heuristic: physical wheels produce quantized deltas (typically
+		// 100 or 120 px, multiples of 40) with no horizontal component.  Trackpads
+		// produce small, non-quantized deltas that won't match this pattern.
+		const discrete =
+			e.deltaMode !== 0 ||
+			(Math.abs(e.deltaY) >= 50 &&
+				(Math.abs(e.deltaY) % 40 < 4 || Math.abs(e.deltaY) % 100 < 4) &&
+				e.deltaX === 0);
 
 		if (discrete) {
 			// Linear item navigation — no axis lock needed, vertical only

@@ -8,7 +8,7 @@ export interface DeskInteraction {
 	object: Object3D;
 }
 
-export interface InteractionPicker {
+interface InteractionPicker {
 	getInteractionAt(clientX: number, clientY: number): DeskInteraction | null;
 }
 
@@ -66,6 +66,8 @@ export function setupInteraction(
 	const CLICK_THRESHOLD = CLICK_DISTANCE_THRESHOLD;
 
 	canvas.tabIndex = 0;
+	const previousTouchAction = canvas.style.touchAction;
+	canvas.style.touchAction = "none";
 
 	function raycast(): DeskInteraction | null {
 		return picker.getInteractionAt(pointerX, pointerY);
@@ -112,6 +114,10 @@ export function setupInteraction(
 
 	function onKeydown(e: KeyboardEvent): void {
 		if (document.activeElement !== canvas || navigableGroups.length === 0) return;
+		if (e.key === "Escape") {
+			canvas.blur();
+			return;
+		}
 		if (e.key === "Tab") {
 			e.preventDefault();
 			focusIndex =
@@ -158,5 +164,6 @@ export function setupInteraction(
 		}
 		window.removeEventListener("keydown", onKeydown);
 		canvas.style.cursor = "default";
+		canvas.style.touchAction = previousTouchAction;
 	};
 }

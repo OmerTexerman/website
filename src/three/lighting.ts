@@ -56,8 +56,9 @@ export function setupRoomLighting(roomGroup: Group, mobile = false): void {
 	roomGroup.add(shelfSideFill);
 }
 
-/** Desk-specific positional lights — added to the room group so they rotate with it */
-export function setupDeskLighting(roomGroup: Group): void {
+/** Desk-specific positional lights — added to the room group so they rotate with it.
+ *  Returns a cleanup function that removes and disposes all lights added. */
+export function setupDeskLighting(roomGroup: Group): () => void {
 	// Warm overhead fill
 	const roomFill = new PointLight(new Color(LIGHT_ROOM_FILL), 1.4, 30, 1.1);
 	roomFill.position.set(0, 6, 2);
@@ -72,10 +73,18 @@ export function setupDeskLighting(roomGroup: Group): void {
 	const safelight = new PointLight(new Color(ACCENT), 0.28, 12, 2);
 	safelight.position.set(3, 2.5, -1);
 	roomGroup.add(safelight);
+
+	return () => {
+		roomGroup.remove(roomFill, frontFill, safelight);
+		roomFill.dispose();
+		frontFill.dispose();
+		safelight.dispose();
+	};
 }
 
-/** Shelf-specific lighting — tighter key/fill so the shelf reads with stronger shadows */
-export function setupShelfLighting(roomGroup: Group, mobile = false): void {
+/** Shelf-specific lighting — tighter key/fill so the shelf reads with stronger shadows.
+ *  Returns a cleanup function that removes and disposes all lights added. */
+export function setupShelfLighting(roomGroup: Group, mobile = false): () => void {
 	const shadowRes = mobile ? SHADOW_MAP_SIZE_LOW : SHADOW_MAP_SIZE_HIGH;
 
 	const shelfKey = new SpotLight(new Color(LIGHT_SHELF_KEY), 5.6, 16, Math.PI / 6, 0.45, 1.6);
@@ -92,4 +101,11 @@ export function setupShelfLighting(roomGroup: Group, mobile = false): void {
 	const bottomFill = new PointLight(new Color(LIGHT_BOTTOM_FILL), 1.2, 10, 1.7);
 	bottomFill.position.set(SHELF_WALL_X - 1.0, SHELF_BOT_Y + 0.75, SHELF_WALL_Z + 0.9);
 	roomGroup.add(bottomFill);
+
+	return () => {
+		roomGroup.remove(shelfKey, shelfKey.target, notebookAccent, bottomFill);
+		shelfKey.dispose();
+		notebookAccent.dispose();
+		bottomFill.dispose();
+	};
 }

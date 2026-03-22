@@ -10,30 +10,6 @@ import {
 } from "three";
 import { CERAMIC, DARK_METAL } from "../colors";
 
-const frameMaterial = new MeshStandardMaterial({
-	color: new Color(DARK_METAL),
-	roughness: 0.3,
-	metalness: 0.8,
-});
-
-const faceMaterial = new MeshStandardMaterial({
-	color: new Color(CERAMIC),
-	roughness: 0.8,
-	metalness: 0.0,
-});
-
-const handMaterial = new MeshStandardMaterial({
-	color: new Color("#1a1a1a"),
-	roughness: 0.4,
-	metalness: 0.6,
-});
-
-const tickMaterial = new MeshStandardMaterial({
-	color: new Color("#333333"),
-	roughness: 0.5,
-	metalness: 0.3,
-});
-
 const CLOCK_RADIUS = 0.28;
 
 /** Returns the rotation (in radians) for clock hands based on the current time. */
@@ -62,6 +38,28 @@ export function syncClockToTime(clock: Group): void {
 export function createShelfClock(): Group {
 	const clock = new Group();
 	clock.userData = { interactive: true };
+
+	// Per-call materials so scene teardown can dispose them without corrupting rebuilds.
+	const frameMaterial = new MeshStandardMaterial({
+		color: new Color(DARK_METAL),
+		roughness: 0.3,
+		metalness: 0.8,
+	});
+	const faceMaterial = new MeshStandardMaterial({
+		color: new Color(CERAMIC),
+		roughness: 0.8,
+		metalness: 0.0,
+	});
+	const handMaterial = new MeshStandardMaterial({
+		color: new Color("#1a1a1a"),
+		roughness: 0.4,
+		metalness: 0.6,
+	});
+	const tickMaterial = new MeshStandardMaterial({
+		color: new Color("#333333"),
+		roughness: 0.5,
+		metalness: 0.3,
+	});
 
 	// Frame ring
 	const frame = new Mesh(new RingGeometry(CLOCK_RADIUS - 0.015, CLOCK_RADIUS, 32), frameMaterial);

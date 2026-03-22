@@ -1,4 +1,5 @@
 ---
+import "../../styles/projects.css";
 import ProjectCard from "../../components/ProjectCard.astro";
 import { getSectionById } from "../../config";
 import { getOrderedProjects, getSetup } from "../../content/selectors";
@@ -10,6 +11,7 @@ const setupCategories = await getSetup();
 ---
 
 <ContentPage section={section} surface={false} containerWidthClass="max-w-7xl" showIntro={false}>
+  <h1 class="sr-only">Projects</h1>
   <div class="wm-env" data-animate>
     {/* ── i3bar top ──────────────────────────────── */}
     <div class="wm-bar wm-bar-top">
@@ -67,7 +69,7 @@ const setupCategories = await getSetup();
                   </div>
                 ))}
               </div>
-              <p class="content-no-results" data-content-no-results>no matches</p>
+              <p class="content-no-results" data-content-no-results role="status" aria-live="polite">No matching entries.</p>
               <button class="show-more-btn" data-show-more>Show more</button>
             </>
           )}
@@ -148,17 +150,19 @@ const setupCategories = await getSetup();
 
 <script>
   // ── Live clock + cpu jitter ─────────────────────────────────
+  const eventAc = new AbortController();
+
   function updateClock() {
     const now = new Date();
     const el = document.getElementById("wm-clock");
     if (el) el.textContent = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit" });
   }
   updateClock();
-  setInterval(updateClock, 1000);
+  const clockId = setInterval(updateClock, 1000);
 
   // Simulated cpu jitter
   const cpuEl = document.getElementById("wm-cpu");
-  setInterval(() => {
+  const cpuId = setInterval(() => {
     if (cpuEl) cpuEl.textContent = `${Math.floor(Math.random() * 8) + 1}%`;
   }, 3000);
 
@@ -171,7 +175,17 @@ const setupCategories = await getSetup();
     if (uptimeEl) uptimeEl.textContent = `session: ${m}m ${s % 60}s`;
   }
   updateUptime();
-  setInterval(updateUptime, 1000);
+  const uptimeId = setInterval(updateUptime, 1000);
+
+  // ── Cleanup timers and event listeners on navigation / page hide ─
+  function clearTimers() {
+    clearInterval(clockId);
+    clearInterval(cpuId);
+    clearInterval(uptimeId);
+    eventAc.abort();
+  }
+  document.addEventListener("astro:before-preparation", clearTimers, { once: true });
+  window.addEventListener("pagehide", clearTimers, { once: true });
 
   // ── Pane focus interaction ──────────────────────────────────
   for (const pane of document.querySelectorAll<HTMLElement>(".wm-pane")) {
@@ -181,15 +195,15 @@ const setupCategories = await getSetup();
       const title = pane.querySelector(".wm-pane-title span:nth-child(2)")?.textContent ?? "";
       const titleEl = document.getElementById("wm-focused-title");
       if (titleEl) titleEl.textContent = `omer@dev ~/${title}`;
-    });
+    }, { signal: eventAc.signal });
   }
 
   // ── Search mode indicator ──────────────────────────────────
   const searchInput = document.querySelector<HTMLInputElement>(".wm-search");
   const modeEl = document.getElementById("wm-mode");
   if (searchInput && modeEl) {
-    searchInput.addEventListener("focus", () => { modeEl.textContent = "SEARCH"; modeEl.classList.add("wm-mode-search"); });
-    searchInput.addEventListener("blur", () => { modeEl.textContent = "NORMAL"; modeEl.classList.remove("wm-mode-search"); });
+    searchInput.addEventListener("focus", () => { modeEl.textContent = "SEARCH"; modeEl.classList.add("wm-mode-search"); }, { signal: eventAc.signal });
+    searchInput.addEventListener("blur", () => { modeEl.textContent = "NORMAL"; modeEl.classList.remove("wm-mode-search"); }, { signal: eventAc.signal });
   }
 
   // ── Fastfetch typewriter ───────────────────────────────────
@@ -229,12 +243,12 @@ const setupCategories = await getSetup();
               const line = lines[li];
               const cleaned = line.replace(/\x1b\[(\d+)m\s\s/g, (_, code: string) => {
                 const colors: Record<string, string> = {
-                  "40": "#1a1a2e", "41": "#c4453a", "42": "#28c840", "43": "#febc2e",
+                  "40": "#1a1a2e", "41": "#ed655b", "42": "#28c840", "43": "#febc2e",
                   "44": "#6a9fcc", "45": "#b48ead", "46": "#88c0d0", "47": "#d8dee9",
                 };
                 return `<span style="background:${colors[code] ?? "#888"};display:inline-block;width:12px;height:12px;border-radius:1px;margin-right:2px;vertical-align:middle"></span>`;
               });
-              ffOutput!.innerHTML += cleaned + "\n";
+              ffOutput!.insertAdjacentHTML("beforeend", cleaned + "\n");
               li++;
               setTimeout(typeLine, 25 + Math.random() * 35);
             }
@@ -248,14 +262,5 @@ const setupCategories = await getSetup();
 </script>
 
 <script>
-  import { mountContentList } from "../../dom/content-list";
-
-  const container = document.querySelector<HTMLElement>("[data-content-list]");
-  const search = document.querySelector<HTMLInputElement>("[data-content-search]");
-  const showMoreBtn = document.querySelector<HTMLElement>("[data-show-more]");
-  const noResults = document.querySelector<HTMLElement>("[data-content-no-results]");
-
-  if (container) {
-    mountContentList({ container, searchInput: search, showMoreButton: showMoreBtn, noResultsEl: noResults, pageSize: 5 });
-  }
+  import "../../dom/content-list-boot";
 </script>

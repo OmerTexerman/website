@@ -1,6 +1,6 @@
 const HTTP_PROTOCOLS = new Set(["http:", "https:"]);
 
-export function parseUrl(value: string, base: string | URL = window.location.origin): URL | null {
+function parseUrl(value: string, base: string | URL = window.location.origin): URL | null {
 	try {
 		return new URL(value, base);
 	} catch {
@@ -8,11 +8,11 @@ export function parseUrl(value: string, base: string | URL = window.location.ori
 	}
 }
 
-export function isHttpUrl(url: URL): boolean {
+function isHttpUrl(url: URL): boolean {
 	return HTTP_PROTOCOLS.has(url.protocol);
 }
 
-export function isSameOriginUrl(url: URL, origin = window.location.origin): boolean {
+function isSameOriginUrl(url: URL, origin = window.location.origin): boolean {
 	return url.origin === origin;
 }
 

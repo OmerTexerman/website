@@ -1,12 +1,12 @@
 /**
  * Shared scene configuration constants.
  *
- * Centralises breakpoints, animation timings, and interaction parameters
+ * Centralises animation timings and interaction parameters
  * that define the overall feel of the Three.js scene.
  */
 
-// ─── Layout breakpoints ─────────────────────────────────────────
-export const MOBILE_BREAKPOINT = 768;
+// ─── Layout breakpoints (re-exported from site config) ──────────
+export { MOBILE_BREAKPOINT } from "../config";
 
 // ─── Intro / transition durations (ms) ──────────────────────────
 export const INTRO_DURATION = 2800;

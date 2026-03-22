@@ -1,8 +1,8 @@
 import { defineCollection } from "astro:content";
 import { glob } from "astro/loaders";
 import { z } from "astro/zod";
+import { HEX_COLOR } from "./content/types";
 
-const hexColor = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
 const photoSource = /^(?:\/|https?:\/\/).+/i;
 const optionalPhoto = z
 	.string()
@@ -28,8 +28,14 @@ const projects = defineCollection({
 		description: z.string().min(1),
 		tech: z.array(z.string()).min(1),
 		image: optionalPhoto,
-		url: z.url().optional(),
-		repo: z.url().optional(),
+		url: z
+			.url()
+			.regex(/^https?:\/\//, "Must be an http or https URL")
+			.optional(),
+		repo: z
+			.url()
+			.regex(/^https?:\/\//, "Must be an http or https URL")
+			.optional(),
 		order: z.number().default(0),
 		post: z.string().optional(),
 	}),
@@ -40,10 +46,13 @@ const books = defineCollection({
 	schema: z.object({
 		title: z.string().min(1),
 		author: z.string().min(1),
-		spineColor: z.string().regex(hexColor).default("#2a4a6a"),
+		spineColor: z.string().regex(HEX_COLOR).default("#2a4a6a"),
 		cover: optionalPhoto,
 		status: z.enum(["reading", "finished", "want-to-read"]),
-		url: z.url().optional(),
+		url: z
+			.url()
+			.regex(/^https?:\/\//, "Must be an http or https URL")
+			.optional(),
 		post: z.string().optional(),
 	}),
 });

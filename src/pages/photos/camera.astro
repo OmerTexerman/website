@@ -1,4 +1,5 @@
 ---
+import "../../styles/photos.css";
 import { getSectionById } from "../../config";
 import { getPhotoCollections } from "../../content/selectors";
 import ContentPage from "../../layouts/ContentPage.astro";
@@ -8,6 +9,7 @@ const collections = await getPhotoCollections();
 ---
 
 <ContentPage section={section} surface={false} containerWidthClass="max-w-4xl" showIntro={false}>
+  <h1 class="sr-only">Photos</h1>
   <div class="camera-body" data-animate>
     {/* Camera body top edge */}
     <div class="camera-top-edge">
@@ -29,7 +31,7 @@ const collections = await getPhotoCollections();
           {/* Main display — featured collection */}
           <div class="camera-lcd-main">
             <a href={`/photos/${collections[0].id}`} class="camera-lcd-photo group">
-              <img src={collections[0].cover} alt={collections[0].title} class="camera-lcd-img" />
+              <img src={collections[0].cover} alt={collections[0].title} width="800" height="533" class="camera-lcd-img" />
               {/* Viewfinder corners */}
               <div class="vf-corner vf-tl"></div>
               <div class="vf-corner vf-tr"></div>
@@ -55,7 +57,7 @@ const collections = await getPhotoCollections();
             <div class="camera-filmstrip">
               {collections.map((col, i) => (
                 <a href={`/photos/${col.id}`} class:list={["camera-filmstrip-item", i === 0 && "camera-filmstrip-active"]}>
-                  <img src={col.cover} alt={col.title} loading="lazy" />
+                  <img src={col.cover} alt={col.title} loading="lazy" width="160" height="107" />
                   <span class="camera-filmstrip-label">{col.title}</span>
                 </a>
               ))}
@@ -67,8 +69,8 @@ const collections = await getPhotoCollections();
 
     {/* Camera bottom controls */}
     <div class="camera-controls">
-      <a href="/photos" class="camera-control-btn" title="Switch to gallery view">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <a href="/photos" class="camera-control-btn" aria-label="Switch to gallery view">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
           <rect x="3" y="3" width="7" height="7" rx="1" />
           <rect x="14" y="3" width="7" height="7" rx="1" />
           <rect x="3" y="14" width="7" height="7" rx="1" />

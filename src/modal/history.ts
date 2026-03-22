@@ -1,4 +1,5 @@
 import { getSameOriginHref } from "../url-utils";
+import { isRecord } from "../utils";
 
 export interface ContentModalHistoryState {
 	href: string;
@@ -6,10 +7,6 @@ export interface ContentModalHistoryState {
 }
 
 const HISTORY_KEY = "contentModalReturn";
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null;
-}
 
 function normalizeHref(href: string): string | null {
 	return getSameOriginHref(href);

@@ -13,6 +13,9 @@ export interface ContentListOptions {
 	showMoreButton?: HTMLElement | null;
 	/** Optional "no results" element to show when search yields nothing. */
 	noResultsEl?: HTMLElement | null;
+	/** CSS selector for group containers (e.g., ".reading-section").
+	 *  When set, groups whose items are all hidden will be hidden too. */
+	groupSelector?: string;
 }
 
 const DEBOUNCE_MS = 150;
@@ -26,6 +29,7 @@ export function mountContentList(options: ContentListOptions): () => void {
 		searchInput = null,
 		showMoreButton = null,
 		noResultsEl = null,
+		groupSelector = null,
 	} = options;
 
 	const allItems = [...container.querySelectorAll<HTMLElement>(itemSelector)];
@@ -71,6 +75,16 @@ export function mountContentList(options: ContentListOptions): () => void {
 		}
 	}
 
+	/** Show/hide group containers based on whether they contain any visible items. */
+	function updateGroups(): void {
+		if (!groupSelector) return;
+		const groups = container.querySelectorAll<HTMLElement>(groupSelector);
+		for (const group of groups) {
+			const hasVisible = group.querySelector(`${itemSelector}:not([data-content-hidden])`);
+			group.style.display = hasVisible ? "" : "none";
+		}
+	}
+
 	function applyPagination(): void {
 		for (let i = 0; i < allItems.length; i++) {
 			if (i < visibleCount) {
@@ -80,6 +94,7 @@ export function mountContentList(options: ContentListOptions): () => void {
 			}
 		}
 		updateButton();
+		updateGroups();
 		if (noResultsEl) noResultsEl.style.display = "none";
 	}
 
@@ -113,6 +128,7 @@ export function mountContentList(options: ContentListOptions): () => void {
 		}
 
 		updateButton();
+		updateGroups();
 		if (noResultsEl) {
 			noResultsEl.style.display = matchCount === 0 ? "" : "none";
 		}
@@ -134,7 +150,12 @@ export function mountContentList(options: ContentListOptions): () => void {
 		clearTimeout(debounceTimer);
 		showMoreButton?.removeEventListener("click", handleShowMore);
 		searchInput?.removeEventListener("input", onSearchInput);
-		// Restore all items to visible
+		// Restore all items and groups to visible
 		for (const item of allItems) showItem(item);
+		if (groupSelector) {
+			for (const g of container.querySelectorAll<HTMLElement>(groupSelector)) {
+				g.style.display = "";
+			}
+		}
 	};
 }

@@ -1,4 +1,5 @@
 ---
+import "../../styles/photos.css";
 import PhotoCollectionCard from "../../components/PhotoCollectionCard.astro";
 import { getSectionById } from "../../config";
 import { getPhotoCollections } from "../../content/selectors";
@@ -9,13 +10,12 @@ const collections = await getPhotoCollections();
 ---
 
 <ContentPage section={section} surface={false} containerWidthClass="max-w-5xl">
-  <h1 class="sr-only">Photos</h1>
   <div class="corkboard-page">
     {collections.length === 0 ? (
       <p class="text-muted font-mono">nothing here yet :)</p>
     ) : (
       <>
-        <input type="search" class="content-search" placeholder="search collections..." data-content-search />
+        <input type="search" class="content-search" placeholder="search collections..." data-content-search aria-label="Search collections" />
         <div class="corkboard-grid" data-content-list>
           {collections.map((collection, i) => (
             <div data-animate style={`transition-delay: ${i * 0.1}s`}>
@@ -26,22 +26,13 @@ const collections = await getPhotoCollections();
             </div>
           ))}
         </div>
-        <p class="content-no-results" data-content-no-results>No matching collections.</p>
+        <p class="content-no-results" data-content-no-results role="status" aria-live="polite">No matching entries.</p>
         <button class="show-more-btn" data-show-more>Show more</button>
       </>
     )}
   </div>
 
   <script>
-    import { mountContentList } from "../../dom/content-list";
-
-    const container = document.querySelector<HTMLElement>("[data-content-list]");
-    const searchInput = document.querySelector<HTMLInputElement>("[data-content-search]");
-    const showMoreBtn = document.querySelector<HTMLElement>("[data-show-more]");
-    const noResults = document.querySelector<HTMLElement>("[data-content-no-results]");
-
-    if (container) {
-      mountContentList({ container, searchInput, showMoreButton: showMoreBtn, noResultsEl: noResults });
-    }
+    import "../../dom/content-list-boot";
   </script>
 </ContentPage>

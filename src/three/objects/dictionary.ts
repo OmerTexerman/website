@@ -66,22 +66,20 @@ function createSegmentWidths(
 
 const SEGMENT_WIDTHS = createSegmentWidths(PAGE_W, LEAF_SEGMENT_COUNT, 0.75, 1.2);
 
-// Pre-create shared geometries (all 8 pages use the same segment dimensions)
-const SEGMENT_GEOS = SEGMENT_WIDTHS.map(
-	(w) => new BoxGeometry(w + LEAF_SEGMENT_OVERLAP, LEAF_THICK, PAGE_D),
-);
-
-// Shared geometries and materials for reuse
-const COVER_GEO = new BoxGeometry(COVER_W, COVER_THICK, DEPTH);
-const LEAF_MAT_LIGHT = new MeshStandardMaterial({ color: new Color("#f0e8d8"), roughness: 1.0 });
-const LEAF_MAT_DARK = new MeshStandardMaterial({ color: new Color("#e4dcc8"), roughness: 1.0 });
-
 /** Dictionary → links to /word-of-the-day
  *
  *  Lies flat. Spine binding on the left.
  *  Pages use elastica-inspired rational angle remap for natural curves.
  */
 export function createDictionary(): DictionaryObject {
+	// Geometries and materials are created per-call so each scene build gets fresh instances
+	// that are safe to dispose independently during scene teardown.
+	const SEGMENT_GEOS = SEGMENT_WIDTHS.map(
+		(w) => new BoxGeometry(w + LEAF_SEGMENT_OVERLAP, LEAF_THICK, PAGE_D),
+	);
+	const COVER_GEO = new BoxGeometry(COVER_W, COVER_THICK, DEPTH);
+	const LEAF_MAT_LIGHT = new MeshStandardMaterial({ color: new Color("#f0e8d8"), roughness: 1.0 });
+	const LEAF_MAT_DARK = new MeshStandardMaterial({ color: new Color("#e4dcc8"), roughness: 1.0 });
 	const dictionary = new Group();
 	applySectionInteraction(dictionary, "wordOfTheDay");
 

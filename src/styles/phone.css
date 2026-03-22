@@ -1,0 +1,265 @@
+/* ── Phone UI ────────────────────────────────── */
+
+/* Phone in modal — fill the modal body like the notebook does */
+#content-modal-body .phone-body {
+	margin: -1.5rem;
+	border: none;
+	border-radius: 0;
+	box-shadow: none;
+	max-width: none;
+	min-height: 100%;
+}
+
+.phone-body {
+	background: var(--color-desktop-bg);
+	border: 2px solid var(--color-desktop-elevated);
+	border-radius: 1.5rem;
+	overflow: hidden;
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+	display: flex;
+	flex-direction: column;
+	min-height: 100%;
+}
+
+.phone-screen {
+	flex: 1;
+	padding: 0.75rem;
+	min-height: 16rem;
+}
+
+/* Status bar */
+.phone-status-bar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0.5rem 1rem 0.25rem;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.phone-time {
+	font-family: var(--font-mono);
+	font-size: 0.75rem;
+	font-weight: 500;
+	color: rgba(255, 255, 255, 0.7);
+	font-variant-numeric: tabular-nums;
+}
+
+.phone-status-icons {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.phone-signal-bars {
+	display: flex;
+	align-items: flex-end;
+	gap: 2px;
+	height: 10px;
+}
+
+.phone-signal-bars span {
+	width: 3px;
+	border-radius: 1px;
+	background: rgba(255, 255, 255, 0.5);
+}
+
+.phone-signal-bars span:nth-child(1) {
+	height: 3px;
+}
+
+.phone-signal-bars span:nth-child(2) {
+	height: 5px;
+}
+
+.phone-signal-bars span:nth-child(3) {
+	height: 7px;
+}
+
+.phone-signal-bars span:nth-child(4) {
+	height: 10px;
+}
+
+.phone-battery-pill {
+	width: 18px;
+	height: 9px;
+	border: 1px solid rgba(255, 255, 255, 0.35);
+	border-radius: 2px;
+	padding: 1px;
+	position: relative;
+}
+
+.phone-battery-pill::after {
+	content: "";
+	position: absolute;
+	right: -3px;
+	top: 2px;
+	width: 2px;
+	height: 3px;
+	background: rgba(255, 255, 255, 0.3);
+	border-radius: 0 1px 1px 0;
+}
+
+.phone-battery-fill {
+	display: block;
+	width: 100%;
+	height: 100%;
+	background: #34c759;
+	border-radius: 1px;
+}
+
+/* Feed entries — each project */
+.phone-feed {
+	display: flex;
+	flex-direction: column;
+	gap: 0;
+}
+
+.phone-entry {
+	display: flex;
+	gap: 0.75rem;
+	padding: 0.75rem 0;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+	animation: phone-entry-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+@keyframes phone-entry-in {
+	from {
+		opacity: 0;
+		transform: translateX(-6px);
+	}
+}
+
+.phone-entry:last-child {
+	border-bottom: none;
+}
+
+.phone-entry-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--color-link-project);
+	flex-shrink: 0;
+	margin-top: 0.25rem;
+}
+
+.phone-entry-content {
+	flex: 1;
+	min-width: 0;
+}
+
+.phone-entry-title {
+	font-size: 0.875rem;
+	font-weight: 600;
+	color: rgba(255, 255, 255, 0.85);
+	margin-bottom: 0.25rem;
+}
+
+.phone-entry-desc {
+	font-size: 0.75rem;
+	line-height: 1.5;
+	color: rgba(255, 255, 255, 0.45);
+	margin: 0 0 0.375rem;
+}
+
+.phone-entry-meta {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem;
+}
+
+.phone-entry-tech {
+	font-family: var(--font-mono);
+	font-size: 0.5625rem;
+	color: rgba(255, 255, 255, 0.55);
+}
+
+.phone-entry-actions {
+	display: flex;
+	gap: 0.5rem;
+}
+
+.phone-entry-actions a {
+	font-family: var(--font-mono);
+	font-size: 0.5625rem;
+	color: var(--color-link-project);
+	text-decoration: none;
+}
+
+.phone-entry-actions a:hover {
+	color: var(--color-link-project-hover);
+}
+
+.phone-entry-empty {
+	font-family: var(--font-mono);
+	font-size: 0.75rem;
+	color: rgba(255, 255, 255, 0.55);
+	padding: 2rem 0;
+	text-align: center;
+}
+
+/* Setup block */
+.phone-setup-block {
+	margin-top: 0.5rem;
+	padding-top: 0.5rem;
+	border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.phone-setup-title {
+	font-family: var(--font-mono);
+	font-size: 0.5625rem;
+	font-weight: 600;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	color: rgba(255, 255, 255, 0.55);
+	margin-bottom: 0.5rem;
+}
+
+.phone-setup-grid {
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	gap: 0.375rem 0.75rem;
+}
+
+.phone-setup-cell {
+	display: flex;
+	flex-direction: column;
+	gap: 0.125rem;
+	padding: 0.25rem 0;
+}
+
+.phone-setup-label {
+	font-family: var(--font-mono);
+	font-size: 0.5rem;
+	font-weight: 600;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	color: rgba(255, 255, 255, 0.55);
+}
+
+.phone-setup-value {
+	font-size: 0.6875rem;
+	color: rgba(255, 255, 255, 0.65);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.phone-entry {
+		animation: none;
+		opacity: 1;
+		transform: none;
+	}
+}
+
+/* Bottom bar */
+.phone-bottom-bar {
+	display: flex;
+	justify-content: center;
+	padding: 0.5rem 0 0.625rem;
+}
+
+.phone-bottom-pill {
+	width: 6rem;
+	height: 4px;
+	border-radius: 2px;
+	background: rgba(255, 255, 255, 0.15);
+}

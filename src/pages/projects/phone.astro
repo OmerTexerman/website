@@ -1,4 +1,5 @@
 ---
+import "../../styles/phone.css";
 import { getSectionById } from "../../config";
 import { getOrderedProjects, getSetup } from "../../content/selectors";
 import ContentPage from "../../layouts/ContentPage.astro";
@@ -9,6 +10,7 @@ const setupCategories = await getSetup();
 ---
 
 <ContentPage section={section} surface={false} containerWidthClass="max-w-lg" showIntro={false}>
+  <h1 class="sr-only">Projects</h1>
   <div class="phone-body" data-animate>
     {/* Status bar */}
     <div class="phone-status-bar">
@@ -37,10 +39,10 @@ const setupCategories = await getSetup();
                 <span class="phone-entry-tech">{project.data.tech.join(" · ")}</span>
                 <span class="phone-entry-actions">
                   {project.data.url && (
-                    <a href={project.data.url} target="_blank" rel="noopener noreferrer">open</a>
+                    <a href={project.data.url} target="_blank" rel="noopener noreferrer" aria-label={`Open ${project.data.title}`}>open</a>
                   )}
                   {project.data.repo && (
-                    <a href={project.data.repo} target="_blank" rel="noopener noreferrer">src</a>
+                    <a href={project.data.repo} target="_blank" rel="noopener noreferrer" aria-label={`View source: ${project.data.title}`}>src</a>
                   )}
                 </span>
               </div>
@@ -49,7 +51,7 @@ const setupCategories = await getSetup();
         ))}
 
         {projects.length === 0 && (
-          <div class="phone-entry-empty">no projects yet</div>
+          <div class="phone-entry-empty">no projects yet :)</div>
         )}
       </div>
 
@@ -86,7 +88,14 @@ const setupCategories = await getSetup();
     if (!el) return;
     const now = new Date();
     el.textContent = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    el.setAttribute("datetime", now.toISOString());
   }
   updatePhoneClock();
-  setInterval(updatePhoneClock, 10_000);
+  const phoneClockId = setInterval(updatePhoneClock, 10_000);
+
+  function clearPhoneTimers() {
+    clearInterval(phoneClockId);
+  }
+  document.addEventListener("astro:before-preparation", clearPhoneTimers, { once: true });
+  window.addEventListener("pagehide", clearPhoneTimers, { once: true });
 </script>

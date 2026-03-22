@@ -15,7 +15,7 @@ const { title, description, pubDate, tags, slug } = Astro.props;
 <a href={`/blog/${slug}`} class="notebook-entry group">
   <time class="notebook-entry-date">{formatDate(pubDate)}</time>
   <div class="notebook-entry-content">
-    <h3 class="notebook-entry-title">{title}</h3>
+    <h2 class="notebook-entry-title">{title}</h2>
     <p class="notebook-entry-desc">{description}</p>
     {tags && tags.length > 0 && (
       <span class="notebook-entry-tags">

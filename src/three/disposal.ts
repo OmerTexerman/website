@@ -1,4 +1,4 @@
-import { type Material, Mesh, type Object3D, Texture } from "three";
+import { Light, type Material, Mesh, type Object3D, Texture } from "three";
 
 function collectMaterialResources(
 	material: Material,
@@ -36,18 +36,26 @@ export function disposeObjectResources(root: Object3D): void {
 	const textures = new Set<Texture>();
 
 	root.traverse((child) => {
+		// Dispose shadow-map GPU resources for lights (e.g. SpotLight, DirectionalLight).
+		if (child instanceof Light) {
+			const shadow = (child as { shadow?: { map?: { dispose?: () => void } } }).shadow;
+			shadow?.map?.dispose?.();
+			return;
+		}
+
 		if (!(child instanceof Mesh)) return;
 
 		geometries.add(child.geometry);
 
 		if (Array.isArray(child.material)) {
 			for (const material of child.material) {
-				collectMaterialResources(material, materials, textures);
+				if (!material.userData.shared) collectMaterialResources(material, materials, textures);
 			}
 			return;
 		}
 
-		collectMaterialResources(child.material, materials, textures);
+		if (!child.material.userData.shared)
+			collectMaterialResources(child.material, materials, textures);
 	});
 
 	for (const texture of textures) {

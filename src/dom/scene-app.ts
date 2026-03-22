@@ -1,13 +1,18 @@
+import { MOBILE_BREAKPOINT } from "../config";
 import {
 	parseShelfBooks,
 	parseSpotlightInfo,
 	type ShelfBook,
 	type SpotlightInfo,
 } from "../content/types";
+import { getContentModal } from "../modal/api";
 
-interface SceneHandle {
-	cleanup: () => void;
-	transition: (target: "desktop" | "mobile") => Promise<void>;
+// Only install once per session
+if (typeof window !== "undefined" && !window.__unhandledRejectionInstalled) {
+	window.__unhandledRejectionInstalled = true;
+	window.addEventListener("unhandledrejection", (event) => {
+		console.error("[scene] Unhandled promise rejection:", event.reason);
+	});
 }
 
 function parseBooks(sceneRoot: HTMLElement): ShelfBook[] | undefined {
@@ -110,6 +115,8 @@ export function mountSceneApp(): () => void {
 	let transitionQueue: Promise<void> = Promise.resolve();
 	let modeSyncFrame = 0;
 	let fallbackTimer = 0;
+	/** Cleared in `cleanup` so modal retry / navigation cannot run after teardown. */
+	let modalRetryTimer = 0;
 	let generation = 0;
 
 	function setFallbackVisible(visible: boolean): void {
@@ -126,7 +133,7 @@ export function mountSceneApp(): () => void {
 	function modeFromSceneWidth(): "desktop" | "mobile" {
 		const rect = root.getBoundingClientRect();
 		const width = Math.max(1, Math.round(rect.width || root.clientWidth || window.innerWidth));
-		return width >= 768 ? "desktop" : "mobile";
+		return width >= MOBILE_BREAKPOINT ? "desktop" : "mobile";
 	}
 
 	async function applyMode(mode: "desktop" | "mobile"): Promise<void> {
@@ -139,9 +146,17 @@ export function mountSceneApp(): () => void {
 			// Swap out any canvas with a dead WebGL context (bfcache, GPU reset, …)
 			canvas = ensureFreshCanvas(canvas);
 
-			const { initUnifiedScene } = await import("../three/unified-scene");
+			const mod = await import("../three/unified-scene").catch((err) => {
+				console.error("[scene] Failed to load Three.js module:", err);
+				return null;
+			});
 			// If cleanup ran while the import was in flight, abandon this mount
 			if (gen !== generation) return;
+			if (!mod) {
+				setFallbackVisible(true);
+				return;
+			}
+			const { initUnifiedScene } = mod;
 
 			// Re-check the canvas after the async gap — another mount could
 			// have replaced it, or the context could have been lost while we
@@ -153,11 +168,46 @@ export function mountSceneApp(): () => void {
 			const skipIntro = hasPlayedIntro();
 			const spotlight = parseSpotlight(root);
 
+			// When the GPU restores a lost context, all textures/buffers/programs
+			// are invalidated.  The unified scene tears itself down on restore and
+			// calls this callback so we can re-mount from scratch.
+			function onContextRestored(): void {
+				sceneHandle = null;
+				activeMode = null;
+				delete window.__sceneHandle;
+				delete document.documentElement.dataset.sceneReady;
+				clearStaleLabels();
+				queueModeSync();
+			}
+
+			const sceneOptions = {
+				skipIntro,
+				spotlight,
+				onContextRestored,
+				onSectionClick: (label: string, href: string, source?: string) => {
+					const modal = getContentModal();
+					if (modal) {
+						modal.open(label, href, source);
+					} else {
+						// Modal not yet registered — try once after a tick, then navigate
+						if (modalRetryTimer) window.clearTimeout(modalRetryTimer);
+						modalRetryTimer = window.setTimeout(() => {
+							modalRetryTimer = 0;
+							const gen = generation;
+							const retryModal = getContentModal();
+							if (retryModal) retryModal.open(label, href, source);
+							else if (gen === generation) window.location.href = href;
+						}, 50);
+					}
+				},
+				onSectionClose: (cb: () => void) => {
+					const modal = getContentModal();
+					return modal?.onClose(cb);
+				},
+			};
+
 			try {
-				sceneHandle = initUnifiedScene(currentCanvas, labels, mode, parseBooks(root), {
-					skipIntro,
-					spotlight,
-				});
+				sceneHandle = initUnifiedScene(currentCanvas, labels, mode, parseBooks(root), sceneOptions);
 			} catch (initError) {
 				// Last-resort recovery: replace canvas and try once more
 				console.warn("Scene init failed, retrying with fresh canvas", initError);
@@ -169,10 +219,7 @@ export function mountSceneApp(): () => void {
 				currentCanvas.replaceWith(retryCanvas);
 
 				try {
-					sceneHandle = initUnifiedScene(retryCanvas, labels, mode, parseBooks(root), {
-						skipIntro,
-						spotlight,
-					});
+					sceneHandle = initUnifiedScene(retryCanvas, labels, mode, parseBooks(root), sceneOptions);
 				} catch (retryError) {
 					console.error("Scene init failed after retry — showing fallback", retryError);
 					document.documentElement.dataset.sceneFallback = "visible";
@@ -182,7 +229,7 @@ export function mountSceneApp(): () => void {
 			}
 
 			markIntroPlayed();
-			(window as Window & { __sceneHandle?: SceneHandle }).__sceneHandle = sceneHandle;
+			window.__sceneHandle = sceneHandle;
 			window.clearTimeout(fallbackTimer);
 			delete document.documentElement.dataset.sceneFallback;
 			setFallbackVisible(false);
@@ -227,7 +274,7 @@ export function mountSceneApp(): () => void {
 			document.documentElement.dataset.sceneFallback = "visible";
 			setFallbackVisible(true);
 		}
-	}, 900);
+	}, 3000);
 
 	resizeObserver?.observe(root);
 
@@ -239,11 +286,15 @@ export function mountSceneApp(): () => void {
 		sceneHandle?.cleanup();
 		sceneHandle = null;
 		activeMode = null;
-		delete (window as Window & { __sceneHandle?: SceneHandle }).__sceneHandle;
+		delete window.__sceneHandle;
 		resizeObserver?.disconnect();
 		if (modeSyncFrame) cancelAnimationFrame(modeSyncFrame);
 		window.clearTimeout(fallbackTimer);
 		fallbackTimer = 0;
+		if (modalRetryTimer) {
+			window.clearTimeout(modalRetryTimer);
+			modalRetryTimer = 0;
+		}
 		delete document.documentElement.dataset.sceneFallback;
 		delete document.documentElement.dataset.sceneReady;
 		setFallbackVisible(false);

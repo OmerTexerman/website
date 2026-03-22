@@ -34,6 +34,10 @@ function cancelById(id: string): void {
 
 function animate(id: string, duration: number, update: AnimationCallback): Promise<void> {
 	cancelById(id);
+	if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+		update(1); // Apply final state immediately
+		return Promise.resolve();
+	}
 	return new Promise((resolve) => {
 		active.push({ id, start: performance.now(), duration, update, resolve });
 	});
@@ -56,9 +60,23 @@ export function tickAnimations(now: number): boolean {
 }
 
 export function disposeAnimations(): void {
+	// Resolve all pending promises so awaiting callers are not permanently blocked.
+	for (const anim of active) {
+		anim.resolve();
+	}
 	active = [];
 	restValues.clear();
-	flyingPhotoData = null;
+
+	// Return the flying photo to its frame so it is not left dangling in the scene root.
+	if (flyingPhotoData) {
+		const { photo, frame, restLocal } = flyingPhotoData;
+		photo.parent?.remove(photo);
+		photo.position.set(restLocal.x, restLocal.y, restLocal.z);
+		photo.rotation.set(0, 0, restLocal.rz);
+		photo.scale.set(1, 1, 1);
+		frame.add(photo);
+		flyingPhotoData = null;
+	}
 }
 
 // ─── Rest-pose storage: one value per animated property ─────────

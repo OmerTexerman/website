@@ -1,5 +1,5 @@
 import { revealAnimatedChildren } from "../dom/reveal";
-import { getSameOriginUrl } from "../url-utils";
+import { getSameOriginHref, getSameOriginUrl, isSafeHttpUrl } from "../url-utils";
 import { type ContentModalApi, registerContentModal, unregisterContentModal } from "./api";
 import { type ContentModalHistoryState, rememberContentModalReturnState } from "./history";
 import { loadContentPreview } from "./preview";
@@ -59,6 +59,20 @@ function resolveContentModalElements(rootEl: HTMLElement): ContentModalElements 
 	};
 }
 
+/** Same-origin path or http(s) URL only — blocks javascript:, data:, etc. on modal chrome. */
+function safeHrefForModal(href: string): string | null {
+	const t = href.trim();
+	if (!t) return null;
+	const same = getSameOriginHref(t);
+	if (same !== null) return same;
+	if (!isSafeHttpUrl(t)) return null;
+	try {
+		return new URL(t, window.location.href).href;
+	} catch {
+		return null;
+	}
+}
+
 function createContentModalController(elements: ContentModalElements): {
 	api: ContentModalApi;
 	setup: () => void;
@@ -83,7 +97,11 @@ function createContentModalController(elements: ContentModalElements): {
 		rootEl.classList.toggle("invisible", !mounted);
 		rootEl.classList.toggle("pointer-events-none", !mounted);
 		rootEl.classList.toggle("pointer-events-auto", mounted);
-		rootEl.setAttribute("aria-hidden", mounted ? "false" : "true");
+		if (mounted) {
+			rootEl.removeAttribute("aria-hidden");
+		} else {
+			rootEl.setAttribute("aria-hidden", "true");
+		}
 	}
 
 	function applyClosedVisualState(): void {
@@ -262,6 +280,12 @@ function createContentModalController(elements: ContentModalElements): {
 	}
 
 	async function openModal(label: string, href: string, source?: string): Promise<void> {
+		const safeTargetHref = safeHrefForModal(href);
+		if (safeTargetHref === null) {
+			console.warn("[modal] rejected unsafe or invalid href");
+			return;
+		}
+
 		const requestId = ++previewRequestId;
 		activeRequest?.abort();
 		const request = new AbortController();
@@ -269,14 +293,15 @@ function createContentModalController(elements: ContentModalElements): {
 		const timeoutId = setTimeout(() => request.abort(), 10_000);
 
 		titleEl.textContent = label;
-		linkEl.href = href;
-		rootEl.dataset.section = href.replace(/^\/|\/$/g, "").split("/")[0];
+		linkEl.href = safeTargetHref;
+		const path = new URL(safeTargetHref, window.location.href).pathname;
+		rootEl.dataset.section = path.replace(/^\/|\/$/g, "").split("/")[0] || "";
 		if (source) {
 			rootEl.dataset.source = source;
 		} else {
 			delete rootEl.dataset.source;
 		}
-		activeView = { label, href };
+		activeView = { label, href: safeTargetHref };
 		renderLoading();
 
 		if (modalState === "closed") {
@@ -292,6 +317,10 @@ function createContentModalController(elements: ContentModalElements): {
 			modalState = "open";
 			closeButtonEl.focus();
 		} else {
+			// Modal already open — update the return target so close() returns
+			// focus to whichever element triggered this second open
+			previousActiveElement =
+				document.activeElement instanceof HTMLElement ? document.activeElement : null;
 			cancelAnimations();
 			setMounted(true);
 			applyOpenVisualState();
@@ -299,20 +328,20 @@ function createContentModalController(elements: ContentModalElements): {
 		}
 
 		try {
-			const result = await loadContentPreview(href, request.signal);
+			const result = await loadContentPreview(safeTargetHref, request.signal);
 			if (isStalePreviewRequest(requestId)) return;
 
 			if (result.kind === "message") {
-				renderMessage(result.message, href);
+				renderMessage(result.message, safeTargetHref);
 				return;
 			}
 
-			bodyEl.replaceChildren(...result.nodes);
+			bodyEl.innerHTML = result.html;
 			revealAnimatedChildren(bodyEl);
 		} catch (err: unknown) {
 			if (err instanceof DOMException && err.name === "AbortError") return;
 			if (isStalePreviewRequest(requestId)) return;
-			renderMessage("Could not load preview.", href);
+			renderMessage("Could not load preview.", safeTargetHref);
 		} finally {
 			clearTimeout(timeoutId);
 		}

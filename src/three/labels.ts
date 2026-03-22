@@ -36,8 +36,19 @@ export function createLabelController(container: HTMLElement): LabelController {
 		projectedPosition.add(labelOffset);
 		projectedPosition.project(camera);
 
-		const x = (projectedPosition.x * 0.5 + 0.5) * canvasWidth;
-		const y = (-projectedPosition.y * 0.5 + 0.5) * canvasHeight;
+		if (projectedPosition.z > 1) {
+			// Object is behind camera, hide label
+			labelEl.style.opacity = "0";
+			return;
+		}
+
+		const rawX = (projectedPosition.x * 0.5 + 0.5) * canvasWidth;
+		const rawY = (-projectedPosition.y * 0.5 + 0.5) * canvasHeight;
+
+		// Clamp to canvas bounds with some padding
+		const padding = 8;
+		const x = Math.max(padding, Math.min(canvasWidth - padding, rawX));
+		const y = Math.max(padding, Math.min(canvasHeight - padding, rawY));
 
 		if (labelEl.textContent !== interaction.label) labelEl.textContent = interaction.label;
 		labelEl.style.left = `${x}px`;

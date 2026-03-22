@@ -3,14 +3,20 @@ import { getFeaturedShelfBooks, getSpotlight } from "../content/selectors";
 
 const featuredBooks = await getFeaturedShelfBooks();
 const spotlight = await getSpotlight();
+
+/** Escape </script> sequences so embedded JSON cannot break the script block. */
+const safeJson = (v: unknown) =>
+	JSON.stringify(v).replace(/</g, "\\u003c").replace(/>/g, "\\u003e");
 ---
 
 <div id="scene-root" class="absolute inset-0">
-  <script type="application/json" data-scene-books set:html={JSON.stringify(featuredBooks)} />
-  {spotlight && <script type="application/json" data-scene-spotlight set:html={JSON.stringify(spotlight)} />}
+  <script is:inline type="application/json" data-scene-books set:html={safeJson(featuredBooks)} />
+  {spotlight && <script is:inline type="application/json" data-scene-spotlight set:html={safeJson(spotlight)} />}
   <canvas
     id="scene-canvas"
     class="absolute inset-0 w-full h-full"
+    role="application"
+    tabindex="0"
     aria-label="Interactive 3D portfolio scene. Use Tab to move between interactive objects or the skip link for text navigation."
   >
     Your browser does not support the interactive portfolio scene. Use the page navigation links instead.

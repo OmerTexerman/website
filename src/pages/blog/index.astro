@@ -1,4 +1,5 @@
 ---
+import "../../styles/blog.css";
 import BlogCard from "../../components/BlogCard.astro";
 import { getSectionById } from "../../config";
 import { getPublishedPosts } from "../../content/selectors";
@@ -19,7 +20,7 @@ const posts = await getPublishedPosts();
         <p class="notebook-empty-text">nothing here yet :)</p>
       ) : (
         <>
-          <input type="search" class="content-search" placeholder="search entries..." data-content-search />
+          <input type="search" class="content-search" placeholder="search entries..." data-content-search aria-label="Search blog entries" />
           <div class="notebook-entries" data-content-list>
             {posts.map((post, i) => (
               <div data-animate style={`transition-delay: ${i * 0.1}s`}>
@@ -33,7 +34,7 @@ const posts = await getPublishedPosts();
               </div>
             ))}
           </div>
-          <p class="content-no-results" data-content-no-results>No matching entries.</p>
+          <p class="content-no-results" data-content-no-results role="status" aria-live="polite">No matching entries.</p>
           <button class="show-more-btn" data-show-more>Show more</button>
         </>
       )}
@@ -41,15 +42,6 @@ const posts = await getPublishedPosts();
   </div>
 
   <script>
-    import { mountContentList } from "../../dom/content-list";
-
-    const container = document.querySelector<HTMLElement>("[data-content-list]");
-    const searchInput = document.querySelector<HTMLInputElement>("[data-content-search]");
-    const showMoreBtn = document.querySelector<HTMLElement>("[data-show-more]");
-    const noResults = document.querySelector<HTMLElement>("[data-content-no-results]");
-
-    if (container) {
-      mountContentList({ container, searchInput, showMoreButton: showMoreBtn, noResultsEl: noResults });
-    }
+    import "../../dom/content-list-boot";
   </script>
 </ContentPage>

@@ -4,6 +4,22 @@ export interface PhotoGalleryPhoto {
 	caption?: string;
 }
 
+function parsePhotoGalleryPhotos(raw: string): PhotoGalleryPhoto[] {
+	try {
+		const parsed: unknown = JSON.parse(raw);
+		if (!Array.isArray(parsed)) return [];
+		return parsed.filter(
+			(item): item is PhotoGalleryPhoto =>
+				typeof item === "object" &&
+				item !== null &&
+				typeof (item as Record<string, unknown>).src === "string" &&
+				typeof (item as Record<string, unknown>).alt === "string",
+		);
+	} catch {
+		return [];
+	}
+}
+
 export function mountPhotoGalleries(root: ParentNode = document): () => void {
 	const cleanups: Array<() => void> = [];
 	const galleries = [...root.querySelectorAll<HTMLElement>("[data-photo-gallery]")];
@@ -24,13 +40,8 @@ export function mountPhotoGalleries(root: ParentNode = document): () => void {
 			continue;
 		}
 
-		let photos: PhotoGalleryPhoto[] = [];
-		try {
-			const raw = dataEl.textContent?.trim() ?? "";
-			photos = raw ? (JSON.parse(raw) as PhotoGalleryPhoto[]) : [];
-		} catch {
-			continue;
-		}
+		const raw = dataEl.textContent?.trim() ?? "";
+		const photos: PhotoGalleryPhoto[] = raw ? parsePhotoGalleryPhotos(raw) : [];
 
 		if (photos.length === 0) continue;
 
@@ -101,6 +112,8 @@ export function mountPhotoGalleries(root: ParentNode = document): () => void {
 			lastTrigger = btn;
 			showPhoto(idx);
 			dlg.showModal();
+			const closeBtn = dlg.querySelector<HTMLButtonElement>("button[data-photo-lightbox-close]");
+			closeBtn?.focus();
 			document.body.style.overflow = "hidden";
 		}
 
@@ -132,8 +145,8 @@ export function mountPhotoGalleries(root: ParentNode = document): () => void {
 		closeBtn.addEventListener("click", onCloseClick);
 
 		const onDialogClick = (e: MouseEvent) => {
-			const target = e.target as HTMLElement;
-			if (target === dlg || target.classList.contains("photo-lightbox-content")) {
+			if (!(e.target instanceof HTMLElement)) return;
+			if (e.target === dlg || e.target.classList.contains("photo-lightbox-content")) {
 				closeLightbox();
 			}
 		};
@@ -157,6 +170,10 @@ export function mountPhotoGalleries(root: ParentNode = document): () => void {
 				case "ArrowRight":
 					e.preventDefault();
 					goNext();
+					break;
+				case "Escape":
+					e.preventDefault();
+					closeLightbox();
 					break;
 			}
 		};

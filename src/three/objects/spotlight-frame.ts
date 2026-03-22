@@ -29,17 +29,16 @@ const IMAGE_W = FRAME_W - BORDER * 2;
 const IMAGE_H = FRAME_H - BORDER * 2 - 0.07; // leave room for nameplate area
 const STAND_H = 0.28;
 
-const frameMaterial = new MeshStandardMaterial({
-	color: new Color(DARK_WOOD),
-	roughness: 0.8,
-	metalness: 0.05,
-});
-
 const sharedLoader = new TextureLoader();
 const loadedTextures = new Set<Texture>();
+// Generation counter — incremented each time textures are disposed. Pending load
+// callbacks compare against the generation captured at load time and discard
+// textures from a stale generation instead of applying them to the new scene.
+let textureGeneration = 0;
 
 /** Dispose all textures loaded by the spotlight frame image loader. */
 export function disposeSpotlightTextures(): void {
+	textureGeneration++;
 	for (const tex of loadedTextures) {
 		tex.dispose();
 	}
@@ -51,7 +50,11 @@ function createNameplateTexture(title: string, name?: string): CanvasTexture {
 	canvas.width = 512;
 	canvas.height = 128;
 	const ctx = canvas.getContext("2d");
-	if (!ctx) return new CanvasTexture(canvas);
+	if (!ctx) {
+		const fallback = new CanvasTexture(canvas);
+		loadedTextures.add(fallback);
+		return fallback;
+	}
 
 	ctx.fillStyle = DARK_WOOD;
 	ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -70,11 +73,18 @@ function createNameplateTexture(title: string, name?: string): CanvasTexture {
 
 	ctx.fillText(text, canvas.width / 2, canvas.height / 2);
 
-	return new CanvasTexture(canvas);
+	const tex = new CanvasTexture(canvas);
+	loadedTextures.add(tex);
+	return tex;
 }
 
 /** Create an image plane with the accent color fallback, loading the spotlight image if available. */
-function createImagePlane(w: number, h: number, imageUrl?: string): Mesh {
+function createImagePlane(
+	w: number,
+	h: number,
+	imageUrl?: string,
+): Mesh<PlaneGeometry, MeshStandardMaterial> {
+	const capturedGeneration = textureGeneration;
 	const mat = new MeshStandardMaterial({
 		color: new Color(ACCENT),
 		roughness: 0.5,
@@ -86,6 +96,10 @@ function createImagePlane(w: number, h: number, imageUrl?: string): Mesh {
 		sharedLoader.load(
 			imageUrl,
 			(texture) => {
+				if (textureGeneration !== capturedGeneration) {
+					texture.dispose();
+					return;
+				}
 				loadedTextures.add(texture);
 				mat.map = texture;
 				mat.color.set(0xffffff);
@@ -102,7 +116,11 @@ function createImagePlane(w: number, h: number, imageUrl?: string): Mesh {
 }
 
 /** Create a nameplate mesh for the given spotlight data. */
-function createNameplate(width: number, height: number, spotlight?: SpotlightInfo | null): Mesh {
+function createNameplate(
+	width: number,
+	height: number,
+	spotlight?: SpotlightInfo | null,
+): Mesh<PlaneGeometry, MeshStandardMaterial> {
 	const tex = createNameplateTexture(spotlight?.title ?? "Employee of the Week", spotlight?.name);
 	return new Mesh(
 		new PlaneGeometry(width, height),
@@ -116,6 +134,13 @@ function createNameplate(width: number, height: number, spotlight?: SpotlightInf
 
 export function createSpotlightFrame(spotlight?: SpotlightInfo | null): SpotlightFrameObject {
 	const root = new Group();
+
+	// Per-call material so scene teardown can dispose it without corrupting rebuilds.
+	const frameMaterial = new MeshStandardMaterial({
+		color: new Color(DARK_WOOD),
+		roughness: 0.8,
+		metalness: 0.05,
+	});
 
 	const frame = new Group();
 
@@ -158,6 +183,13 @@ export function createSpotlightFrame(spotlight?: SpotlightInfo | null): Spotligh
 /** Create a wall-mounted version for the shelf scene. */
 export function createShelfSpotlightFrame(spotlight?: SpotlightInfo | null): Group {
 	const g = new Group();
+
+	// Per-call material so scene teardown can dispose it without corrupting rebuilds.
+	const frameMaterial = new MeshStandardMaterial({
+		color: new Color(DARK_WOOD),
+		roughness: 0.8,
+		metalness: 0.05,
+	});
 
 	const WALL_FRAME_W = 0.3;
 	const WALL_FRAME_H = 0.36;
@@ -202,12 +234,12 @@ export function createShelfSpotlightFrame(spotlight?: SpotlightInfo | null): Gro
 
 	const imagePlane = createImagePlane(WF_IMAGE_W, WF_IMAGE_H, spotlight?.image);
 	imagePlane.position.set(0, 0.015, fz);
-	(imagePlane.material as MeshStandardMaterial).side = DoubleSide;
+	imagePlane.material.side = DoubleSide;
 	g.add(imagePlane);
 
 	const nameplate = createNameplate(WF_IMAGE_W * 0.8, 0.035, spotlight);
 	nameplate.position.set(0, -(WALL_FRAME_H / 2 - WF_BORDER - 0.022), fz + 0.001);
-	(nameplate.material as MeshStandardMaterial).side = DoubleSide;
+	nameplate.material.side = DoubleSide;
 	g.add(nameplate);
 
 	return g;

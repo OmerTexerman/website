@@ -1,5 +1,20 @@
 import { Mesh, type Object3D, type Scene } from "three";
 
+let cachedRect: DOMRect | null = null;
+let rectCanvas: HTMLCanvasElement | null = null;
+
+export function invalidateCanvasRect(): void {
+	cachedRect = null;
+}
+
+function getCanvasRect(canvas: HTMLCanvasElement): DOMRect {
+	if (!cachedRect || rectCanvas !== canvas) {
+		cachedRect = canvas.getBoundingClientRect();
+		rectCanvas = canvas;
+	}
+	return cachedRect;
+}
+
 /** Convert client coordinates to normalized device coordinates */
 export function updatePointer(
 	pointer: { x: number; y: number },
@@ -7,7 +22,7 @@ export function updatePointer(
 	clientX: number,
 	clientY: number,
 ): void {
-	const rect = canvas.getBoundingClientRect();
+	const rect = getCanvasRect(canvas);
 	pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
 	pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
 }

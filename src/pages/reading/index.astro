@@ -1,4 +1,5 @@
 ---
+import "../../styles/reading.css";
 import BookCard from "../../components/BookCard.astro";
 import RelatedPost from "../../components/RelatedPost.astro";
 import { getSectionById } from "../../config";
@@ -17,12 +18,11 @@ const wantToRead = readingSections.find((s) => s.status === "want-to-read");
   {readingSections.length === 0 ? (
     <p class="text-muted font-mono">nothing here yet :)</p>
   ) : (
-    <div class="reading-page">
-      <h1 class="sr-only">Reading</h1>
+    <div class="reading-page" data-content-list data-group-selector=".reading-section" data-item-selector=".book-card" data-page-size="999">
       {/* Warm overhead glow — mimics the desk lamp */}
       <div class="reading-glow"></div>
 
-      <input type="search" class="content-search" placeholder="find a book..." data-content-search style="margin-bottom: 1.5rem;" />
+      <input type="search" class="content-search" placeholder="find a book..." data-content-search aria-label="Search books" style="margin-bottom: 1.5rem;" />
 
       {/* Currently Reading */}
       {currentlyReading && currentlyReading.books.length > 0 && (
@@ -125,36 +125,11 @@ const wantToRead = readingSections.find((s) => s.status === "want-to-read");
           </div>
         </section>
       )}
+      <p class="content-no-results" data-content-no-results role="status" aria-live="polite">No matching entries.</p>
     </div>
   )}
 
   <script>
-    const searchInput = document.querySelector<HTMLInputElement>("[data-content-search]");
-    if (searchInput) {
-      const sections = document.querySelectorAll<HTMLElement>(".reading-section");
-      const allBooks = document.querySelectorAll<HTMLElement>(".reading-section .book-card");
-      let debounce = 0;
-
-      searchInput.addEventListener("input", () => {
-        clearTimeout(debounce);
-        debounce = window.setTimeout(() => {
-          const query = searchInput.value.trim().toLowerCase();
-          if (!query) {
-            for (const book of allBooks) book.style.display = "";
-            for (const sec of sections) sec.style.display = "";
-            return;
-          }
-          for (const book of allBooks) {
-            const text = book.textContent?.toLowerCase() ?? "";
-            book.style.display = text.includes(query) ? "" : "none";
-          }
-          // Hide sections where all books are hidden
-          for (const sec of sections) {
-            const visible = sec.querySelectorAll<HTMLElement>(".book-card:not([style*='display: none'])");
-            sec.style.display = visible.length > 0 ? "" : "none";
-          }
-        }, 150);
-      });
-    }
+    import "../../dom/content-list-boot";
   </script>
 </ContentPage>

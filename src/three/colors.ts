@@ -24,7 +24,6 @@ export const LAPTOP_SCREEN_GLOW = "#6a9fcc";
 // ─── Warm / organic colors ──────────────────────────────────────
 export const WARM_GLOW = "#ffcc88";
 export const NOTEBOOK_RED = "#9a3230";
-export const DARK_BROWN = "#2b2620";
 export const TRACE_GOLD = "#8a7a2a";
 
 // ─── Wood & material tones ──────────────────────────────────────
