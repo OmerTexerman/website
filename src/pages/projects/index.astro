@@ -54,24 +54,16 @@ const setupCategories = await getSetup();
             <>
               <div class="wm-project-list" data-content-list>
                 {projects.map((project, i) => (
-                  <div class="wm-project-entry" data-animate style={`transition-delay: ${i * 0.06}s`}>
-                    <div class="wm-project-header">
-                      <span class="wm-project-name">{project.data.title}</span>
-                      <span class="wm-project-tech">{project.data.tech.join(" · ")}</span>
-                    </div>
-                    <p class="wm-project-desc">{project.data.description}</p>
-                    <div class="wm-project-links">
-                      {project.data.url && (
-                        <a href={project.data.url} target="_blank" rel="noopener noreferrer" class="wm-project-link">
-                          <span class="wm-link-icon">↗</span> live
-                        </a>
-                      )}
-                      {project.data.repo && (
-                        <a href={project.data.repo} target="_blank" rel="noopener noreferrer" class="wm-project-link">
-                          <span class="wm-link-icon">⎇</span> src
-                        </a>
-                      )}
-                    </div>
+                  <div data-animate style={`transition-delay: ${i * 0.06}s`}>
+                    <ProjectCard
+                      title={project.data.title}
+                      description={project.data.description}
+                      tech={project.data.tech}
+                      image={project.data.image}
+                      url={project.data.url}
+                      repo={project.data.repo}
+                      post={project.data.post}
+                    />
                   </div>
                 ))}
               </div>

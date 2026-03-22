@@ -1544,6 +1544,24 @@ html[data-scene-ready="true"] #scene-fallback {
 	color: rgba(255, 255, 255, 0.25);
 }
 
+.wm-project-image {
+	margin: 0.375rem 0;
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	overflow: hidden;
+}
+
+.wm-project-image img {
+	width: 100%;
+	height: auto;
+	display: block;
+	opacity: 0.85;
+	transition: opacity 0.2s;
+}
+
+.wm-project-entry:hover .wm-project-image img {
+	opacity: 1;
+}
+
 .wm-project-desc {
 	font-family: var(--font-body);
 	font-size: 0.75rem;

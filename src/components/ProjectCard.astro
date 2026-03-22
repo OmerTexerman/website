@@ -14,38 +14,28 @@ interface Props {
 const { title, description, tech, image, url, repo, post } = Astro.props;
 ---
 
-<div class="project-window">
-  {/* Title bar — macOS-style window chrome */}
-  <div class="project-titlebar">
-    <div class="project-dots">
-      <span class="project-dot project-dot-red"></span>
-      <span class="project-dot project-dot-yellow"></span>
-      <span class="project-dot project-dot-green"></span>
-    </div>
-    <span class="project-titlebar-text">{title}</span>
+<div class="wm-project-entry">
+  <div class="wm-project-header">
+    <span class="wm-project-name">{title}</span>
+    <span class="wm-project-tech">{tech.join(" · ")}</span>
   </div>
-
-  {/* Window body */}
-  <div class="project-body">
-    {image && (
-      <div class="project-image">
-        <img src={image} alt={`Screenshot of ${title}`} loading="lazy" width="600" height="400" />
-      </div>
-    )}
-    <p class="project-desc">{description}</p>
-    <span class="project-tech">{tech.join(" · ")}</span>
-    <div class="project-links">
-      {url && (
-        <a href={url} target="_blank" rel="noopener noreferrer" class="project-link project-link-primary">
-          <span aria-hidden="true">→ </span>live site
-        </a>
-      )}
-      {repo && (
-        <a href={repo} target="_blank" rel="noopener noreferrer" class="project-link">
-          <span aria-hidden="true">→ </span>source
-        </a>
-      )}
-      {post && <RelatedPost slug={post} />}
+  {image && (
+    <div class="wm-project-image">
+      <img src={image} alt={`Screenshot of ${title}`} loading="lazy" width="600" height="400" />
     </div>
+  )}
+  <p class="wm-project-desc">{description}</p>
+  <div class="wm-project-links">
+    {url && (
+      <a href={url} target="_blank" rel="noopener noreferrer" class="wm-project-link">
+        <span class="wm-link-icon">↗</span> live
+      </a>
+    )}
+    {repo && (
+      <a href={repo} target="_blank" rel="noopener noreferrer" class="wm-project-link">
+        <span class="wm-link-icon">⎇</span> src
+      </a>
+    )}
+    {post && <RelatedPost slug={post} />}
   </div>
 </div>
