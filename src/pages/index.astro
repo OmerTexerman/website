@@ -65,26 +65,25 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     import { bootstrapContentModal } from "../modal/bootstrap";
 
     let cleanup = mountSceneApp();
-    const listenerAc = new AbortController();
 
     // Re-mount after bfcache restore.  The pagehide cleanup disposed GPU
     // resources but left the context alive for bfcache.  mountSceneApp
     // handles context-lost detection internally; we still need to
     // re-bootstrap the modal here.
+    //
+    // This listener must NOT be removed on pagehide — it is the only
+    // path that re-initialises the scene after the browser restores the
+    // page from the back/forward cache.
     window.addEventListener("pageshow", (e) => {
       if (!e.persisted) return;
       cleanup();
       cleanup = mountSceneApp();
       bootstrapContentModal();
-    }, { signal: listenerAc.signal });
-
-    // Clean up listener on bfcache storage or page unload
-    window.addEventListener("pagehide", () => listenerAc.abort(), { once: true });
+    });
 
     if (import.meta.hot) {
       import.meta.hot.dispose(() => {
         cleanup();
-        listenerAc.abort();
       });
     }
   </script>
