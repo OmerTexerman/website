@@ -1,3 +1,5 @@
+import { MOBILE_BREAKPOINT } from "./three/constants";
+
 /** The canonical origin for the site — used by Astro and meta tags. */
 export const siteOrigin = import.meta.env.PUBLIC_SITE_ORIGIN || "https://omer.texerman.com";
 
@@ -132,7 +134,7 @@ export function getBackLabel(href: string): string {
 		// On mobile the homepage shows a shelf, on desktop a desk.
 		// This runs client-side only (from context-back-link.ts), so window
 		// is always available.
-		if (typeof window !== "undefined" && window.innerWidth < 768) {
+		if (typeof window !== "undefined" && window.innerWidth < MOBILE_BREAKPOINT) {
 			return "Back to shelf";
 		}
 		return "Back to desk";

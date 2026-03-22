@@ -20,6 +20,8 @@ const photoCount = collection.photos.length;
       src={collection.cover}
       alt={collection.title}
       loading="lazy"
+      width="600"
+      height="400"
       class:list={[
         "pinned-photo-img",
         featured ? "aspect-[3/2]" : "aspect-[4/3]",

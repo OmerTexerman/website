@@ -1,8 +1,10 @@
 import { setRevealPending, showRevealed } from "./reveal";
 
+const PAGE_VISIBILITY_OFFSET = 40;
+
 function isInitiallyVisible(el: HTMLElement): boolean {
 	const rect = el.getBoundingClientRect();
-	return rect.bottom > 0 && rect.top < window.innerHeight - 40;
+	return rect.bottom > 0 && rect.top < window.innerHeight - PAGE_VISIBILITY_OFFSET;
 }
 
 export function mountRevealAnimations(root: Document | Element = document): () => void {

@@ -700,6 +700,38 @@ export function animateHeadphonePulse(hp: Group): Promise<void> {
 	});
 }
 
+// ─── SPOTLIGHT FRAME ────────────────────────────────────────────
+
+/** Wobble the spotlight frame and pulse the nameplate emissive. */
+export function animateFrameWobble(frame: Group): Promise<void> {
+	const baseRot = frame.rotation.z;
+	return animate(`frame-wobble-${frame.uuid}`, 500, (p) => {
+		const decay = 1 - p;
+		frame.rotation.z = baseRot + Math.sin(p * Math.PI * 5) * 0.06 * decay;
+	});
+}
+
+// ─── PHONE (Shelf) ─────────────────────────────────────────────
+
+/** Fade the phone screen on before shelf fall. */
+export function animatePhoneWake(phone: Object3D): Promise<void> {
+	const screenMat = phone.userData.screenMaterial as MeshStandardMaterial | undefined;
+	if (!screenMat) return Promise.resolve();
+	return animate(`phone-screen-${phone.uuid}`, 350, (p) => {
+		screenMat.emissiveIntensity = lerp(0, 1.5, p);
+	});
+}
+
+/** Fade the phone screen back off after modal closes. */
+export function animatePhoneSleep(phone: Object3D): Promise<void> {
+	const screenMat = phone.userData.screenMaterial as MeshStandardMaterial | undefined;
+	if (!screenMat) return Promise.resolve();
+	const current = screenMat.emissiveIntensity;
+	return animate(`phone-screen-${phone.uuid}`, 300, (p) => {
+		screenMat.emissiveIntensity = lerp(current, 0, p);
+	});
+}
+
 // ─── SHELF WALL ANIMATIONS ─────────────────────────────────────
 
 /** Tip shelf items forward and drop them off the shelf before opening */

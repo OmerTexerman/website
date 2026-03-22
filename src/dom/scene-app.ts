@@ -1,4 +1,9 @@
-import { parseShelfBooks, type ShelfBook } from "../content/types";
+import {
+	parseShelfBooks,
+	parseSpotlightInfo,
+	type ShelfBook,
+	type SpotlightInfo,
+} from "../content/types";
 
 interface SceneHandle {
 	cleanup: () => void;
@@ -13,6 +18,19 @@ function parseBooks(sceneRoot: HTMLElement): ShelfBook[] | undefined {
 
 	try {
 		return parseShelfBooks(JSON.parse(raw));
+	} catch {
+		return undefined;
+	}
+}
+
+function parseSpotlight(sceneRoot: HTMLElement): SpotlightInfo | undefined {
+	const el = sceneRoot.querySelector("script[data-scene-spotlight]");
+	if (!el) return undefined;
+	const raw = el.textContent?.trim();
+	if (!raw) return undefined;
+
+	try {
+		return parseSpotlightInfo(JSON.parse(raw));
 	} catch {
 		return undefined;
 	}
@@ -133,10 +151,12 @@ export function mountSceneApp(): () => void {
 			const currentCanvas = ensureFreshCanvas(rawCanvas);
 
 			const skipIntro = hasPlayedIntro();
+			const spotlight = parseSpotlight(root);
 
 			try {
 				sceneHandle = initUnifiedScene(currentCanvas, labels, mode, parseBooks(root), {
 					skipIntro,
+					spotlight,
 				});
 			} catch (initError) {
 				// Last-resort recovery: replace canvas and try once more
@@ -151,6 +171,7 @@ export function mountSceneApp(): () => void {
 				try {
 					sceneHandle = initUnifiedScene(retryCanvas, labels, mode, parseBooks(root), {
 						skipIntro,
+						spotlight,
 					});
 				} catch (retryError) {
 					console.error("Scene init failed after retry — showing fallback", retryError);

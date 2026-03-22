@@ -4,3 +4,6 @@ pre-commit:
       glob: "*.{astro,css,js,json,md,mjs,ts,yaml,yml}"
       run: npx @biomejs/biome check --write --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
       stage_fixed: true
+    type-check:
+      glob: "*.{astro,ts}"
+      run: npx astro check

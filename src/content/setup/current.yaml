@@ -1,0 +1,19 @@
+categories:
+  - name: Editor
+    items:
+      - name: Cursor
+        detail: AI-powered
+  - name: Terminal
+    items:
+      - name: GNOME Terminal
+  - name: Shell
+    items:
+      - name: Bash
+  - name: OS
+    items:
+      - name: Bluefin (Fedora)
+        detail: GNOME 49
+  - name: Hardware
+    items:
+      - name: Framework 16
+        detail: Ryzen AI 9 HX 370

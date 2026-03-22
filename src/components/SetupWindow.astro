@@ -1,0 +1,42 @@
+---
+import type { SetupCategory } from "../content/selectors";
+
+interface Props {
+	categories: SetupCategory[];
+}
+
+const { categories } = Astro.props;
+---
+
+<div class="project-window setup-window">
+  <div class="project-titlebar">
+    <div class="project-dots">
+      <span class="project-dot project-dot-red"></span>
+      <span class="project-dot project-dot-yellow"></span>
+      <span class="project-dot project-dot-green"></span>
+    </div>
+    <span class="project-titlebar-text">~/setup</span>
+  </div>
+
+  <div class="setup-body">
+    {categories.length === 0 ? (
+      <p class="setup-empty">no setup configured yet</p>
+    ) : (
+      <div class="setup-categories">
+        {categories.map((cat) => (
+          <div class="setup-category">
+            <h3 class="setup-category-name">{cat.name}</h3>
+            <div class="setup-items">
+              {cat.items.map((item) => (
+                <div class="setup-item">
+                  <span class="setup-item-name">{item.name}</span>
+                  {item.detail && <span class="setup-item-detail">{item.detail}</span>}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+</div>

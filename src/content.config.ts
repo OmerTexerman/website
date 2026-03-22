@@ -12,8 +12,8 @@ const optionalPhoto = z
 const blog = defineCollection({
 	loader: glob({ pattern: "**/*.md", base: "./src/content/blog" }),
 	schema: z.object({
-		title: z.string(),
-		description: z.string(),
+		title: z.string().min(1),
+		description: z.string().min(1),
 		pubDate: z.coerce.date(),
 		updatedDate: z.coerce.date().optional(),
 		tags: z.array(z.string()).optional(),
@@ -24,9 +24,9 @@ const blog = defineCollection({
 const projects = defineCollection({
 	loader: glob({ pattern: "**/*.md", base: "./src/content/projects" }),
 	schema: z.object({
-		title: z.string(),
-		description: z.string(),
-		tech: z.array(z.string()),
+		title: z.string().min(1),
+		description: z.string().min(1),
+		tech: z.array(z.string()).min(1),
 		image: optionalPhoto,
 		url: z.url().optional(),
 		repo: z.url().optional(),
@@ -38,8 +38,8 @@ const projects = defineCollection({
 const books = defineCollection({
 	loader: glob({ pattern: "**/*.yaml", base: "./src/content/books" }),
 	schema: z.object({
-		title: z.string(),
-		author: z.string(),
+		title: z.string().min(1),
+		author: z.string().min(1),
 		spineColor: z.string().regex(hexColor).default("#2a4a6a"),
 		cover: optionalPhoto,
 		status: z.enum(["reading", "finished", "want-to-read"]),
@@ -67,6 +67,32 @@ const photos = defineCollection({
 	}),
 });
 
+const spotlight = defineCollection({
+	loader: glob({ pattern: "**/*.yaml", base: "./src/content/spotlight" }),
+	schema: z.object({
+		title: z.string(),
+		name: z.string().optional(),
+		image: z.string().regex(photoSource, "Image must be an absolute path or URL."),
+	}),
+});
+
+const setup = defineCollection({
+	loader: glob({ pattern: "**/*.yaml", base: "./src/content/setup" }),
+	schema: z.object({
+		categories: z.array(
+			z.object({
+				name: z.string(),
+				items: z.array(
+					z.object({
+						name: z.string(),
+						detail: z.string().optional(),
+					}),
+				),
+			}),
+		),
+	}),
+});
+
 const words = defineCollection({
 	loader: glob({ pattern: "**/*.yaml", base: "./src/content/words" }),
 	schema: z.object({
@@ -83,4 +109,4 @@ const words = defineCollection({
 	}),
 });
 
-export const collections = { blog, projects, books, photos, words };
+export const collections = { blog, projects, books, photos, words, spotlight, setup };

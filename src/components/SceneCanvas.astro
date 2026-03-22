@@ -1,11 +1,13 @@
 ---
-import { getFeaturedShelfBooks } from "../content/selectors";
+import { getFeaturedShelfBooks, getSpotlight } from "../content/selectors";
 
 const featuredBooks = await getFeaturedShelfBooks();
+const spotlight = await getSpotlight();
 ---
 
 <div id="scene-root" class="absolute inset-0">
   <script type="application/json" data-scene-books set:html={JSON.stringify(featuredBooks)} />
+  {spotlight && <script type="application/json" data-scene-spotlight set:html={JSON.stringify(spotlight)} />}
   <canvas
     id="scene-canvas"
     class="absolute inset-0 w-full h-full"

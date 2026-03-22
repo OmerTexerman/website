@@ -8,6 +8,36 @@ media_folder: public/images/uploads
 public_folder: /images/uploads
 
 collections:
+  - name: spotlight
+    label: Spotlight
+    files:
+      - name: current
+        label: Current Spotlight
+        file: src/content/spotlight/current.yaml
+        fields:
+          - { label: Title, name: title, widget: string, default: "Employee of the Week" }
+          - { label: Name, name: name, widget: string, required: false }
+          - { label: Image, name: image, widget: image }
+
+  - name: setup
+    label: Setup
+    files:
+      - name: current
+        label: Current Setup
+        file: src/content/setup/current.yaml
+        fields:
+          - label: Categories
+            name: categories
+            widget: list
+            fields:
+              - { label: Category Name, name: name, widget: string }
+              - label: Items
+                name: items
+                widget: list
+                fields:
+                  - { label: Name, name: name, widget: string }
+                  - { label: Detail, name: detail, widget: string, required: false }
+
   - name: blog
     label: Blog Posts
     label_singular: Blog Post

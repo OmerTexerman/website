@@ -46,7 +46,8 @@ const archive = words.slice(1);
         {archive.length > 0 && (
           <div class="wotd-archive">
             <h2 class="wotd-archive-heading">Previous Words</h2>
-            <div class="wotd-archive-list">
+            <input type="search" class="content-search" placeholder="search words..." data-content-search />
+            <div class="wotd-archive-list" data-content-list>
               {archive.map((entry, i) => (
                 <div class="wotd-archive-item" data-animate style={`transition-delay: ${Math.min(i * 0.06, 0.5)}s`}>
                   <div class="wotd-archive-word-row">
@@ -60,9 +61,24 @@ const archive = words.slice(1);
                 </div>
               ))}
             </div>
+            <p class="content-no-results" data-content-no-results>No matching words.</p>
+            <button class="show-more-btn" data-show-more>Show more</button>
           </div>
         )}
       </>
     )}
   </div>
+
+  <script>
+    import { mountContentList } from "../../dom/content-list";
+
+    const container = document.querySelector<HTMLElement>("[data-content-list]");
+    const searchInput = document.querySelector<HTMLInputElement>("[data-content-search]");
+    const showMoreBtn = document.querySelector<HTMLElement>("[data-show-more]");
+    const noResults = document.querySelector<HTMLElement>("[data-content-no-results]");
+
+    if (container) {
+      mountContentList({ container, searchInput, showMoreButton: showMoreBtn, noResultsEl: noResults });
+    }
+  </script>
 </ContentPage>

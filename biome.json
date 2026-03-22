@@ -33,7 +33,7 @@
 	},
 	"overrides": [
 		{
-			"includes": ["src/**/*.astro", "src/**/*.css", "src/**/*.md", "src/**/*.yaml", "*.yml"],
+			"includes": ["src/content/**/*.md", "src/content/**/*.yaml", "*.yml"],
 			"linter": {
 				"enabled": false
 			}

@@ -1,3 +1,23 @@
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
+}
+
+export interface SpotlightInfo {
+	title: string;
+	name?: string;
+	image: string;
+}
+
+function isSpotlightInfo(value: unknown): value is SpotlightInfo {
+	return isRecord(value) && typeof value.title === "string" && typeof value.image === "string";
+}
+
+export function parseSpotlightInfo(value: unknown): SpotlightInfo | undefined {
+	if (!isRecord(value)) return undefined;
+	if (!isSpotlightInfo(value)) return undefined;
+	return value;
+}
+
 const HEX_COLOR = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
 
 export interface ShelfBook {
@@ -5,11 +25,7 @@ export interface ShelfBook {
 	spineColor: string;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null;
-}
-
-export function isShelfBook(value: unknown): value is ShelfBook {
+function isShelfBook(value: unknown): value is ShelfBook {
 	return (
 		isRecord(value) &&
 		typeof value.title === "string" &&

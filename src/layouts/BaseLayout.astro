@@ -33,7 +33,9 @@ const rootThemeStyle = getRootThemeStyle();
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content={description} />
+    <meta name="color-scheme" content="dark" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
     <link rel="sitemap" href="/sitemap-index.xml" />
     <link rel="alternate" type="application/rss+xml" title={blogFeed.title} href="/rss.xml" />
     <link rel="manifest" href="/site.webmanifest" />
@@ -73,9 +75,12 @@ const rootThemeStyle = getRootThemeStyle();
         import { mountContextBackLinks } from "../dom/context-back-link";
         import { mountRevealAnimations } from "../dom/page-effects";
 
-        mountContextBackLinks();
+        const cleanupBackLinks = mountContextBackLinks();
         const cleanupReveal = mountRevealAnimations();
-        document.addEventListener("astro:before-preparation", cleanupReveal, { once: true });
+        document.addEventListener("astro:before-preparation", () => {
+          cleanupBackLinks();
+          cleanupReveal();
+        }, { once: true });
       </script>
     )}
 

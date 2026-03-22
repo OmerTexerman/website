@@ -266,6 +266,7 @@ function createContentModalController(elements: ContentModalElements): {
 		activeRequest?.abort();
 		const request = new AbortController();
 		activeRequest = request;
+		const timeoutId = setTimeout(() => request.abort(), 10_000);
 
 		titleEl.textContent = label;
 		linkEl.href = href;
@@ -312,6 +313,8 @@ function createContentModalController(elements: ContentModalElements): {
 			if (err instanceof DOMException && err.name === "AbortError") return;
 			if (isStalePreviewRequest(requestId)) return;
 			renderMessage("Could not load preview.", href);
+		} finally {
+			clearTimeout(timeoutId);
 		}
 	}
 

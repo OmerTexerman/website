@@ -1,0 +1,92 @@
+---
+import { getSectionById } from "../../config";
+import { getOrderedProjects, getSetup } from "../../content/selectors";
+import ContentPage from "../../layouts/ContentPage.astro";
+
+const section = getSectionById("projects");
+const projects = await getOrderedProjects();
+const setupCategories = await getSetup();
+---
+
+<ContentPage section={section} surface={false} containerWidthClass="max-w-lg" showIntro={false}>
+  <div class="phone-body" data-animate>
+    {/* Status bar */}
+    <div class="phone-status-bar">
+      <time class="phone-time" id="phone-clock"></time>
+      <div class="phone-status-icons">
+        <span class="phone-signal-bars" aria-hidden="true">
+          <span></span><span></span><span></span><span></span>
+        </span>
+        <span class="phone-battery-pill">
+          <span class="phone-battery-fill"></span>
+        </span>
+      </div>
+    </div>
+
+    {/* Content area */}
+    <div class="phone-screen">
+      {/* Projects as message-thread-like entries */}
+      <div class="phone-feed">
+        {projects.map((project, i) => (
+          <div class="phone-entry" style={`animation-delay: ${i * 0.1}s`}>
+            <div class="phone-entry-dot"></div>
+            <div class="phone-entry-content">
+              <div class="phone-entry-title">{project.data.title}</div>
+              <p class="phone-entry-desc">{project.data.description}</p>
+              <div class="phone-entry-meta">
+                <span class="phone-entry-tech">{project.data.tech.join(" · ")}</span>
+                <span class="phone-entry-actions">
+                  {project.data.url && (
+                    <a href={project.data.url} target="_blank" rel="noopener noreferrer">open</a>
+                  )}
+                  {project.data.repo && (
+                    <a href={project.data.repo} target="_blank" rel="noopener noreferrer">src</a>
+                  )}
+                </span>
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {projects.length === 0 && (
+          <div class="phone-entry-empty">no projects yet</div>
+        )}
+      </div>
+
+      {/* Setup as a compact grid */}
+      {setupCategories.length > 0 && (
+        <div class="phone-setup-block">
+          <div class="phone-setup-title">setup</div>
+          <div class="phone-setup-grid">
+            {setupCategories.map((cat) => (
+              <div class="phone-setup-cell">
+                <span class="phone-setup-label">{cat.name}</span>
+                {cat.items.map((item) => (
+                  <span class="phone-setup-value">
+                    {item.name}{item.detail ? ` — ${item.detail}` : ""}
+                  </span>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+
+    {/* Bottom bar */}
+    <div class="phone-bottom-bar">
+      <div class="phone-bottom-pill"></div>
+    </div>
+  </div>
+</ContentPage>
+
+<script>
+  function updatePhoneClock() {
+    const el = document.getElementById("phone-clock");
+    if (!el) return;
+    const now = new Date();
+    el.textContent = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  }
+  updatePhoneClock();
+  setInterval(updatePhoneClock, 10_000);
+</script>

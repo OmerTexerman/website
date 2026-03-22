@@ -29,7 +29,7 @@ const { title, description, tech, image, url, repo, post } = Astro.props;
   <div class="project-body">
     {image && (
       <div class="project-image">
-        <img src={image} alt={`Screenshot of ${title}`} loading="lazy" />
+        <img src={image} alt={`Screenshot of ${title}`} loading="lazy" width="600" height="400" />
       </div>
     )}
     <p class="project-desc">{description}</p>
@@ -37,12 +37,12 @@ const { title, description, tech, image, url, repo, post } = Astro.props;
     <div class="project-links">
       {url && (
         <a href={url} target="_blank" rel="noopener noreferrer" class="project-link project-link-primary">
-          → live site
+          <span aria-hidden="true">→ </span>live site
         </a>
       )}
       {repo && (
         <a href={repo} target="_blank" rel="noopener noreferrer" class="project-link">
-          → source
+          <span aria-hidden="true">→ </span>source
         </a>
       )}
       {post && <RelatedPost slug={post} />}

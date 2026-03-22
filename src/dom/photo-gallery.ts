@@ -72,6 +72,10 @@ export function mountPhotoGalleries(root: ParentNode = document): () => void {
 				const onLoad = () => {
 					lbImg.style.opacity = "1";
 				};
+				lbImg.onerror = () => {
+					lbImg.style.opacity = "1";
+					lbImg.alt = "Image failed to load";
+				};
 				if (lbImg.complete && lbImg.src === photo.src) {
 					onLoad();
 				} else {

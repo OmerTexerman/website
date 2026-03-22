@@ -1,5 +1,5 @@
 import { type CollectionEntry, getCollection } from "astro:content";
-import type { ShelfBook } from "./types";
+import type { ShelfBook, SpotlightInfo } from "./types";
 
 interface WordEntry {
 	id: string;
@@ -76,6 +76,25 @@ export async function getPhotoCollections(): Promise<PhotoCollection[]> {
 		id: entry.id,
 		...entry.data,
 	}));
+}
+
+/** Get the current spotlight (employee of the week). */
+export async function getSpotlight(): Promise<SpotlightInfo | null> {
+	const entries = await getCollection("spotlight");
+	if (entries.length === 0) return null;
+	return entries[0].data;
+}
+
+export interface SetupCategory {
+	name: string;
+	items: { name: string; detail?: string }[];
+}
+
+/** Get the current setup/tools configuration. */
+export async function getSetup(): Promise<SetupCategory[]> {
+	const entries = await getCollection("setup");
+	if (entries.length === 0) return [];
+	return entries[0].data.categories;
 }
 
 /** Get all words sorted by date, newest first. Excludes future-dated entries. */

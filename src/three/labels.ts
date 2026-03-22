@@ -2,7 +2,12 @@ import { type Camera, Vector3 } from "three";
 import type { DeskInteraction } from "./interaction";
 
 export interface LabelController {
-	update: (interaction: DeskInteraction | null, camera: Camera, canvas: HTMLCanvasElement) => void;
+	update: (
+		interaction: DeskInteraction | null,
+		camera: Camera,
+		canvasWidth: number,
+		canvasHeight: number,
+	) => void;
 	dispose: () => void;
 }
 
@@ -18,7 +23,8 @@ export function createLabelController(container: HTMLElement): LabelController {
 	function update(
 		interaction: DeskInteraction | null,
 		camera: Camera,
-		canvas: HTMLCanvasElement,
+		canvasWidth: number,
+		canvasHeight: number,
 	): void {
 		if (!interaction?.label) {
 			labelEl.style.opacity = "0";
@@ -30,8 +36,8 @@ export function createLabelController(container: HTMLElement): LabelController {
 		projectedPosition.add(labelOffset);
 		projectedPosition.project(camera);
 
-		const x = (projectedPosition.x * 0.5 + 0.5) * canvas.clientWidth;
-		const y = (-projectedPosition.y * 0.5 + 0.5) * canvas.clientHeight;
+		const x = (projectedPosition.x * 0.5 + 0.5) * canvasWidth;
+		const y = (-projectedPosition.y * 0.5 + 0.5) * canvasHeight;
 
 		if (labelEl.textContent !== interaction.label) labelEl.textContent = interaction.label;
 		labelEl.style.left = `${x}px`;

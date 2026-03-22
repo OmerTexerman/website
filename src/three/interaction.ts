@@ -1,4 +1,5 @@
 import { type Camera, type Object3D, Raycaster, type Scene, Vector2 } from "three";
+import { CLICK_DISTANCE_THRESHOLD } from "./constants";
 import { collectGroupsBy, collectMeshesBy, getAncestorWith, updatePointer } from "./raycast-utils";
 
 export interface DeskInteraction {
@@ -62,7 +63,7 @@ export function setupInteraction(
 	let pointerY = 0;
 	let pointerDownX = 0;
 	let pointerDownY = 0;
-	const CLICK_THRESHOLD = 10;
+	const CLICK_THRESHOLD = CLICK_DISTANCE_THRESHOLD;
 
 	canvas.tabIndex = 0;
 
