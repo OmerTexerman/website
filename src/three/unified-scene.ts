@@ -70,6 +70,7 @@ import {
 	setupSceneLighting,
 	setupShelfLighting,
 } from "./lighting";
+import { resetSharedMaterials } from "./materials";
 import { clamp, lerp } from "./math-utils";
 import { createMobileScrollController, type MobileScrollController } from "./mobile-scroll";
 import { createBookStack } from "./objects/book-stack";
@@ -1510,6 +1511,7 @@ export function initUnifiedScene(
 		disposeObjectResources(scene);
 		disposeSpotlightTextures();
 
+		resetSharedMaterials();
 		disposeAnimations();
 		deskPhysics.dispose();
 		bloomPass.dispose();

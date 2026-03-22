@@ -154,6 +154,15 @@ export const dictionaryGoldBorderMaterial = new MeshStandardMaterial({
 	side: DoubleSide,
 });
 
+/**
+ * Reset mutable properties on shared materials back to their construction-time
+ * defaults.  Call this during scene cleanup so a bfcache re-mount starts from
+ * a clean visual state.
+ */
+export function resetSharedMaterials(): void {
+	screenMaterial.emissiveIntensity = 2.5;
+}
+
 // Mark all module-level materials as shared so disposeObjectResources does not
 // free their GPU resources during scene teardowns — they are reused across rebuilds.
 for (const mat of [
