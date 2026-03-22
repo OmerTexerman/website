@@ -38,17 +38,25 @@ export function animateIntro(camera: PerspectiveCamera, startTime: number, now: 
 	return progress >= 1;
 }
 
-/** Mobile intro: camera swoops in to shelf wall */
+/** Mobile intro: camera swoops in to shelf wall.
+ *  Pass responsive-adjusted end vectors so the final frame matches
+ *  the pose that syncMobileShelfCamera will produce, avoiding a
+ *  single-frame snap on narrow viewports. */
 export function animateMobileIntro(
 	camera: PerspectiveCamera,
 	startTime: number,
 	now: number,
+	endPos?: Vector3,
+	endLook?: Vector3,
 ): boolean {
 	const progress = Math.min((now - startTime) / MOBILE_INTRO_DURATION, 1);
 	const eased = easeInOutCubic(progress);
 
-	camera.position.lerpVectors(MOBILE_INTRO_START_POS, MOBILE_POS, eased);
-	_lookTarget.lerpVectors(MOBILE_LOOK, MOBILE_LOOK, eased);
+	const targetPos = endPos ?? MOBILE_POS;
+	const targetLook = endLook ?? MOBILE_LOOK;
+
+	camera.position.lerpVectors(MOBILE_INTRO_START_POS, targetPos, eased);
+	_lookTarget.lerpVectors(MOBILE_LOOK, targetLook, eased);
 	camera.lookAt(_lookTarget);
 
 	return progress >= 1;
