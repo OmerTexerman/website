@@ -43,7 +43,7 @@ export function getRootThemeStyle(): string {
  */
 export const site = {
 	name: "Omer Texerman",
-	title: "Developer, Student, Man of your dreams",
+	title: "Websoit",
 	initials: "OT",
 	description:
 		"Student at Northeastern University studying Computer Engineering and Computer Science :)",
