@@ -15,7 +15,7 @@ const blog = defineCollection({
 		title: z.string().min(1),
 		description: z.string().min(1),
 		pubDate: z.coerce.date(),
-		updatedDate: z.coerce.date().optional(),
+		updatedDate: z.union([z.string().transform((v) => v || undefined).pipe(z.coerce.date().optional()), z.date()]).optional(),
 		tags: z.array(z.string()).optional(),
 		draft: z.boolean().default(false),
 	}),
