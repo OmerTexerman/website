@@ -6,8 +6,11 @@
  * the API secret never leaves the server.
  *
  * Signing is handled by /api/cloudinary-sign (Astro serverless endpoint).
- * Uploads are organised into per-collection folders under "website/":
- *   website/books, website/photos, website/blog, etc.
+ * Uploads are organised into per-collection/per-entry folders under "website/":
+ *   website/photos/san-diego, website/books, website/blog, etc.
+ *
+ * For the photos collection, a bulk-insert panel lets you add all uploaded
+ * images to the photos list at once instead of pasting URLs one by one.
  */
 (function () {
 	"use strict";
@@ -15,8 +18,11 @@
 	const SIGN_ENDPOINT = "/api/cloudinary-sign";
 	const ROOT_FOLDER = "website";
 
-	// ── Collection folder detection ─────────────────────────────────────
-	// Sveltia CMS uses hash-based routing: #/collections/<name>/...
+	// ── Collection & entry detection ────────────────────────────────────
+	// Sveltia CMS hash routing:
+	//   #/collections/<name>                     → collection list
+	//   #/collections/<name>/entries/<slug>       → editing an entry
+	//   #/collections/<name>/new                  → creating a new entry
 	function detectCollection() {
 		const match = window.location.hash.match(
 			/^#\/collections\/([^/]+)/,
@@ -24,9 +30,19 @@
 		return match ? match[1] : null;
 	}
 
+	function detectEntrySlug() {
+		const match = window.location.hash.match(
+			/^#\/collections\/[^/]+\/entries\/([^/]+)/,
+		);
+		return match ? match[1] : null;
+	}
+
 	function getUploadFolder() {
 		const collection = detectCollection();
-		return collection ? `${ROOT_FOLDER}/${collection}` : ROOT_FOLDER;
+		if (!collection) return ROOT_FOLDER;
+		const slug = detectEntrySlug();
+		if (slug) return `${ROOT_FOLDER}/${collection}/${slug}`;
+		return `${ROOT_FOLDER}/${collection}`;
 	}
 
 	// ── Styles ──────────────────────────────────────────────────────────
@@ -114,6 +130,95 @@
       cursor: pointer;
       font-size: .8rem;
     }
+
+    /* ── Bulk-insert panel ─────────────────────────────────────────── */
+    #cl-bulk-panel {
+      position: fixed;
+      bottom: 4.75rem;
+      right: 5rem;
+      z-index: 10000;
+      width: 380px;
+      max-height: 70vh;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.5);
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+      font-size: .82rem;
+      line-height: 1.5;
+      display: none;
+      overflow: hidden;
+    }
+    #cl-bulk-panel.open { display: flex; flex-direction: column; }
+    #cl-bulk-panel header {
+      padding: .8rem 1rem;
+      border-bottom: 1px solid #333;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    #cl-bulk-panel header h3 { margin: 0; font-size: .92rem; color: #fff; }
+    #cl-bulk-panel .cl-bulk-close {
+      background: none; border: none; color: #aaa;
+      font-size: 1.1rem; cursor: pointer; padding: 0 .3rem;
+    }
+    #cl-bulk-panel .cl-bulk-close:hover { color: #fff; }
+    #cl-bulk-panel .cl-bulk-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: .5rem 1rem;
+    }
+    #cl-bulk-panel .cl-bulk-item {
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      padding: .4rem 0;
+      border-bottom: 1px solid #2a2a3e;
+    }
+    #cl-bulk-panel .cl-bulk-item img {
+      width: 48px;
+      height: 48px;
+      object-fit: cover;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    #cl-bulk-panel .cl-bulk-item .cl-bulk-url {
+      flex: 1;
+      font-size: .72rem;
+      color: #8af;
+      word-break: break-all;
+    }
+    #cl-bulk-panel .cl-bulk-item .cl-bulk-copy {
+      background: none; border: 1px solid #555; color: #ccc;
+      border-radius: 4px; padding: .2rem .5rem; cursor: pointer;
+      font-size: .72rem; flex-shrink: 0;
+    }
+    #cl-bulk-panel .cl-bulk-item .cl-bulk-copy:hover {
+      background: #335; color: #fff;
+    }
+    #cl-bulk-panel footer {
+      padding: .6rem 1rem;
+      border-top: 1px solid #333;
+      display: flex;
+      flex-wrap: wrap;
+      gap: .4rem;
+    }
+    #cl-bulk-panel footer button {
+      padding: .45rem .8rem;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: .78rem;
+      font-weight: 500;
+    }
+    #cl-bulk-panel .cl-bulk-primary {
+      background: #36a; color: #fff;
+    }
+    #cl-bulk-panel .cl-bulk-primary:hover { background: #47b; }
+    #cl-bulk-panel .cl-bulk-secondary {
+      background: #335; color: #ddd;
+    }
+    #cl-bulk-panel .cl-bulk-secondary:hover { background: #446; }
   `;
 	document.head.appendChild(style);
 
@@ -156,8 +261,259 @@
 
 	// Close this notice when another CMS panel opens
 	window.addEventListener("cms-panel-open", (e) => {
-		if (e.detail !== "cloudinary") notice.classList.remove("open");
+		if (e.detail !== "cloudinary") {
+			notice.classList.remove("open");
+			closeBulkPanel();
+		}
 	});
+
+	// ── Bulk-insert panel DOM ───────────────────────────────────────────
+	const bulkPanel = document.createElement("div");
+	bulkPanel.id = "cl-bulk-panel";
+	bulkPanel.innerHTML = `
+    <header>
+      <h3>Uploaded Images</h3>
+      <button class="cl-bulk-close">&times;</button>
+    </header>
+    <div class="cl-bulk-list"></div>
+    <footer>
+      <button class="cl-bulk-primary" id="cl-bulk-add-all">
+        Add all to Photos list
+      </button>
+      <button class="cl-bulk-secondary" id="cl-bulk-copy-all">
+        Copy all URLs
+      </button>
+    </footer>
+  `;
+	document.body.appendChild(bulkPanel);
+
+	const bulkList = bulkPanel.querySelector(".cl-bulk-list");
+	const bulkAddAll = document.getElementById("cl-bulk-add-all");
+	const bulkCopyAll = document.getElementById("cl-bulk-copy-all");
+
+	bulkPanel
+		.querySelector(".cl-bulk-close")
+		.addEventListener("click", closeBulkPanel);
+	bulkCopyAll.addEventListener("click", () => {
+		navigator.clipboard.writeText(sessionUrls.join("\n")).then(
+			() => showClToast("All URLs copied!"),
+			() => showClToast("Copy failed"),
+		);
+	});
+	bulkAddAll.addEventListener("click", () => {
+		bulkInsertPhotos(sessionUrls);
+	});
+
+	function closeBulkPanel() {
+		bulkPanel.classList.remove("open");
+	}
+
+	function showBulkPanel(urls) {
+		const isPhotos = detectCollection() === "photos";
+
+		bulkList.innerHTML = "";
+		for (const url of urls) {
+			const item = document.createElement("div");
+			item.className = "cl-bulk-item";
+			item.innerHTML = `
+        <img src="${url}" alt="uploaded" />
+        <span class="cl-bulk-url">${url.split("/").pop()}</span>
+        <button class="cl-bulk-copy">Copy</button>
+      `;
+			item.querySelector(".cl-bulk-copy").addEventListener("click", () => {
+				navigator.clipboard.writeText(url).then(
+					() => showClToast("URL copied!"),
+					() => showClToast("Copy failed"),
+				);
+			});
+			bulkList.appendChild(item);
+		}
+
+		// Show/hide the "Add all to Photos list" button depending on collection
+		bulkAddAll.style.display = isPhotos ? "" : "none";
+
+		window.dispatchEvent(
+			new CustomEvent("cms-panel-open", { detail: "cloudinary" }),
+		);
+		bulkPanel.classList.add("open");
+	}
+
+	// ── Bulk-insert into Photos list widget ─────────────────────────────
+	// Sveltia CMS renders list widgets in the regular DOM. We find the
+	// Photos list's "Add" button, click it for each URL, then fill in
+	// the newly created entry's image field.
+
+	function sleep(ms) {
+		return new Promise((r) => setTimeout(r, ms));
+	}
+
+	async function bulkInsertPhotos(urls) {
+		if (!urls.length) return;
+
+		// Find the "Add" button for the photos list widget.
+		// Sveltia CMS renders list items inside a fieldset whose legend
+		// or label says "Photos". The add button is typically a button
+		// with "Add" text or a "+" icon inside or near that fieldset.
+		const addButton = findPhotosAddButton();
+		if (!addButton) {
+			// Fallback: copy YAML to clipboard so user can paste into raw editor
+			copyAsYaml(urls);
+			return;
+		}
+
+		showClToast(`Adding ${urls.length} photos...`, 5000);
+		let added = 0;
+
+		for (const url of urls) {
+			addButton.click();
+			await sleep(200);
+
+			// Find the last/newest empty image field and fill it
+			const filled = fillLastEmptyImageField(url);
+			if (filled) added++;
+			await sleep(100);
+		}
+
+		if (added > 0) {
+			showClToast(
+				`Added ${added} photo(s)! Fill in alt text, then save.`,
+				5000,
+			);
+			closeBulkPanel();
+		} else {
+			copyAsYaml(urls);
+		}
+	}
+
+	function findPhotosAddButton() {
+		// Strategy: look for a label/legend containing "Photos" and find
+		// the nearest "Add" button within the same container.
+		const labels = document.querySelectorAll(
+			"label, legend, span, h2, h3, h4",
+		);
+		for (const label of labels) {
+			const text = label.textContent.trim();
+			if (text !== "Photos") continue;
+
+			// Walk up to find the field group container
+			let container = label.closest(
+				"fieldset, [class*='field'], [class*='list'], [role='group']",
+			);
+			if (!container) container = label.parentElement?.parentElement;
+			if (!container) continue;
+
+			// Look for an "Add" button
+			const buttons = container.querySelectorAll("button");
+			for (const btn of buttons) {
+				const btnText = btn.textContent.trim().toLowerCase();
+				if (
+					btnText === "add" ||
+					btnText === "+" ||
+					btnText.includes("add")
+				) {
+					return btn;
+				}
+			}
+		}
+		return null;
+	}
+
+	function fillLastEmptyImageField(url) {
+		// After clicking "Add", a new list item appears with an empty
+		// image/src field. Find all image inputs (type=text or url with
+		// relevant name/label) and fill the last empty one.
+		const inputs = document.querySelectorAll(
+			'input[type="text"], input[type="url"], input:not([type])',
+		);
+
+		// Collect inputs that look like image/src fields and are empty
+		const candidates = [];
+		for (const input of inputs) {
+			if (input.value) continue;
+			const name = (input.name || "").toLowerCase();
+			const placeholder = (input.placeholder || "").toLowerCase();
+			const label = findLabelFor(input);
+
+			if (
+				name.includes("src") ||
+				name.includes("image") ||
+				placeholder.includes("src") ||
+				placeholder.includes("image") ||
+				placeholder.includes("url") ||
+				label === "image" ||
+				label === "src"
+			) {
+				candidates.push(input);
+			}
+		}
+
+		if (candidates.length === 0) {
+			// Broader fallback: any empty text input inside a recently added list item
+			const allInputs = document.querySelectorAll(
+				'input[type="text"], input:not([type])',
+			);
+			for (const input of [...allInputs].reverse()) {
+				if (!input.value) {
+					candidates.push(input);
+					break;
+				}
+			}
+		}
+
+		if (candidates.length === 0) return false;
+
+		const target = candidates[candidates.length - 1];
+		setNativeValue(target, url);
+		return true;
+	}
+
+	function findLabelFor(input) {
+		// Check for a <label> that references this input, or a nearby label
+		if (input.id) {
+			const label = document.querySelector(`label[for="${input.id}"]`);
+			if (label) return label.textContent.trim().toLowerCase();
+		}
+		const parent = input.closest("label, [class*='field']");
+		if (parent) {
+			const labelEl = parent.querySelector("label, legend, span");
+			if (labelEl && labelEl !== input) {
+				return labelEl.textContent.trim().toLowerCase();
+			}
+		}
+		return "";
+	}
+
+	function setNativeValue(input, value) {
+		// Set value in a way that React/Svelte/framework reactivity picks up
+		const nativeSet = Object.getOwnPropertyDescriptor(
+			HTMLInputElement.prototype,
+			"value",
+		)?.set;
+		if (nativeSet) {
+			nativeSet.call(input, value);
+		} else {
+			input.value = value;
+		}
+		input.dispatchEvent(new Event("input", { bubbles: true }));
+		input.dispatchEvent(new Event("change", { bubbles: true }));
+	}
+
+	function copyAsYaml(urls) {
+		const yaml = urls
+			.map(
+				(url) =>
+					`  - src: ${url}\n    alt: \"\"\n    caption: \"\"`,
+			)
+			.join("\n");
+		navigator.clipboard.writeText(yaml).then(
+			() =>
+				showClToast(
+					"Couldn't auto-insert — YAML copied to clipboard instead. Paste into raw editor.",
+					6000,
+				),
+			() => showClToast("Copy failed", 3000),
+		);
+	}
 
 	// ── Logic ─────────────────────────────────────────────────────────
 	function showClToast(msg, ms = 3000) {
@@ -193,7 +549,11 @@
 			config = await res.json();
 			if (config.error) {
 				if (config.error.includes("Missing env var")) {
-					window.dispatchEvent(new CustomEvent("cms-panel-open", { detail: "cloudinary" }));
+					window.dispatchEvent(
+						new CustomEvent("cms-panel-open", {
+							detail: "cloudinary",
+						}),
+					);
 					notice.classList.add("open");
 				} else {
 					showClToast(`Signing error: ${config.error}`);
@@ -201,7 +561,9 @@
 				return;
 			}
 		} catch (err) {
-			showClToast("Could not reach signing endpoint. Is the site deployed?");
+			showClToast(
+				"Could not reach signing endpoint. Is the site deployed?",
+			);
 			return;
 		}
 
@@ -223,7 +585,9 @@
 						.then((r) => r.json())
 						.then((d) => callback(d.signature))
 						.catch(() =>
-							showClToast("Signing failed — check server logs."),
+							showClToast(
+								"Signing failed — check server logs.",
+							),
 						);
 				},
 				folder: config.folder,
@@ -253,25 +617,12 @@
 				if (result.event === "success") {
 					const url = result.info.secure_url;
 					sessionUrls.push(url);
-					navigator.clipboard.writeText(url).then(
-						() =>
-							showClToast(
-								`Uploaded ${sessionUrls.length} image(s) — latest URL copied!`,
-							),
-						() => showClToast(`Uploaded: ${url}`, 5000),
+					showClToast(
+						`Uploaded ${sessionUrls.length} image(s)`,
 					);
 				}
 				if (result.event === "close" && sessionUrls.length > 0) {
-					// Copy all URLs so user can paste them
-					const allUrls = sessionUrls.join("\n");
-					navigator.clipboard.writeText(allUrls).then(
-						() =>
-							showClToast(
-								`All ${sessionUrls.length} URL(s) copied to clipboard!`,
-								4000,
-							),
-						() => {},
-					);
+					showBulkPanel(sessionUrls);
 				}
 			},
 		);
