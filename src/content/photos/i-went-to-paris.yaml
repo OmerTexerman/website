@@ -1,0 +1,27 @@
+title: I went to paris
+location: Paris
+date: I forgot I think January
+description: |-
+  I went to paris. Many photos taken while my fellow traveller yelled at me to move on.
+  I was really like this out of focus thing during this trip it seems
+cover: https://res.cloudinary.com/dyzyx5v81/image/upload/v1774237212/IMG_0022_jteq6b.jpg
+post: ''
+photos:
+  - src: https://res.cloudinary.com/dyzyx5v81/image/upload/v1774237213/IMG_0021_lmn8cb.jpg
+    alt: Eifel tower
+    caption: ''
+  - src: https://res.cloudinary.com/dyzyx5v81/image/upload/v1774237213/IMG_0024_uedwmv.jpg
+    alt: Louvre
+    caption: After a day of walking; I was too tired to get up and get proper framing
+  - src: https://res.cloudinary.com/dyzyx5v81/image/upload/v1774237213/IMG_0027_wdeudf.jpg
+    alt: Arc de triumph
+    caption: It still annoys me that I slightly cut it off on the left side. Dont notice please
+  - src: https://res.cloudinary.com/dyzyx5v81/image/upload/v1774237214/IMG_0026_xw04bu.jpg
+    alt: Some French building and a statue
+    caption: Evil tree
+  - src: https://res.cloudinary.com/dyzyx5v81/image/upload/v1774237286/IMG_0023_w8ugoq.jpg
+    alt: Eifel tower shadow
+    caption: If youre the guy in this i think you looked very cool and mysterious
+  - src: https://res.cloudinary.com/dyzyx5v81/image/upload/v1774237406/IMG_0028_t83ciq.jpg
+    alt: Paris
+    caption: ''
