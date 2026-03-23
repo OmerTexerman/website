@@ -130,41 +130,47 @@
 	line-height: 1.75;
 }
 
-.blog-prose-notebook :where(h1, h2, h3, h4, h5, h6) {
+.blog-prose-notebook h1,
+.blog-prose-notebook h2,
+.blog-prose-notebook h3,
+.blog-prose-notebook h4,
+.blog-prose-notebook h5,
+.blog-prose-notebook h6 {
 	color: var(--color-notebook-bg);
 }
 
-.blog-prose-notebook :where(p, li) {
+.blog-prose-notebook p,
+.blog-prose-notebook li {
 	color: var(--color-notebook-body);
 }
 
-.blog-prose-notebook :where(strong) {
+.blog-prose-notebook strong {
 	color: var(--color-notebook-bg);
 }
 
-.blog-prose-notebook :where(a) {
+.blog-prose-notebook a {
 	color: var(--color-accent-dark);
 }
 
-.blog-prose-notebook :where(a:hover) {
+.blog-prose-notebook a:hover {
 	color: var(--color-accent-darker);
 }
 
-.blog-prose-notebook :where(blockquote) {
+.blog-prose-notebook blockquote {
 	color: var(--color-notebook-rule);
 	border-left-color: rgba(154, 50, 48, 0.3);
 }
 
-.blog-prose-notebook :where(code) {
+.blog-prose-notebook code {
 	color: var(--color-accent-dark);
 }
 
-.blog-prose-notebook :where(pre) {
+.blog-prose-notebook pre {
 	background: var(--color-notebook-bg);
 	color: var(--color-notebook-paper);
 }
 
-.blog-prose-notebook :where(hr) {
+.blog-prose-notebook hr {
 	border-color: rgba(180, 170, 155, 0.3);
 }
 
