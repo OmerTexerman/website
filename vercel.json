@@ -69,7 +69,7 @@
 			"headers": [
 				{
 					"key": "Content-Security-Policy",
-					"value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' https:; frame-src 'self' https:; media-src blob:; worker-src blob:; frame-ancestors 'none'"
+					"value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com https://upload-widget.cloudinary.com; style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' https:; frame-src 'self' https:; media-src blob:; worker-src blob:; frame-ancestors 'none'"
 				},
 				{
 					"key": "Cross-Origin-Opener-Policy",
