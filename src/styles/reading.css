@@ -108,6 +108,42 @@
 	flex-shrink: 0;
 }
 
+/* Size variants — width drives height via aspect-ratio on .book-cover */
+.book-card-hero .book-cover {
+	width: 10rem;
+}
+
+.book-card-shelf .book-cover {
+	width: 7.5rem;
+}
+
+.book-card-compact .book-cover {
+	width: 5.5rem;
+}
+
+/* Match info widths to cover widths */
+.book-card-hero .book-info {
+	width: 10rem;
+}
+
+.book-card-shelf .book-info {
+	width: 7.5rem;
+}
+
+.book-card-compact .book-info {
+	width: 5.5rem;
+}
+
+@media (min-width: 48rem) {
+	.book-card-hero .book-cover {
+		width: 12rem;
+	}
+
+	.book-card-hero .book-info {
+		width: 12rem;
+	}
+}
+
 /* The 3D book body — spine + cover */
 .book-physical {
 	position: relative;
@@ -289,6 +325,30 @@
 
 #content-modal-body .shelf-books {
 	gap: 0.375rem;
+}
+
+#content-modal-body .book-card-hero .book-cover {
+	width: 7.5rem;
+}
+
+#content-modal-body .book-card-shelf .book-cover {
+	width: 5.5rem;
+}
+
+#content-modal-body .book-card-compact .book-cover {
+	width: 4rem;
+}
+
+#content-modal-body .book-card-hero .book-info {
+	width: 7.5rem;
+}
+
+#content-modal-body .book-card-shelf .book-info {
+	width: 5.5rem;
+}
+
+#content-modal-body .book-card-compact .book-info {
+	width: 4rem;
 }
 
 /* ── Shelf section labels ─────────────────────── */
