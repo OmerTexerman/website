@@ -1,24 +1,19 @@
 /**
- * Cloudinary Upload Widget for Sveltia CMS
+ * Cloudinary Upload Widget for Sveltia CMS (Signed Uploads)
  *
  * Adds a floating "Upload to Cloudinary" button in the CMS.
- * Opens the Cloudinary Upload Widget, uploads the image, and copies
- * the resulting URL so you can paste it into any image field.
+ * Opens the Cloudinary Upload Widget with server-side signing —
+ * the API secret never leaves the server.
  *
- * Configuration is read from window.__cmsCloudinary, set by index.html
- * from environment variables injected at build time.
- *
+ * Signing is handled by /api/cloudinary-sign (Astro serverless endpoint).
  * Uploads are organised into per-collection folders under "website/":
  *   website/books, website/photos, website/blog, etc.
- * The active collection is detected from the CMS URL hash.
  */
 (function () {
 	"use strict";
 
-	const cfg = window.__cmsCloudinary || {};
-	const CLOUD_NAME = cfg.cloudName || "";
-	const UPLOAD_PRESET = cfg.uploadPreset || "cms_unsigned";
-	const ROOT_FOLDER = cfg.rootFolder || "website";
+	const SIGN_ENDPOINT = "/api/cloudinary-sign";
+	const ROOT_FOLDER = "website";
 
 	// ── Collection folder detection ─────────────────────────────────────
 	// Sveltia CMS uses hash-based routing: #/collections/<name>/...
@@ -141,33 +136,23 @@
 
 	const notice = document.createElement("div");
 	notice.id = "cloudinary-setup-notice";
+	notice.innerHTML = `
+    <h3>Cloudinary Setup Required</h3>
+    <p>Add these environment variables in <strong>Vercel &rarr; Settings &rarr; Environment Variables</strong>:</p>
+    <ol>
+      <li><code>CLOUDINARY_CLOUD_NAME</code></li>
+      <li><code>CLOUDINARY_API_KEY</code></li>
+      <li><code>CLOUDINARY_API_SECRET</code></li>
+    </ol>
+    <p>Find them in your <a href="https://console.cloudinary.com/settings/api-keys" target="_blank" rel="noopener">Cloudinary dashboard &rarr; API Keys</a>.</p>
+    <p>Then redeploy.</p>
+    <button id="cl-notice-close">Got it</button>
+  `;
 	document.body.appendChild(notice);
 
-	function renderNotice() {
-		notice.innerHTML = `
-      <h3>Cloudinary Setup</h3>
-      ${
-				!CLOUD_NAME
-					? `<p>⚠️ <strong>Cloud name not configured.</strong></p>
-           <p>Set <code>CLOUDINARY_CLOUD_NAME</code> in your environment
-           (Vercel &rarr; Settings &rarr; Environment Variables) and redeploy.</p>`
-					: `<p>To enable uploads, create an <strong>unsigned upload preset</strong>:</p>
-           <ol>
-             <li>Go to <a href="https://console.cloudinary.com/settings/upload" target="_blank" rel="noopener">Cloudinary Settings &rarr; Upload</a></li>
-             <li>Click <strong>Add upload preset</strong></li>
-             <li>Set name to <code>${UPLOAD_PRESET}</code></li>
-             <li>Set signing mode to <strong>Unsigned</strong></li>
-             <li>Save and reload this page</li>
-           </ol>
-           <p>Cloud: <code>${CLOUD_NAME}</code></p>`
-			}
-      <button id="cl-notice-close">Got it</button>
-    `;
-		notice
-			.querySelector("#cl-notice-close")
-			.addEventListener("click", () => notice.classList.remove("open"));
-	}
-	renderNotice();
+	document
+		.getElementById("cl-notice-close")
+		.addEventListener("click", () => notice.classList.remove("open"));
 
 	// ── Logic ─────────────────────────────────────────────────────────
 	function showClToast(msg, ms = 3000) {
@@ -176,12 +161,7 @@
 		setTimeout(() => clToast.classList.remove("show"), ms);
 	}
 
-	function openWidget() {
-		if (!CLOUD_NAME) {
-			notice.classList.add("open");
-			return;
-		}
-
+	async function openWidget() {
 		if (
 			typeof cloudinary === "undefined" ||
 			!cloudinary.createUploadWidget
@@ -194,11 +174,35 @@
 
 		const folder = getUploadFolder();
 
+		// Ask the server to sign the upload params
+		let signData;
+		try {
+			const res = await fetch(SIGN_ENDPOINT, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ folder }),
+			});
+			signData = await res.json();
+			if (signData.error) {
+				if (signData.error.includes("Missing env var")) {
+					notice.classList.add("open");
+				} else {
+					showClToast(`Signing error: ${signData.error}`);
+				}
+				return;
+			}
+		} catch (err) {
+			showClToast("Could not reach signing endpoint. Is the site deployed?");
+			return;
+		}
+
 		const widget = cloudinary.createUploadWidget(
 			{
-				cloudName: CLOUD_NAME,
-				uploadPreset: UPLOAD_PRESET,
-				folder,
+				cloudName: signData.cloudName,
+				apiKey: signData.apiKey,
+				uploadSignature: signData.signature,
+				uploadSignatureTimestamp: signData.timestamp,
+				folder: signData.folder,
 				sources: ["local", "url", "camera"],
 				multiple: true,
 				maxFiles: 10,
@@ -217,16 +221,9 @@
 			},
 			(error, result) => {
 				if (error) {
-					if (
-						error.statusText &&
-						error.statusText.includes("unknown preset")
-					) {
-						notice.classList.add("open");
-					} else {
-						showClToast(
-							`Upload error: ${error.statusText || error.message || "unknown"}`,
-						);
-					}
+					showClToast(
+						`Upload error: ${error.statusText || error.message || "unknown"}`,
+					);
 					return;
 				}
 				if (result.event === "success") {
