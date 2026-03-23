@@ -21,7 +21,7 @@ const collections = await getPhotoCollections();
             <div data-animate style={`transition-delay: ${i * 0.1}s`}>
               <PhotoCollectionCard
                 collection={collection}
-                featured={i === 0 && collections.length > 1}
+                featured={i === 0}
               />
             </div>
           ))}
