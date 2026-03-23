@@ -166,6 +166,9 @@
 		setTimeout(() => clToast.classList.remove("show"), ms);
 	}
 
+	// Track URLs uploaded in the current widget session
+	let sessionUrls = [];
+
 	async function openWidget() {
 		if (
 			typeof cloudinary === "undefined" ||
@@ -179,21 +182,21 @@
 
 		const folder = getUploadFolder();
 
-		// Ask the server to sign the upload params
-		let signData;
+		// Preflight — get cloudName, apiKey, folder from the server
+		let config;
 		try {
 			const res = await fetch(SIGN_ENDPOINT, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ folder }),
 			});
-			signData = await res.json();
-			if (signData.error) {
-				if (signData.error.includes("Missing env var")) {
+			config = await res.json();
+			if (config.error) {
+				if (config.error.includes("Missing env var")) {
 					window.dispatchEvent(new CustomEvent("cms-panel-open", { detail: "cloudinary" }));
-				notice.classList.add("open");
+					notice.classList.add("open");
 				} else {
-					showClToast(`Signing error: ${signData.error}`);
+					showClToast(`Signing error: ${config.error}`);
 				}
 				return;
 			}
@@ -202,16 +205,31 @@
 			return;
 		}
 
+		sessionUrls = [];
+
 		const widget = cloudinary.createUploadWidget(
 			{
-				cloudName: signData.cloudName,
-				apiKey: signData.apiKey,
-				uploadSignature: signData.signature,
-				uploadSignatureTimestamp: signData.timestamp,
-				folder: signData.folder,
+				cloudName: config.cloudName,
+				apiKey: config.apiKey,
+				// Dynamic signing callback — the widget calls this per file
+				// with the exact params it needs signed (including public_id,
+				// source, etc.), so the signature always matches.
+				uploadSignature: (callback, paramsToSign) => {
+					fetch(SIGN_ENDPOINT, {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({ params_to_sign: paramsToSign }),
+					})
+						.then((r) => r.json())
+						.then((d) => callback(d.signature))
+						.catch(() =>
+							showClToast("Signing failed — check server logs."),
+						);
+				},
+				folder: config.folder,
 				sources: ["local", "url", "camera"],
 				multiple: true,
-				maxFiles: 10,
+				maxFiles: 30,
 				resourceType: "image",
 				clientAllowedFormats: [
 					"jpg",
@@ -234,12 +252,25 @@
 				}
 				if (result.event === "success") {
 					const url = result.info.secure_url;
+					sessionUrls.push(url);
 					navigator.clipboard.writeText(url).then(
 						() =>
 							showClToast(
-								`Uploaded to ${folder}/ — URL copied!`,
+								`Uploaded ${sessionUrls.length} image(s) — latest URL copied!`,
 							),
 						() => showClToast(`Uploaded: ${url}`, 5000),
+					);
+				}
+				if (result.event === "close" && sessionUrls.length > 0) {
+					// Copy all URLs so user can paste them
+					const allUrls = sessionUrls.join("\n");
+					navigator.clipboard.writeText(allUrls).then(
+						() =>
+							showClToast(
+								`All ${sessionUrls.length} URL(s) copied to clipboard!`,
+								4000,
+							),
+						() => {},
 					);
 				}
 			},
