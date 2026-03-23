@@ -207,10 +207,19 @@
 	const results = panel.querySelector(".cs-results");
 
 	toggle.addEventListener("click", () => {
+		const opening = !panel.classList.contains("open");
 		panel.classList.toggle("open");
+		if (opening) {
+			window.dispatchEvent(new CustomEvent("cms-panel-open", { detail: "cover-suggest" }));
+		}
 	});
 	document.getElementById("cs-close").addEventListener("click", () => {
 		panel.classList.remove("open");
+	});
+
+	// Close this panel when another CMS panel opens
+	window.addEventListener("cms-panel-open", (e) => {
+		if (e.detail !== "cover-suggest") panel.classList.remove("open");
 	});
 
 	function showToast(msg, ms = 2000) {

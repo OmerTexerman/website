@@ -74,7 +74,7 @@
     #cloudinary-setup-notice {
       position: fixed;
       bottom: 4.75rem;
-      right: 1.25rem;
+      right: 5rem;
       z-index: 10000;
       width: 350px;
       background: #1a1a2e;
@@ -154,6 +154,11 @@
 		.getElementById("cl-notice-close")
 		.addEventListener("click", () => notice.classList.remove("open"));
 
+	// Close this notice when another CMS panel opens
+	window.addEventListener("cms-panel-open", (e) => {
+		if (e.detail !== "cloudinary") notice.classList.remove("open");
+	});
+
 	// ── Logic ─────────────────────────────────────────────────────────
 	function showClToast(msg, ms = 3000) {
 		clToast.textContent = msg;
@@ -185,7 +190,8 @@
 			signData = await res.json();
 			if (signData.error) {
 				if (signData.error.includes("Missing env var")) {
-					notice.classList.add("open");
+					window.dispatchEvent(new CustomEvent("cms-panel-open", { detail: "cloudinary" }));
+				notice.classList.add("open");
 				} else {
 					showClToast(`Signing error: ${signData.error}`);
 				}
