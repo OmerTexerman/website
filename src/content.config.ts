@@ -8,6 +8,15 @@ const optionalPhoto = z
 	.string()
 	.transform((v) => v || undefined)
 	.pipe(z.string().regex(photoSource, "Image must be an absolute path or URL.").optional());
+const optionalUrl = z
+	.string()
+	.transform((v) => v || undefined)
+	.pipe(
+		z
+			.url()
+			.regex(/^https?:\/\//, "Must be an http or https URL")
+			.optional(),
+	);
 
 const blog = defineCollection({
 	loader: glob({ pattern: "**/*.md", base: "./src/content/blog" }),
@@ -16,13 +25,7 @@ const blog = defineCollection({
 		description: z.string().min(1),
 		pubDate: z.coerce.date(),
 		updatedDate: z
-			.union([
-				z
-					.string()
-					.transform((v) => v || undefined)
-					.pipe(z.coerce.date().optional()),
-				z.date(),
-			])
+			.union([z.string().transform((v) => (v ? new Date(v) : undefined)), z.date()])
 			.optional(),
 		tags: z.array(z.string()).optional(),
 		draft: z.boolean().default(false),
@@ -36,14 +39,8 @@ const projects = defineCollection({
 		description: z.string().min(1),
 		tech: z.array(z.string()).min(1),
 		image: optionalPhoto,
-		url: z
-			.url()
-			.regex(/^https?:\/\//, "Must be an http or https URL")
-			.optional(),
-		repo: z
-			.url()
-			.regex(/^https?:\/\//, "Must be an http or https URL")
-			.optional(),
+		url: optionalUrl,
+		repo: optionalUrl,
 		order: z.number().default(0),
 		post: z.string().optional(),
 	}),
@@ -57,10 +54,7 @@ const books = defineCollection({
 		spineColor: z.string().regex(HEX_COLOR).default("#2a4a6a"),
 		cover: optionalPhoto,
 		status: z.enum(["reading", "finished", "want-to-read"]),
-		url: z
-			.url()
-			.regex(/^https?:\/\//, "Must be an http or https URL")
-			.optional(),
+		url: optionalUrl,
 		post: z.string().optional(),
 	}),
 });
