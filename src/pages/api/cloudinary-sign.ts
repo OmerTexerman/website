@@ -44,12 +44,15 @@ export const POST: APIRoute = async ({ request }) => {
 
 		const body = await request.json();
 		const folder: string = body.folder || "website";
-		const timestamp = Math.floor(Date.now() / 1000).toString();
+		const timestamp = body.timestamp || Math.floor(Date.now() / 1000).toString();
 
-		const paramsToSign: Record<string, string> = {
-			folder,
-			timestamp,
-		};
+		// The widget may send additional params (e.g. source=uw) that must
+		// all be included in the signature.  Accept an explicit params_to_sign
+		// string from the client when provided, otherwise fall back to the
+		// folder+timestamp pair.
+		const paramsToSign: Record<string, string> = body.params_to_sign
+			? Object.fromEntries(new URLSearchParams(body.params_to_sign))
+			: { folder, timestamp };
 
 		const signature = await sign(paramsToSign, apiSecret);
 

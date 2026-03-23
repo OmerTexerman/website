@@ -166,6 +166,17 @@
 		setTimeout(() => clToast.classList.remove("show"), ms);
 	}
 
+	// Prefetch cloud credentials so the widget can be created immediately.
+	// This call also validates that env vars are configured.
+	async function prefetchCredentials(folder) {
+		const res = await fetch(SIGN_ENDPOINT, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ folder }),
+		});
+		return res.json();
+	}
+
 	async function openWidget() {
 		if (
 			typeof cloudinary === "undefined" ||
@@ -179,21 +190,16 @@
 
 		const folder = getUploadFolder();
 
-		// Ask the server to sign the upload params
-		let signData;
+		// Quick credentials check (also gives us cloudName & apiKey)
+		let creds;
 		try {
-			const res = await fetch(SIGN_ENDPOINT, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ folder }),
-			});
-			signData = await res.json();
-			if (signData.error) {
-				if (signData.error.includes("Missing env var")) {
+			creds = await prefetchCredentials(folder);
+			if (creds.error) {
+				if (creds.error.includes("Missing env var")) {
 					window.dispatchEvent(new CustomEvent("cms-panel-open", { detail: "cloudinary" }));
-				notice.classList.add("open");
+					notice.classList.add("open");
 				} else {
-					showClToast(`Signing error: ${signData.error}`);
+					showClToast(`Signing error: ${creds.error}`);
 				}
 				return;
 			}
@@ -204,11 +210,26 @@
 
 		const widget = cloudinary.createUploadWidget(
 			{
-				cloudName: signData.cloudName,
-				apiKey: signData.apiKey,
-				uploadSignature: signData.signature,
-				uploadSignatureTimestamp: signData.timestamp,
-				folder: signData.folder,
+				cloudName: creds.cloudName,
+				apiKey: creds.apiKey,
+				// Use a signing *function* so the widget can send the exact
+				// params it needs signed (including source=uw and any others).
+				uploadSignature: (callback, paramsToSign) => {
+					fetch(SIGN_ENDPOINT, {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({
+							folder,
+							params_to_sign: paramsToSign,
+						}),
+					})
+						.then((r) => r.json())
+						.then((data) => callback(data.signature))
+						.catch(() =>
+							showClToast("Signing failed — please retry."),
+						);
+				},
+				folder,
 				sources: ["local", "url", "camera"],
 				multiple: true,
 				maxFiles: 10,
