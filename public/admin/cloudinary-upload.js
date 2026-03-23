@@ -23,6 +23,16 @@
 	//   #/collections/<name>                     → collection list
 	//   #/collections/<name>/entries/<slug>       → editing an entry
 	//   #/collections/<name>/new                  → creating a new entry
+	/** Sanitise a string for use as a Cloudinary folder segment.
+	 *  Allows lowercase alphanumeric, hyphens, and underscores only. */
+	function sanitizeFolder(name) {
+		return name
+			.toLowerCase()
+			.replace(/[^a-z0-9_-]/g, "-") // replace unsafe chars with hyphens
+			.replace(/-{2,}/g, "-") // collapse consecutive hyphens
+			.replace(/^-|-$/g, ""); // trim leading/trailing hyphens
+	}
+
 	function detectCollection() {
 		const match = window.location.hash.match(
 			/^#\/collections\/([^/]+)/,
@@ -40,9 +50,10 @@
 	function getUploadFolder() {
 		const collection = detectCollection();
 		if (!collection) return ROOT_FOLDER;
+		const safe = sanitizeFolder(collection);
 		const slug = detectEntrySlug();
-		if (slug) return `${ROOT_FOLDER}/${collection}/${slug}`;
-		return `${ROOT_FOLDER}/${collection}`;
+		if (slug) return `${ROOT_FOLDER}/${safe}/${sanitizeFolder(slug)}`;
+		return `${ROOT_FOLDER}/${safe}`;
 	}
 
 	// ── Styles ──────────────────────────────────────────────────────────

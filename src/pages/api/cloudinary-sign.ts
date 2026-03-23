@@ -21,6 +21,21 @@ function envOrBail(name: string): string {
 	return value;
 }
 
+/** Sanitise a folder path: only allow alphanumeric, hyphens, underscores, and slashes. */
+function sanitizeFolder(raw: string): string {
+	return raw
+		.split("/")
+		.map((seg) =>
+			seg
+				.toLowerCase()
+				.replace(/[^a-z0-9_-]/g, "-")
+				.replace(/-{2,}/g, "-")
+				.replace(/^-|-$/g, ""),
+		)
+		.filter(Boolean)
+		.join("/");
+}
+
 /** Cloudinary requires params sorted alphabetically, joined with &, then
  *  appended with the API secret — and the whole thing SHA-1 hashed. */
 async function sign(params: Record<string, string>, apiSecret: string): Promise<string> {
@@ -56,7 +71,9 @@ export const POST: APIRoute = async ({ request }) => {
 
 		// ── Per-upload signing (called by the widget for each file) ──
 		if (body.params_to_sign) {
-			const params: Record<string, string> = body.params_to_sign;
+			const params: Record<string, string> = { ...body.params_to_sign };
+			// Sanitise folder if the widget included it in the signing params
+			if (params.folder) params.folder = sanitizeFolder(params.folder);
 			const signature = await sign(params, apiSecret);
 			return new Response(JSON.stringify({ signature }), {
 				status: 200,
@@ -65,7 +82,7 @@ export const POST: APIRoute = async ({ request }) => {
 		}
 
 		// ── Preflight — return config so the widget can open ──
-		const folder: string = body.folder || "website";
+		const folder = sanitizeFolder(body.folder || "website");
 
 		return new Response(
 			JSON.stringify({
