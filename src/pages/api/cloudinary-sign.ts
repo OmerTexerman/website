@@ -21,6 +21,21 @@ function envOrBail(name: string): string {
 	return value;
 }
 
+/** Sanitise a folder path: only allow alphanumeric, hyphens, underscores, and slashes. */
+function sanitizeFolder(raw: string): string {
+	return raw
+		.split("/")
+		.map((seg) =>
+			seg
+				.toLowerCase()
+				.replace(/[^a-z0-9_-]/g, "-")
+				.replace(/-{2,}/g, "-")
+				.replace(/^-|-$/g, ""),
+		)
+		.filter(Boolean)
+		.join("/");
+}
+
 /** Cloudinary requires params sorted alphabetically, joined with &, then
  *  appended with the API secret — and the whole thing SHA-1 hashed. */
 async function sign(params: Record<string, string>, apiSecret: string): Promise<string> {
@@ -36,6 +51,16 @@ async function sign(params: Record<string, string>, apiSecret: string): Promise<
 		.join("");
 }
 
+/**
+ * Two modes:
+ *
+ * 1. **Preflight** (body has `folder` only) — returns cloudName, apiKey and
+ *    folder so the widget can be configured.
+ *
+ * 2. **Per-upload signing** (body has `params_to_sign`) — the Upload Widget
+ *    calls this for every file.  We sign exactly the params the widget sends
+ *    so the signature always matches.
+ */
 export const POST: APIRoute = async ({ request }) => {
 	try {
 		const apiKey = envOrBail("CLOUDINARY_API_KEY");
@@ -43,20 +68,24 @@ export const POST: APIRoute = async ({ request }) => {
 		const cloudName = envOrBail("CLOUDINARY_CLOUD_NAME");
 
 		const body = await request.json();
-		const folder: string = body.folder || "website";
-		const timestamp = Math.floor(Date.now() / 1000).toString();
 
-		const paramsToSign: Record<string, string> = {
-			folder,
-			timestamp,
-		};
+		// ── Per-upload signing (called by the widget for each file) ──
+		if (body.params_to_sign) {
+			const params: Record<string, string> = { ...body.params_to_sign };
+			// Sanitise folder if the widget included it in the signing params
+			if (params.folder) params.folder = sanitizeFolder(params.folder);
+			const signature = await sign(params, apiSecret);
+			return new Response(JSON.stringify({ signature }), {
+				status: 200,
+				headers: { "Content-Type": "application/json" },
+			});
+		}
 
-		const signature = await sign(paramsToSign, apiSecret);
+		// ── Preflight — return config so the widget can open ──
+		const folder = sanitizeFolder(body.folder || "website");
 
 		return new Response(
 			JSON.stringify({
-				signature,
-				timestamp,
 				cloudName,
 				apiKey,
 				folder,
