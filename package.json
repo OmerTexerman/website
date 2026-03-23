@@ -27,6 +27,7 @@
 		"@astrojs/vercel": "^10.0.0",
 		"@iconify-json/simple-icons": "^1.2.74",
 		"@vercel/analytics": "^2.0.1",
+		"@vercel/speed-insights": "^2.0.0",
 		"astro": "^6.0.8",
 		"astro-icon": "^1.1.5",
 		"posthog-js": "^1.236.0",
