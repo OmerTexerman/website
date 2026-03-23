@@ -10,13 +10,12 @@ const projects = await getOrderedProjects();
 const setupCategories = await getSetup();
 ---
 
-<script is:inline>
-  if (window.innerWidth < 768) {
-    window.location.replace("/projects/phone");
-  }
-</script>
-
 <ContentPage section={section} surface={false} containerWidthClass="max-w-7xl" showIntro={false}>
+  <script is:inline>
+    if (window.innerWidth < 768) {
+      window.location.replace("/projects/phone");
+    }
+  </script>
   <h1 class="sr-only">Projects</h1>
   <div class="wm-env" data-animate>
     {/* ── i3bar top ──────────────────────────────── */}
