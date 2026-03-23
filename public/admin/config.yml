@@ -68,7 +68,6 @@ collections:
       - { label: Repository URL, name: repo, widget: string, required: false, pattern: ['^https:\/\/.+$', 'Must be a valid URL (https://...)'] }
       - { label: Display Order, name: order, widget: number, default: 0, value_type: int }
       - { label: Related Post Slug, name: post, widget: string, required: false }
-      - { label: Body, name: body, widget: markdown }
 
   - name: books
     label: Reading List
