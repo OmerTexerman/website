@@ -1,4 +1,5 @@
 ---
+import { cloudinaryUrl } from "../image";
 import RelatedPost from "./RelatedPost.astro";
 
 interface Props {
@@ -21,7 +22,7 @@ const { title, description, tech, image, url, repo, post } = Astro.props;
   </div>
   {image && (
     <div class="wm-project-image">
-      <img src={image} alt={`Screenshot of ${title}`} loading="lazy" width="600" height="400" />
+      <img src={cloudinaryUrl(image, "f_auto,q_auto,w_600")} alt={`Screenshot of ${title}`} loading="lazy" decoding="async" width="600" height="400" />
     </div>
   )}
   <p class="wm-project-desc">{description}</p>

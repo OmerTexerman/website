@@ -1,5 +1,6 @@
 ---
 import type { PhotoGalleryPhoto } from "../dom/photo-gallery";
+import { cloudinaryUrl } from "../image";
 import { safeJson } from "../utils";
 
 interface Props {
@@ -7,10 +8,16 @@ interface Props {
 }
 
 const { photos } = Astro.props;
+
+/** Lightbox gets larger, format-optimised images. */
+const lightboxPhotos = photos.map((p) => ({
+	...p,
+	src: cloudinaryUrl(p.src, "f_auto,q_auto,w_1600"),
+}));
 ---
 
 <div data-photo-gallery>
-  <script is:inline type="application/json" data-photo-gallery-data set:html={safeJson(photos)} />
+  <script is:inline type="application/json" data-photo-gallery-data set:html={safeJson(lightboxPhotos)} />
 
   <!-- Masonry Grid -->
   <div class="photo-masonry">
@@ -22,9 +29,10 @@ const { photos } = Astro.props;
         aria-label={`View photo: ${photo.alt}`}
       >
         <img
-          src={photo.src}
+          src={cloudinaryUrl(photo.src, "f_auto,q_auto,w_600")}
           alt={photo.alt}
           loading="lazy"
+          decoding="async"
           width="600"
           height="400"
           class="photo-masonry-img"
@@ -83,6 +91,7 @@ const { photos } = Astro.props;
         data-photo-lightbox-img
         src=""
         alt=""
+        decoding="async"
         class="photo-lightbox-image"
       />
     </div>

@@ -2,6 +2,7 @@
 import "../../styles/wotd.css";
 import { getSectionById } from "../../config";
 import { getAllWords } from "../../content/selectors";
+import { cloudinaryUrl } from "../../image";
 import ContentPage from "../../layouts/ContentPage.astro";
 import { formatDate } from "../../utils";
 
@@ -37,7 +38,7 @@ const archive = words.slice(1);
 
             {latestWord.image && (
               <div class="wotd-image">
-                <img src={latestWord.image} alt={latestWord.word} loading="eager" width="600" height="400" />
+                <img src={cloudinaryUrl(latestWord.image, "f_auto,q_auto,w_600")} alt={latestWord.word} loading="eager" fetchpriority="high" decoding="async" width="600" height="400" />
               </div>
             )}
           </div>

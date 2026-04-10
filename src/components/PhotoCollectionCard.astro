@@ -1,5 +1,6 @@
 ---
 import type { PhotoCollection } from "../content/selectors";
+import { cloudinaryUrl } from "../image";
 
 interface Props {
 	collection: PhotoCollection;
@@ -8,6 +9,7 @@ interface Props {
 
 const { collection, featured = false } = Astro.props;
 const photoCount = collection.photos.length;
+const coverTransforms = featured ? "f_auto,q_auto,w_800" : "f_auto,q_auto,w_600";
 ---
 
 <a href={`/photos/${collection.id}`} class:list={["pinned-photo group", featured && "pinned-photo-featured"]}>
@@ -17,9 +19,10 @@ const photoCount = collection.photos.length;
   {/* Photo with white border */}
   <div class="pinned-photo-frame">
     <img
-      src={collection.cover}
+      src={cloudinaryUrl(collection.cover, coverTransforms)}
       alt={collection.title}
       loading="lazy"
+      decoding="async"
       width="600"
       height="400"
       class:list={[
