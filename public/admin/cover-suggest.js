@@ -324,7 +324,11 @@
 			results.innerHTML = "";
 			results.appendChild(grid);
 		} catch (err) {
-			results.innerHTML = `<div class="cs-status">Search failed: ${err.message}</div>`;
+			const status = document.createElement("div");
+			status.className = "cs-status";
+			status.textContent = `Search failed: ${err.message}`;
+			results.innerHTML = "";
+			results.appendChild(status);
 		} finally {
 			searchBtn.disabled = false;
 		}

@@ -204,6 +204,9 @@ function sampleMobileShelfTrack(
 const FOG_DENSITY = 0.04;
 const MAX_FRAME_DELTA_SEC = 0.05;
 const CAMERA_DELTA_THRESHOLD = 0.001;
+// Below this scale delta the hover lerp snaps to its target instead of
+// continuing — the tail is sub-visible but each step re-renders shadow maps.
+const HOVER_SNAP_EPSILON = 0.005;
 const IDLE_INTERVAL = 1000 / 30; // cap at 30 FPS when idle
 const IDLE_RESTORE_DELAY_MS = 150;
 
@@ -225,7 +228,10 @@ export function initUnifiedScene(
 	scene.background = new Color(DARK);
 	scene.fog = new FogExp2(new Color(DARK), FOG_DENSITY);
 
-	const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+	// Live query (not a cached boolean) so OS-level preference changes made
+	// while the page is open take effect on the next read.
+	const reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+	const prefersReducedMotion = () => reducedMotionQuery.matches;
 
 	const renderer = new WebGLRenderer({
 		canvas,
@@ -1064,7 +1070,7 @@ export function initUnifiedScene(
 
 	// If user prefers reduced motion, skip the intro animation entirely
 	// and place the camera at its final resting position.
-	if (prefersReducedMotion && !introComplete) {
+	if (prefersReducedMotion() && !introComplete) {
 		introComplete = true;
 		targetInterval = IDLE_INTERVAL;
 		if (currentMode === "desktop") {
@@ -1077,6 +1083,9 @@ export function initUnifiedScene(
 
 	function render(now: number): void {
 		if (disposed || contextLost) return;
+		// A frame can already be queued when the tab is hidden; don't render it.
+		// The visibilitychange handler restarts the loop on return to visible.
+		if (document.visibilityState === "hidden") return;
 		animationId = requestAnimationFrame(render);
 
 		if (!transitioning && targetInterval > 0 && now - lastFrame < targetInterval) return;
@@ -1120,7 +1129,7 @@ export function initUnifiedScene(
 		}
 
 		// Desktop idle float (skip when user prefers reduced motion)
-		if (currentMode === "desktop" && !transitioning && !prefersReducedMotion) {
+		if (currentMode === "desktop" && !transitioning && !prefersReducedMotion()) {
 			if (idleFloat(camera, now)) dirty = true;
 		}
 
@@ -1149,7 +1158,9 @@ export function initUnifiedScene(
 					const target = currentHover?.object === obj ? HOVER_SCALE : 1;
 					const delta = target - obj.scale.x;
 					if (Math.abs(delta) > CAMERA_DELTA_THRESHOLD) {
-						obj.scale.setScalar(obj.scale.x + delta * HOVER_LERP);
+						obj.scale.setScalar(
+							Math.abs(delta) < HOVER_SNAP_EPSILON ? target : obj.scale.x + delta * HOVER_LERP,
+						);
 						renderer.shadowMap.needsUpdate = true;
 						lastActiveAt = now;
 						dirty = true;
@@ -1370,7 +1381,7 @@ export function initUnifiedScene(
 		bloomPass.strength = bloomFrom;
 
 		// Animate transition (or teleport instantly under reduced motion)
-		if (prefersReducedMotion) {
+		if (prefersReducedMotion()) {
 			room.rotation.y = toRotY;
 			lerpCameraPose(camera, toPos, toPos, toLook, toLook, 1);
 			bloomPass.strength = bloomTo;

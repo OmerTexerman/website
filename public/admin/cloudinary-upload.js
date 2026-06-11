@@ -29,6 +29,21 @@
 		return collection ? `${ROOT_FOLDER}/${collection}` : ROOT_FOLDER;
 	}
 
+	// The signing endpoint requires the GitHub token Sveltia obtained at
+	// sign-in; it proves the caller can already write to the site repo.
+	function getCmsGitHubToken() {
+		try {
+			const raw = localStorage.getItem("sveltia-cms.user");
+			if (raw) {
+				const user = JSON.parse(raw);
+				if (user && typeof user.token === "string") return user.token;
+			}
+		} catch {
+			// fall through to null
+		}
+		return null;
+	}
+
 	// ── Styles ──────────────────────────────────────────────────────────
 	const style = document.createElement("style");
 	style.textContent = /* css */ `
@@ -179,15 +194,28 @@
 
 		const folder = getUploadFolder();
 
+		const token = getCmsGitHubToken();
+		if (!token) {
+			showClToast("Sign in to the CMS first, then try uploading again.");
+			return;
+		}
+
 		// Ask the server to sign the upload params
 		let signData;
 		try {
 			const res = await fetch(SIGN_ENDPOINT, {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${token}`,
+				},
 				body: JSON.stringify({ folder }),
 			});
 			signData = await res.json();
+			if (res.status === 401 || res.status === 403) {
+				showClToast(signData.error || "Not authorized to upload. Sign in to the CMS again.");
+				return;
+			}
 			if (signData.error) {
 				if (signData.error.includes("Missing env var")) {
 					window.dispatchEvent(new CustomEvent("cms-panel-open", { detail: "cloudinary" }));
