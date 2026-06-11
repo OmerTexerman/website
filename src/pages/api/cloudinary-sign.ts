@@ -26,9 +26,6 @@ import type { APIRoute } from "astro";
 /** Must match the backend repo in public/admin/config.yml. */
 const DEFAULT_ADMIN_REPO = "OmerTexerman/website";
 
-/** Uploads may only target the site's root folder or one flat level below it. */
-const ALLOWED_FOLDER = /^website(\/[a-z0-9_-]+)?$/;
-
 function envOrBail(name: string): string {
 	const value = import.meta.env[name] || process.env[name];
 	if (!value) throw new Error(`Missing env var: ${name}`);
@@ -64,6 +61,21 @@ async function hasRepoPushAccess(token: string, repo: string): Promise<boolean> 
 	);
 }
 
+/** Sanitise a folder path: only allow alphanumeric, hyphens, underscores, and slashes. */
+function sanitizeFolder(raw: string): string {
+	return raw
+		.split("/")
+		.map((seg) =>
+			seg
+				.toLowerCase()
+				.replace(/[^a-z0-9_-]/g, "-")
+				.replace(/-{2,}/g, "-")
+				.replace(/^-|-$/g, ""),
+		)
+		.filter(Boolean)
+		.join("/");
+}
+
 /** Cloudinary requires params sorted alphabetically, joined with &, then
  *  appended with the API secret — and the whole thing SHA-1 hashed. */
 async function sign(params: Record<string, string>, apiSecret: string): Promise<string> {
@@ -79,6 +91,16 @@ async function sign(params: Record<string, string>, apiSecret: string): Promise<
 		.join("");
 }
 
+/**
+ * Two modes:
+ *
+ * 1. **Preflight** (body has `folder` only) — returns cloudName, apiKey and
+ *    folder so the widget can be configured.
+ *
+ * 2. **Per-upload signing** (body has `params_to_sign`) — the Upload Widget
+ *    calls this for every file.  We sign exactly the params the widget sends
+ *    so the signature always matches.
+ */
 export const POST: APIRoute = async ({ request }) => {
 	try {
 		const apiKey = envOrBail("CLOUDINARY_API_KEY");
@@ -97,23 +119,20 @@ export const POST: APIRoute = async ({ request }) => {
 		}
 
 		const body = await request.json();
-		const folder: string = body.folder || "website";
-		if (!ALLOWED_FOLDER.test(folder)) {
-			return json(400, { error: `Invalid upload folder: ${folder}` });
+
+		// ── Per-upload signing (called by the widget for each file) ──
+		if (body.params_to_sign) {
+			const params: Record<string, string> = { ...body.params_to_sign };
+			// Sanitise folder if the widget included it in the signing params
+			if (params.folder) params.folder = sanitizeFolder(params.folder);
+			const signature = await sign(params, apiSecret);
+			return json(200, { signature });
 		}
 
-		const timestamp = Math.floor(Date.now() / 1000).toString();
-
-		const paramsToSign: Record<string, string> = {
-			folder,
-			timestamp,
-		};
-
-		const signature = await sign(paramsToSign, apiSecret);
+		// ── Preflight — return config so the widget can open ──
+		const folder = sanitizeFolder(body.folder || "website");
 
 		return json(200, {
-			signature,
-			timestamp,
 			cloudName,
 			apiKey,
 			folder,

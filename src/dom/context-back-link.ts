@@ -1,9 +1,21 @@
 import { getBackLabel } from "../config";
 import { getSameOriginReferrer, toRelativeHref } from "../url-utils";
 
+function isChildPath(parent: string, child: string): boolean {
+	const normalizedParent = parent === "/" ? "/" : parent.replace(/\/$/, "");
+	const normalizedChild = child.replace(/\/$/, "");
+	if (normalizedParent === "/") return false;
+	return normalizedChild.startsWith(`${normalizedParent}/`);
+}
+
 export function mountContextBackLinks(root: ParentNode = document): () => void {
 	const referrerUrl = getSameOriginReferrer();
 	if (!referrerUrl) return () => {};
+
+	const currentPath = window.location.pathname;
+	// Don't override the back link when the referrer is a child of the
+	// current page — navigating "back" into a child is never correct.
+	if (isChildPath(currentPath, referrerUrl.pathname)) return () => {};
 
 	const referrerHref = toRelativeHref(referrerUrl);
 	const cleanups: Array<{ node: Element; handler: (e: Event) => void }> = [];

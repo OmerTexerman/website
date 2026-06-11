@@ -378,7 +378,13 @@ function createContentModalController(elements: ContentModalElements): {
 		};
 	}
 
-	function handleBackdropClick(): void {
+	function handleOverlayClick(e: MouseEvent): void {
+		if (modalState === "closed") return;
+		const target = e.target;
+		if (!(target instanceof Node)) return;
+		// Close when clicking outside the panel surface (backdrop, panel gaps, etc.)
+		const surfaceEl = panelEl.querySelector("#content-modal-surface");
+		if (surfaceEl?.contains(target)) return;
 		void requestClose();
 	}
 
@@ -410,7 +416,7 @@ function createContentModalController(elements: ContentModalElements): {
 		previousActiveElement = null;
 		closeCallbacks.clear();
 		closeButtonEl.removeEventListener("click", requestCloseHandler);
-		backdropEl.removeEventListener("click", handleBackdropClick);
+		rootEl.removeEventListener("click", handleOverlayClick);
 		bodyEl.removeEventListener("click", handleNavigationIntent);
 		linkEl.removeEventListener("click", handleNavigationIntent);
 		document.removeEventListener("keydown", handleKeydown);
@@ -432,7 +438,7 @@ function createContentModalController(elements: ContentModalElements): {
 		setMounted(false);
 		applyClosedVisualState();
 		closeButtonEl.addEventListener("click", requestCloseHandler);
-		backdropEl.addEventListener("click", handleBackdropClick);
+		rootEl.addEventListener("click", handleOverlayClick);
 		bodyEl.addEventListener("click", handleNavigationIntent);
 		linkEl.addEventListener("click", handleNavigationIntent);
 		document.addEventListener("keydown", handleKeydown);
