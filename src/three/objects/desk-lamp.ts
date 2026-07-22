@@ -17,8 +17,20 @@ import { DESK_SURFACE_Y } from "../math-utils";
 
 const LAMP_ON_INTENSITY = 5.0;
 
-/** Desk lamp — built hierarchically so parts stay connected.
- *  base → armPivot → arm + headPivot → shade (conical) + bulb + light
+// Arm articulation, all in the local x/y plane: the lower arm leans away
+// from the lit spot, the upper arm folds back over it. The whole lamp is
+// yawed so this plane contains the aim direction — a real lamp's arm folds
+// in line with where it points, not sideways to it.
+const LOWER_TILT = -0.35;
+const LOWER_LEN = 0.5;
+const UPPER_TILT = 0.85; // relative to the lower arm
+const UPPER_LEN = 0.48;
+const HEAD_TILT = -0.65;
+const LAMP_YAW = 0.675; // aligns local -x with the world aim direction
+
+/** Desk lamp — a small articulated task lamp.
+ *  base → lower arm (leans away) → elbow → upper arm (folds back over the
+ *  desk) → head with a conical shade aimed at the desk surface.
  *
  *  Uses a SpotLight aimed at the desk surface for a realistic cone of light.
  *  The lamp is clickable — toggling it on/off is a micro-interaction.
@@ -27,31 +39,62 @@ export function createDeskLamp(): Group {
 	const lamp = new Group();
 	lamp.userData = { interactive: true, lampOn: true };
 
-	// ── Base disc ──
-	const baseGeo = new CylinderGeometry(0.18, 0.2, 0.04, 16);
-	const base = new Mesh(baseGeo, metalMaterial);
-	base.position.set(0, 0.02, 0);
+	const jointMat = new MeshStandardMaterial({
+		color: new Color(DARK_GRAY),
+		roughness: 0.6,
+		metalness: 0.4,
+	});
+
+	// ── Base disc with a ball joint ──
+	const base = new Mesh(new CylinderGeometry(0.16, 0.19, 0.045, 20), metalMaterial);
+	base.position.y = 0.0225;
 	base.castShadow = true;
 	lamp.add(base);
 
-	// ── Arm pivot — tilts backward slightly ──
-	const armPivot = new Group();
-	armPivot.position.set(0, 0.04, 0);
-	armPivot.rotation.x = 0.15;
-	lamp.add(armPivot);
+	const baseJoint = new Mesh(new SphereGeometry(0.05, 12, 12), jointMat);
+	baseJoint.position.y = 0.055;
+	lamp.add(baseJoint);
 
-	// Arm
-	const armGeo = new CylinderGeometry(0.018, 0.018, 0.9, 8);
-	const arm = new Mesh(armGeo, metalMaterial);
-	arm.position.set(0, 0.45, 0);
-	arm.castShadow = true;
-	armPivot.add(arm);
+	// ── Lower arm ──
+	const lowerPivot = new Group();
+	lowerPivot.position.y = 0.055;
+	lowerPivot.rotation.z = LOWER_TILT;
+	lamp.add(lowerPivot);
 
-	// ── Head pivot — at top of arm, tilts forward to aim down ──
-	const headPivot = new Group();
-	headPivot.position.set(0, 0.9, 0);
-	headPivot.rotation.x = 0.6;
-	armPivot.add(headPivot);
+	const lowerArm = new Mesh(new CylinderGeometry(0.021, 0.021, LOWER_LEN, 10), metalMaterial);
+	lowerArm.position.y = LOWER_LEN / 2;
+	lowerArm.castShadow = true;
+	lowerPivot.add(lowerArm);
+
+	const elbow = new Mesh(new SphereGeometry(0.042, 12, 12), jointMat);
+	elbow.position.y = LOWER_LEN;
+	lowerPivot.add(elbow);
+
+	// ── Upper arm ──
+	const upperPivot = new Group();
+	upperPivot.position.y = LOWER_LEN;
+	upperPivot.rotation.z = UPPER_TILT;
+	lowerPivot.add(upperPivot);
+
+	const upperArm = new Mesh(new CylinderGeometry(0.019, 0.019, UPPER_LEN, 10), metalMaterial);
+	upperArm.position.y = UPPER_LEN / 2;
+	upperArm.castShadow = true;
+	upperPivot.add(upperArm);
+
+	// ── Head — attached at the arm tip but aimed independently so the shade
+	// points at the lit spot on the desk regardless of arm articulation ──
+	const netTilt = LOWER_TILT + UPPER_TILT;
+	const headX = -LOWER_LEN * Math.sin(LOWER_TILT) - UPPER_LEN * Math.sin(netTilt);
+	const headY = 0.055 + LOWER_LEN * Math.cos(LOWER_TILT) + UPPER_LEN * Math.cos(netTilt);
+	const head = new Group();
+	head.position.set(headX, headY, 0);
+	// The lamp yaw keeps the aim in the arm plane, so a single-axis tilt
+	// points the shade at the lit spot
+	head.rotation.z = HEAD_TILT;
+	lamp.add(head);
+
+	const neck = new Mesh(new SphereGeometry(0.032, 12, 12), jointMat);
+	head.add(neck);
 
 	// Shade
 	const shadeMat = new MeshStandardMaterial({
@@ -59,11 +102,10 @@ export function createDeskLamp(): Group {
 		roughness: 0.8,
 		metalness: 0.3,
 	});
-	const shadeGeo = new CylinderGeometry(0.03, 0.16, 0.14, 12);
-	const shade = new Mesh(shadeGeo, shadeMat);
-	shade.position.set(0, -0.04, 0);
+	const shade = new Mesh(new CylinderGeometry(0.035, 0.14, 0.16, 16), shadeMat);
+	shade.position.y = -0.045;
 	shade.castShadow = true;
-	headPivot.add(shade);
+	head.add(shade);
 
 	// Warm glow material for inner surfaces
 	const glowMat = new MeshStandardMaterial({
@@ -73,30 +115,31 @@ export function createDeskLamp(): Group {
 	});
 
 	// Inner glow disc at the bottom opening
-	const innerGlow = new Mesh(new CircleGeometry(0.15, 12), glowMat);
-	innerGlow.position.set(0, -0.11, 0);
+	const innerGlow = new Mesh(new CircleGeometry(0.13, 16), glowMat);
+	innerGlow.position.y = -0.12;
 	innerGlow.rotation.x = Math.PI / 2;
-	headPivot.add(innerGlow);
+	head.add(innerGlow);
 
 	// Tiny bulb
 	const bulb = new Mesh(new SphereGeometry(0.02, 6, 6), glowMat);
-	bulb.position.set(0, -0.06, 0);
-	headPivot.add(bulb);
+	bulb.position.y = -0.07;
+	head.add(bulb);
 
 	// SpotLight — wide cone aimed at the desk center
 	const light = new SpotLight(new Color(WARM_GLOW), LAMP_ON_INTENSITY, 10, Math.PI / 3, 0.6, 1.2);
-	light.position.set(0, -0.12, 0);
+	light.position.set(0, -0.13, 0);
 	light.castShadow = true;
 	light.shadow.mapSize.width = 1024;
 	light.shadow.mapSize.height = 1024;
 	light.shadow.radius = 4;
 	light.shadow.bias = SHADOW_BIAS;
 	light.shadow.camera.near = 0.2;
-	headPivot.add(light);
+	head.add(light);
 
-	// Target toward desk center (lamp is at x=1.8, so aim left and forward)
+	// Target along local -x; after the lamp yaw this lands at the same world
+	// spot as the old (-1, 0, 0.8) aim toward the desk center
 	const lightTarget = new Object3D();
-	lightTarget.position.set(-1.0, 0, 0.8);
+	lightTarget.position.set(-1.28, 0, 0);
 	lamp.add(lightTarget);
 	light.target = lightTarget;
 
@@ -104,6 +147,7 @@ export function createDeskLamp(): Group {
 	lamp.userData.lightParts = { light, glowMat };
 
 	lamp.position.set(1.8, DESK_SURFACE_Y, -0.8);
+	lamp.rotation.y = LAMP_YAW;
 
 	return lamp;
 }

@@ -20,8 +20,22 @@ export const MOBILE_INTRO_START_POS = new Vector3(3.9, 3.7, 7.45);
 const _lookTarget = new Vector3();
 let lastIdleY = END_POS.y;
 
+export const BASE_FOV = 45;
+
+// Below this aspect the desk starts crowding the viewport edges. Hold the
+// horizontal framing constant and let the vertical FOV widen instead, so
+// narrowing the window doesn't crop the desk before the shelf transition
+// takes over.
+const DESKTOP_FRAMING_ASPECT = 0.97;
+
+export function desktopFovForAspect(aspect: number): number {
+	if (aspect >= DESKTOP_FRAMING_ASPECT) return BASE_FOV;
+	const halfHorizontal = Math.atan(Math.tan((BASE_FOV * Math.PI) / 360) * DESKTOP_FRAMING_ASPECT);
+	return (Math.atan(Math.tan(halfHorizontal) / Math.max(aspect, 0.5)) * 360) / Math.PI;
+}
+
 export function createCamera(aspect: number): PerspectiveCamera {
-	const camera = new PerspectiveCamera(45, aspect, 0.1, 100);
+	const camera = new PerspectiveCamera(BASE_FOV, aspect, 0.1, 100);
 	camera.position.copy(START_POS);
 	camera.lookAt(START_LOOK);
 	return camera;

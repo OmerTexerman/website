@@ -1,4 +1,5 @@
 import {
+	Box3,
 	BoxGeometry,
 	type Camera,
 	Mesh,
@@ -10,11 +11,12 @@ import {
 	Vector3,
 } from "three";
 import { ceramicMaterial } from "./materials";
-import { clamp, DESK_SURFACE_Y } from "./math-utils";
+import { clamp, DESK_SURFACE_Y, lerp } from "./math-utils";
 import { collectMeshesBy, getAncestorWith, updatePointer } from "./raycast-utils";
 
 const intersectionPoint = new Vector3();
 const dragOffset = new Vector3();
+const _box = new Box3();
 
 const FRICTION = 8.0;
 const RESTITUTION = 0.4;
@@ -37,6 +39,9 @@ const VANISH_DURATION_SEC = 0.22;
 const SPAWN_DURATION_SEC = 0.35;
 const SHARD_COUNT = 11;
 const SHARD_FADE_SEC = 0.35;
+// Time to ease a landed object back to its flat resting orientation so the
+// tumble doesn't leave it clipped into the floor.
+const FLOP_DURATION_SEC = 0.25;
 
 // Lifecycle of a dynamic body. "desk" is the only interactive state; the rest
 // carry an object off the edge, onto the floor, and back to its home spot.
@@ -47,6 +52,9 @@ interface PhysicsBody {
 	radius: number;
 	mass: number;
 	restY: number;
+	// Half of the widest horizontal extent — how far a tumbled object can
+	// swing below its pivot, used to keep it from clipping into the floor
+	halfExtent: number;
 	vx: number;
 	vz: number;
 	sleeping: boolean;
@@ -56,6 +64,12 @@ interface PhysicsBody {
 	spinX: number;
 	spinZ: number;
 	timer: number;
+	// Flop-flat interpolation after floor contact; flopT < 0 means inactive
+	flopT: number;
+	flopFromX: number;
+	flopFromZ: number;
+	flopToX: number;
+	flopToZ: number;
 	wasInteractive: boolean;
 	home: { x: number; y: number; z: number; rx: number; ry: number; rz: number };
 }
@@ -89,11 +103,13 @@ export function createDeskPhysicsController(): DeskPhysicsController {
 	const shards: Shard[] = [];
 
 	function makeBody(obj: Object3D, radius: number, isStatic: boolean): PhysicsBody {
+		_box.setFromObject(obj);
 		return {
 			obj,
 			radius,
 			mass: 1,
 			restY: obj.position.y,
+			halfExtent: Math.max(_box.max.x - _box.min.x, _box.max.z - _box.min.z) / 2,
 			vx: 0,
 			vz: 0,
 			sleeping: true,
@@ -103,6 +119,11 @@ export function createDeskPhysicsController(): DeskPhysicsController {
 			spinX: 0,
 			spinZ: 0,
 			timer: 0,
+			flopT: -1,
+			flopFromX: 0,
+			flopFromZ: 0,
+			flopToX: 0,
+			flopToZ: 0,
 			wasInteractive: false,
 			home: {
 				x: obj.position.x,
@@ -136,10 +157,20 @@ export function createDeskPhysicsController(): DeskPhysicsController {
 		return FLOOR_Y + (body.restY - DESK_SURFACE_Y);
 	}
 
+	/** Extra ground clearance a tumbled object needs so it doesn't clip.
+	 *  Goes to zero as the flop eases the rotation back to the flat pose. */
+	function swingLift(body: PhysicsBody): number {
+		const dx = body.obj.rotation.x - body.home.rx;
+		const dz = body.obj.rotation.z - body.home.rz;
+		const tilt = Math.max(Math.abs(Math.sin(dx)), Math.abs(Math.sin(dz)));
+		return body.halfExtent * tilt;
+	}
+
 	function startFall(body: PhysicsBody): void {
 		body.mode = "airborne";
 		body.sleeping = false;
 		body.vy = 0;
+		body.flopT = -1;
 		// Tumble roughly around the axis perpendicular to travel, plus jitter
 		body.spinX = body.vz * 1.5 + (Math.random() - 0.5) * 3;
 		body.spinZ = -body.vx * 1.5 + (Math.random() - 0.5) * 3;
@@ -147,6 +178,30 @@ export function createDeskPhysicsController(): DeskPhysicsController {
 		body.wasInteractive = body.obj.userData.interactive === true;
 		body.obj.userData.interactive = false;
 		body.obj.userData.draggable = false;
+	}
+
+	function startFlop(body: PhysicsBody): void {
+		if (body.flopT >= 0) return;
+		body.spinX = 0;
+		body.spinZ = 0;
+		body.flopT = 0;
+		body.flopFromX = body.obj.rotation.x;
+		body.flopFromZ = body.obj.rotation.z;
+		// Nearest full-turn equivalent of the home orientation, so the ease
+		// takes the short way around instead of unwinding every tumble
+		const TWO_PI = Math.PI * 2;
+		body.flopToX =
+			body.home.rx + Math.round((body.obj.rotation.x - body.home.rx) / TWO_PI) * TWO_PI;
+		body.flopToZ =
+			body.home.rz + Math.round((body.obj.rotation.z - body.home.rz) / TWO_PI) * TWO_PI;
+	}
+
+	function tickFlop(body: PhysicsBody, dt: number): void {
+		if (body.flopT < 0 || body.flopT >= 1) return;
+		body.flopT = Math.min(1, body.flopT + dt / FLOP_DURATION_SEC);
+		const eased = 1 - (1 - body.flopT) ** 2;
+		body.obj.rotation.x = lerp(body.flopFromX, body.flopToX, eased);
+		body.obj.rotation.z = lerp(body.flopFromZ, body.flopToZ, eased);
 	}
 
 	function spawnShards(body: PhysicsBody): void {
@@ -197,6 +252,7 @@ export function createDeskPhysicsController(): DeskPhysicsController {
 		body.vz = 0;
 		body.spinX = 0;
 		body.spinZ = 0;
+		body.flopT = -1;
 		body.mode = "spawning";
 		body.timer = SPAWN_DURATION_SEC;
 	}
@@ -318,10 +374,14 @@ export function createDeskPhysicsController(): DeskPhysicsController {
 					body.obj.position.x += body.vx * dt;
 					body.obj.position.y += body.vy * dt;
 					body.obj.position.z += body.vz * dt;
-					body.obj.rotation.x += body.spinX * dt;
-					body.obj.rotation.z += body.spinZ * dt;
+					if (body.flopT < 0) {
+						body.obj.rotation.x += body.spinX * dt;
+						body.obj.rotation.z += body.spinZ * dt;
+					} else {
+						tickFlop(body, dt);
+					}
 
-					const groundY = floorRestY(body);
+					const groundY = floorRestY(body) + swingLift(body);
 					if (body.obj.position.y <= groundY && body.vy < 0) {
 						body.obj.position.y = groundY;
 						if (body.obj.userData.breakable) {
@@ -330,12 +390,13 @@ export function createDeskPhysicsController(): DeskPhysicsController {
 							body.mode = "vanishing";
 							body.timer = SHATTER_LINGER_SEC;
 						} else if (-body.vy > SETTLE_SPEED) {
+							// First contact stops the tumble and starts easing flat
+							startFlop(body);
 							body.vy = -body.vy * FLOOR_RESTITUTION;
 							body.vx *= 0.6;
 							body.vz *= 0.6;
-							body.spinX *= 0.4;
-							body.spinZ *= 0.4;
 						} else {
+							startFlop(body);
 							body.vy = 0;
 							body.mode = "floor";
 							body.timer = FLOOR_LINGER_SEC;
@@ -350,6 +411,9 @@ export function createDeskPhysicsController(): DeskPhysicsController {
 					body.vz *= frictionFactor;
 					body.obj.position.x += body.vx * dt;
 					body.obj.position.z += body.vz * dt;
+					tickFlop(body, dt);
+					// Ride the shrinking clearance down as the flop settles flat
+					body.obj.position.y = floorRestY(body) + swingLift(body);
 					body.timer -= dt;
 					if (body.timer <= 0) {
 						body.mode = "vanishing";

@@ -5,7 +5,7 @@ import { DESK_SURFACE_Y } from "../math-utils";
 /** Decorative guitar pick — rounded triangle */
 export function createGuitarPick(): Group {
 	const pick = new Group();
-	pick.userData = { draggable: true };
+	pick.userData = { draggable: true, interactive: true };
 
 	const shape = new Shape();
 	const s = 0.06;

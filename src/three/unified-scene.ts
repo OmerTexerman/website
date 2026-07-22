@@ -17,6 +17,7 @@ import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPa
 import { getSectionById, type SiteSection } from "../config";
 import type { ShelfBook, SpotlightInfo } from "../content/types";
 import {
+	animateBoardBlink,
 	animateBookClose,
 	animateBookLift,
 	animateDictionaryClose,
@@ -30,6 +31,7 @@ import {
 	animateNotebookOpen,
 	animatePhoneSleep,
 	animatePhoneWake,
+	animatePickFlip,
 	animateShelfPresent,
 	animateShelfReset,
 	animateSpin,
@@ -41,9 +43,11 @@ import {
 import {
 	animateIntro,
 	animateMobileIntro,
+	BASE_FOV,
 	createCamera,
 	DESKTOP_LOOK,
 	DESKTOP_POS,
+	desktopFovForAspect,
 	idleFloat,
 	lerpCameraPose,
 	MOBILE_LOOK,
@@ -500,9 +504,11 @@ export function initUnifiedScene(
 			room.add(root);
 		}
 
+		let guitarPick: Group | null = null;
+		let circuitBoard: Group | null = null;
 		if (lastCanvasWidth >= MOBILE_BREAKPOINT) {
-			const guitarPick = createGuitarPick();
-			const circuitBoard = createCircuitBoard();
+			guitarPick = createGuitarPick();
+			circuitBoard = createCircuitBoard();
 			roots.push(guitarPick, circuitBoard);
 			room.add(guitarPick);
 			room.add(circuitBoard);
@@ -599,6 +605,28 @@ export function initUnifiedScene(
 				},
 			},
 		];
+
+		if (guitarPick) {
+			const pick = guitarPick;
+			interactiveEntities.push({
+				kind: "micro",
+				root: pick,
+				hitboxPadding: 0.04,
+				activate: () => {
+					void animatePickFlip(pick);
+				},
+			});
+		}
+		if (circuitBoard) {
+			const board = circuitBoard;
+			interactiveEntities.push({
+				kind: "micro",
+				root: board,
+				activate: () => {
+					void animateBoardBlink(board);
+				},
+			});
+		}
 
 		for (const entity of interactiveEntities) {
 			if (entity.hitboxPadding !== undefined) {
@@ -972,6 +1000,8 @@ export function initUnifiedScene(
 	if (initialMode === "desktop") {
 		createDeskContent();
 		room.rotation.y = 0;
+		camera.fov = desktopFovForAspect(camera.aspect);
+		camera.updateProjectionMatrix();
 		camera.position.copy(DESKTOP_POS);
 		camera.lookAt(DESKTOP_LOOK);
 	} else {
@@ -1230,6 +1260,11 @@ export function initUnifiedScene(
 		composer.setSize(width, height);
 		bloomPass.resolution.set(width, height);
 		camera.aspect = width / height;
+		// Keep the desk's horizontal framing stable on narrow desktop windows.
+		// During a transition the FOV is interpolated by the transition tick.
+		if (!transitioning) {
+			camera.fov = currentMode === "desktop" ? desktopFovForAspect(camera.aspect) : BASE_FOV;
+		}
 		camera.updateProjectionMatrix();
 		if (currentMode === "mobile" && !transitioning) {
 			syncMobileShelfCamera(scrollController?.verticalT ?? 0.5);
@@ -1356,6 +1391,17 @@ export function initUnifiedScene(
 			openSelection = null;
 		}
 
+		// Smoothly fade bloom to avoid render-path flicker at transition end
+		const bloomFrom = currentMode === "desktop" ? 0.6 : 0;
+		const bloomTo = target === "desktop" ? 0.6 : 0;
+		bloomPass.strength = bloomFrom;
+
+		// Sync canvas size before building content: the mode switch can fire
+		// before this scene's own resize callback has run, leaving
+		// lastCanvasWidth stale (which used to skip the guitar pick and
+		// circuit board when returning from the shelf).
+		handleResize();
+
 		// Lazy-create target wall
 		if (target === "desktop") createDeskContent();
 		else createShelfContent(target === "mobile");
@@ -1378,22 +1424,41 @@ export function initUnifiedScene(
 		writeMobilePose(0.5, mobilePosePos, mobilePoseLook);
 		const toPos = target === "desktop" ? DESKTOP_POS.clone() : mobilePosePos.clone();
 		const toLook = target === "desktop" ? DESKTOP_LOOK.clone() : mobilePoseLook.clone();
+		const fromFov = camera.fov;
+		const toFov =
+			target === "desktop" ? desktopFovForAspect(lastCanvasWidth / lastCanvasHeight) : BASE_FOV;
 
-		// Smoothly fade bloom to avoid render-path flicker at transition end
-		const bloomFrom = currentMode === "desktop" ? 0.6 : 0;
-		const bloomTo = target === "desktop" ? 0.6 : 0;
-		bloomPass.strength = bloomFrom;
+		// Warm-up: render once at the destination pose, then again at the from
+		// pose, all within this task — only the last render is composited, so
+		// nothing flashes. This compiles the new scene's shaders, uploads its
+		// textures and rebuilds shadow maps before the animation clock starts,
+		// instead of hitching mid-transition.
+		const warmUpRender = () => {
+			if (Math.max(bloomFrom, bloomTo) > 0.01) composer.render();
+			else renderer.render(scene, camera);
+		};
+		camera.fov = toFov;
+		camera.updateProjectionMatrix();
+		lerpCameraPose(camera, toPos, toPos, toLook, toLook, 1);
+		warmUpRender();
+		camera.fov = fromFov;
+		camera.updateProjectionMatrix();
+		lerpCameraPose(camera, fromPos, fromPos, fromLook, fromLook, 1);
+		warmUpRender();
+		dirty = false;
 
 		// Animate transition (or teleport instantly under reduced motion)
 		if (prefersReducedMotion()) {
 			room.rotation.y = toRotY;
+			camera.fov = toFov;
+			camera.updateProjectionMatrix();
 			lerpCameraPose(camera, toPos, toPos, toLook, toLook, 1);
 			bloomPass.strength = bloomTo;
 			dirty = true;
 		} else {
 			await new Promise<void>((resolve) => {
 				transitionResolve = resolve;
-				const transitionStart = performance.now();
+				let transitionStart = -1;
 				const transitionDuration =
 					currentMode === "desktop" && target === "mobile"
 						? DESKTOP_TO_SHELF_TRANSITION_DURATION
@@ -1407,6 +1472,9 @@ export function initUnifiedScene(
 					}
 
 					const now = performance.now();
+					// Anchor the clock to the first animation frame so setup work
+					// before this rAF fired doesn't consume the ease-in.
+					if (transitionStart < 0) transitionStart = now;
 					const elapsed = now - transitionStart;
 					const t = Math.min(elapsed / transitionDuration, 1);
 					const eased =
@@ -1414,6 +1482,10 @@ export function initUnifiedScene(
 
 					// Rotate room
 					room.rotation.y = fromRotY + (toRotY - fromRotY) * eased;
+
+					// Interpolate FOV (desktop compensates for narrow aspect ratios)
+					camera.fov = fromFov + (toFov - fromFov) * eased;
+					camera.updateProjectionMatrix();
 
 					// Interpolate camera
 					if (currentMode === "desktop" && target === "mobile") {

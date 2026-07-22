@@ -79,6 +79,10 @@ const WHEEL_COOLDOWN_MS = 200;
 const WHEEL_SETTLE_DELAY_MS = 100;
 const WHEEL_CONTINUOUS_VERTICAL_SPEED = 0.001;
 const WHEEL_CONTINUOUS_PAN_SPEED = 0.001;
+// Trackpad wheel velocity stays high right up until the fingers stop (there's
+// no deceleration-then-lift like touch), so the wheel flick threshold must be
+// well above the touch one or every scroll ends in a flick.
+const WHEEL_FLICK_VELOCITY_THRESHOLD = 450;
 const WHEEL_INERTIA_THRESHOLD = 2;
 const DRAG_VERTICAL_SPEED = 0.003;
 const DRAG_PAN_SPEED = 0.003;
@@ -218,6 +222,11 @@ export function createMobileScrollController(
 	let wheelAxisLock: "v" | "h" | null = null;
 	let wheelGestureActive = false;
 	let wheelSettleTimer = 0;
+	// Accumulated continuous-wheel travel, sampled like pointer positions so
+	// trackpad gestures get the same velocity-based flick handling as touch.
+	let wheelPosX = 0;
+	let wheelPosY = 0;
+	const wheelSamples: PointerSample[] = [];
 
 	function markChanged(): true {
 		inputDirty = true;
@@ -242,9 +251,12 @@ export function createMobileScrollController(
 		return clamp(fromIndex + direction, 0, verticalStops.length - 1);
 	}
 
-	function chooseVerticalTarget(velocityPx: number): number {
+	function chooseVerticalTarget(
+		velocityPx: number,
+		flickThreshold = FLICK_VELOCITY_THRESHOLD,
+	): number {
 		const clamped = clamp(verticalT, 0, 1);
-		if (Math.abs(velocityPx) > FLICK_VELOCITY_THRESHOLD) {
+		if (Math.abs(velocityPx) > flickThreshold) {
 			const dir: -1 | 1 = velocityPx > 0 ? -1 : 1;
 			return adjacentStopIndex(dragOriginStop, dir);
 		}
@@ -398,6 +410,7 @@ export function createMobileScrollController(
 		wheelAccumY = 0;
 		wheelAxisLock = null;
 		wheelGestureActive = false;
+		wheelSamples.length = 0;
 		if (wheelSettleTimer) {
 			clearTimeout(wheelSettleTimer);
 			wheelSettleTimer = 0;
@@ -574,6 +587,10 @@ export function createMobileScrollController(
 		state = State.IDLE;
 		stopAllAnimations();
 		captureOrigins();
+		wheelPosX = 0;
+		wheelPosY = 0;
+		wheelSamples.length = 0;
+		wheelSamples.push({ x: 0, y: 0, t: performance.now() });
 	}
 
 	function choosePanSettleTarget(row: number): number | null {
@@ -612,16 +629,31 @@ export function createMobileScrollController(
 		return nearestSnapPoint(current, points);
 	}
 
+	function chooseWheelVerticalTarget(velocityPx: number): number {
+		// A long continuous scrub can travel past the adjacent stop — honor it.
+		const nearest = nearestStopIndex(verticalT);
+		if (nearest !== dragOriginStop) return nearest;
+		// Otherwise settle with the same flick/commit-ratio rules as touch, so
+		// short quick trackpad swipes advance a row instead of snapping back.
+		return chooseVerticalTarget(velocityPx, WHEEL_FLICK_VELOCITY_THRESHOLD);
+	}
+
 	function wheelGestureEnd(): void {
 		const wasContinuous = wheelGestureActive;
 		wheelGestureActive = false;
 		wheelAxisLock = null;
 		wheelAccumY = 0;
 		if (wasContinuous) {
-			// Use commit-ratio-based snap for pan (snaps sooner in direction of movement)
-			let changed = beginVerticalAnimation(nearestStopIndex(verticalT));
+			const vel = estimateVelocity(wheelSamples);
+			wheelSamples.length = 0;
+			let changed = beginVerticalAnimation(chooseWheelVerticalTarget(vel.vy));
 			for (let i = 0; i < numRows; i++) {
-				const target = choosePanSettleTarget(i);
+				// Flicks on the visible row honor the gesture velocity; other rows
+				// settle by commit ratio (snaps sooner in direction of movement).
+				const target =
+					i === dragOriginStop && Math.abs(vel.vx) > WHEEL_FLICK_VELOCITY_THRESHOLD
+						? choosePanTarget(i, -vel.vx)
+						: choosePanSettleTarget(i);
 				if (target !== null) {
 					changed = beginPanAnimation(i, target) || changed;
 				}
@@ -729,6 +761,12 @@ export function createMobileScrollController(
 		// Only allow horizontal pan on rows that actually have multiple snap points
 		const deltaX = wheelAxisLock === "v" || !hasHorizontalContent() ? 0 : rawX;
 		let changed = false;
+
+		// Sample the applied travel so the settle snap can honor flick velocity
+		wheelPosX += deltaX;
+		wheelPosY += deltaY;
+		wheelSamples.push({ x: wheelPosX, y: wheelPosY, t: performance.now() });
+		if (wheelSamples.length > 20) wheelSamples.shift();
 
 		if (deltaY !== 0) {
 			const rawT = getRawVertical();

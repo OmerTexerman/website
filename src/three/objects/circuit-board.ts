@@ -6,7 +6,7 @@ import { DESK_SURFACE_Y } from "../math-utils";
 /** Decorative circuit board */
 export function createCircuitBoard(): Group {
 	const board = new Group();
-	board.userData = { draggable: true };
+	board.userData = { draggable: true, interactive: true };
 
 	// PCB base
 	const baseGeo = new BoxGeometry(0.5, 0.02, 0.35);
@@ -47,6 +47,25 @@ export function createCircuitBoard(): Group {
 		comp.position.set(x, 0.018, z);
 		board.add(comp);
 	}
+
+	// Status LEDs — idle at a soft glow, blink brightly on click
+	// (see animateBoardBlink, which reads userData.ledMats)
+	const ledGeo = new BoxGeometry(0.02, 0.014, 0.02);
+	const ledColors = ["#4dff7a", "#ffb347"];
+	const ledMats: MeshStandardMaterial[] = [];
+	for (let i = 0; i < ledColors.length; i++) {
+		const mat = new MeshStandardMaterial({
+			color: new Color(ledColors[i]),
+			emissive: new Color(ledColors[i]),
+			emissiveIntensity: 0.6,
+			roughness: 0.4,
+		});
+		ledMats.push(mat);
+		const led = new Mesh(ledGeo, mat);
+		led.position.set(0.19 - i * 0.05, 0.017, 0.13);
+		board.add(led);
+	}
+	board.userData.ledMats = ledMats;
 
 	// Traces (thin lines on the board)
 	const traceMat = new MeshStandardMaterial({

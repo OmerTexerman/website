@@ -15,6 +15,7 @@ interface ActiveAnimation {
 	duration: number;
 	update: AnimationCallback;
 	resolve: () => void;
+	easing: (t: number) => number;
 }
 
 let active: ActiveAnimation[] = [];
@@ -32,23 +33,30 @@ function cancelById(id: string): void {
 	}
 }
 
-function animate(id: string, duration: number, update: AnimationCallback): Promise<void> {
+function animate(
+	id: string,
+	duration: number,
+	update: AnimationCallback,
+	easing: (t: number) => number = easeInOutCubic,
+): Promise<void> {
 	cancelById(id);
 	if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
 		update(1); // Apply final state immediately
 		return Promise.resolve();
 	}
 	return new Promise((resolve) => {
-		active.push({ id, start: performance.now(), duration, update, resolve });
+		active.push({ id, start: performance.now(), duration, update, resolve, easing });
 	});
 }
+
+const linear = (t: number): number => t;
 
 export function tickAnimations(now: number): boolean {
 	let anyActive = false;
 	for (let i = active.length - 1; i >= 0; i--) {
 		const anim = active[i];
 		const progress = Math.min((now - anim.start) / anim.duration, 1);
-		anim.update(easeInOutCubic(progress));
+		anim.update(anim.easing(progress));
 		if (progress >= 1) {
 			anim.resolve();
 			active.splice(i, 1);
@@ -681,6 +689,52 @@ export function animateSpin(obj: Object3D): Promise<void> {
 	return animate(`spin-${obj.uuid}`, 500, (p) => {
 		obj.rotation.y = baseY + p * Math.PI * 2;
 	});
+}
+
+/** Coin-flip hop — the guitar pick jumps and does a full front flip */
+export function animatePickFlip(obj: Object3D): Promise<void> {
+	// Rest pose from the shared store so rapid re-clicks mid-flip can't
+	// capture an elevated position as the new baseline
+	saveRest(obj, "y", obj.position.y);
+	saveRest(obj, "rx", obj.rotation.x);
+	const restY = getRest(obj, "y");
+	const restRx = getRest(obj, "rx");
+	// Linear time: a real toss has constant spin and a ballistic arc — easing
+	// makes the second half of the flip read as rotating backwards
+	return animate(
+		`pick-flip-${obj.uuid}`,
+		650,
+		(p) => {
+			obj.position.y = restY + 4 * p * (1 - p) * 0.35;
+			obj.rotation.x = restRx + p * Math.PI * 2;
+		},
+		linear,
+	);
+}
+
+/** Blink the circuit board's status LEDs like a power-on self-test */
+export function animateBoardBlink(board: Object3D): Promise<void> {
+	const mats = board.userData.ledMats as MeshStandardMaterial[] | undefined;
+	if (!mats || mats.length === 0) return Promise.resolve();
+	const IDLE_GLOW = 0.6;
+	return animate(
+		`board-blink-${board.uuid}`,
+		1400,
+		(p) => {
+			if (p >= 1) {
+				for (const mat of mats) {
+					mat.emissiveIntensity = IDLE_GLOW;
+				}
+				return;
+			}
+			const phase = p * Math.PI * 7;
+			for (let i = 0; i < mats.length; i++) {
+				// Alternate the LEDs on/off against each other
+				mats[i].emissiveIntensity = Math.sin(phase + i * Math.PI) > 0 ? 3.2 : 0.15;
+			}
+		},
+		linear,
+	);
 }
 
 /** Spin clock hands rapidly then settle back to the current time. */

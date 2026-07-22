@@ -81,7 +81,7 @@ export function createPen(): Group {
 	clipBall.position.set(0.0235, 0.115, 0);
 	pen.add(clipBall);
 
-	pen.position.set(-0.3, DESK_SURFACE_Y + BODY_RADIUS, 0.8);
+	pen.position.set(0.15, DESK_SURFACE_Y + BODY_RADIUS, 0.95);
 	pen.rotation.z = Math.PI / 2;
 	pen.rotation.y = 0.3;
 
