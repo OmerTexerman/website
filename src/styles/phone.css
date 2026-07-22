@@ -1,4 +1,8 @@
-/* ── Phone UI ────────────────────────────────── */
+/* ── Phone UI — lock screen ─────────────────────
+   Projects arrive as a notification stack under a
+   big lock-screen clock; setup rides along as a
+   widget. Standalone page gets a device bezel;
+   the modal strips it and fills edge-to-edge. */
 
 /* Phone in modal — fill the modal body like the notebook does */
 #content-modal-body .phone-body {
@@ -10,38 +14,75 @@
 	min-height: 100%;
 }
 
+#content-modal-body .phone-status-bar {
+	padding: 0.625rem 1.25rem 0;
+}
+
 .phone-body {
-	background: var(--color-desktop-bg);
-	border: 2px solid var(--color-desktop-elevated);
-	border-radius: 1.5rem;
+	/* Wallpaper: near-black with a whisper of project blue and mauve */
+	background:
+		radial-gradient(90% 55% at 75% -10%, rgba(106, 159, 204, 0.16), transparent 70%),
+		radial-gradient(80% 45% at 15% 110%, rgba(180, 142, 173, 0.12), transparent 70%),
+		var(--color-desktop-bg);
+	border: 1px solid rgba(255, 255, 255, 0.14);
+	border-radius: 2.75rem;
 	overflow: hidden;
-	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+	/* Bezel rings + drop shadow so the standalone page reads as a device */
+	box-shadow:
+		0 0 0 7px #17171d,
+		0 0 0 8px rgba(255, 255, 255, 0.08),
+		0 32px 80px rgba(0, 0, 0, 0.6);
+	max-width: 24rem;
+	margin-inline: auto;
+	min-height: min(85svh, 50rem);
 	display: flex;
 	flex-direction: column;
-	min-height: 100%;
 }
 
 .phone-screen {
 	flex: 1;
-	padding: 0.75rem;
+	display: flex;
+	flex-direction: column;
+	padding: 0.5rem 1rem 0.75rem;
 	min-height: 16rem;
+	overflow-y: auto;
+}
+
+.phone-screen::-webkit-scrollbar {
+	width: 3px;
+}
+
+.phone-screen::-webkit-scrollbar-thumb {
+	background: rgba(255, 255, 255, 0.1);
 }
 
 /* Status bar */
 .phone-status-bar {
+	position: relative;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 0.5rem 1rem 0.25rem;
-	border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+	padding: 1rem 1.75rem 0;
 }
 
-.phone-time {
-	font-family: var(--font-mono);
-	font-size: 0.75rem;
-	font-weight: 500;
-	color: rgba(255, 255, 255, 0.7);
-	font-variant-numeric: tabular-nums;
+.phone-carrier {
+	font-size: 0.6875rem;
+	font-weight: 600;
+	letter-spacing: 0.03em;
+	color: rgba(255, 255, 255, 0.6);
+}
+
+.phone-camera-dot {
+	position: absolute;
+	left: 50%;
+	transform: translateX(-50%);
+	width: 0.75rem;
+	height: 0.75rem;
+	border-radius: 50%;
+	background: #050508;
+	box-shadow:
+		inset 0 0 0 2px #101018,
+		inset 2px 2px 3px rgba(106, 159, 204, 0.25);
 }
 
 .phone-status-icons {
@@ -60,7 +101,7 @@
 .phone-signal-bars span {
 	width: 3px;
 	border-radius: 1px;
-	background: rgba(255, 255, 255, 0.5);
+	background: rgba(255, 255, 255, 0.75);
 }
 
 .phone-signal-bars span:nth-child(1) {
@@ -77,13 +118,14 @@
 
 .phone-signal-bars span:nth-child(4) {
 	height: 10px;
+	background: rgba(255, 255, 255, 0.3);
 }
 
 .phone-battery-pill {
-	width: 18px;
-	height: 9px;
+	width: 20px;
+	height: 10px;
 	border: 1px solid rgba(255, 255, 255, 0.35);
-	border-radius: 2px;
+	border-radius: 3px;
 	padding: 1px;
 	position: relative;
 }
@@ -92,7 +134,7 @@
 	content: "";
 	position: absolute;
 	right: -3px;
-	top: 2px;
+	top: 2.5px;
 	width: 2px;
 	height: 3px;
 	background: rgba(255, 255, 255, 0.3);
@@ -101,165 +143,233 @@
 
 .phone-battery-fill {
 	display: block;
-	width: 100%;
+	width: 65%;
 	height: 100%;
 	background: #34c759;
 	border-radius: 1px;
 }
 
-/* Feed entries — each project */
+/* Lock-screen clock */
+.phone-lock-header {
+	text-align: center;
+	padding: 1.5rem 1rem 1.25rem;
+}
+
+.phone-clock {
+	display: block;
+	font-family: var(--font-display);
+	font-size: 3.5rem;
+	font-weight: 300;
+	letter-spacing: -0.02em;
+	line-height: 1;
+	color: rgba(255, 255, 255, 0.92);
+	font-variant-numeric: tabular-nums;
+}
+
+.phone-date {
+	margin: 0.375rem 0 0;
+	font-size: 0.8125rem;
+	color: rgba(255, 255, 255, 0.5);
+}
+
+/* Notification stack — each project. Anchored to the bottom of the
+   screen like a modern lock screen; empty wallpaper stays above. */
 .phone-feed {
 	display: flex;
 	flex-direction: column;
-	gap: 0;
+	gap: 0.5rem;
+	margin-top: auto;
+	padding-top: 0.75rem;
 }
 
-.phone-entry {
-	display: flex;
-	gap: 0.75rem;
-	padding: 0.75rem 0;
-	border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-	animation: phone-entry-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+.phone-notif {
+	background: rgba(255, 255, 255, 0.055);
+	border: 1px solid rgba(255, 255, 255, 0.07);
+	border-radius: 1.25rem;
+	padding: 0.75rem 0.875rem;
+	animation: phone-notif-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
 
-@keyframes phone-entry-in {
+@keyframes phone-notif-in {
 	from {
 		opacity: 0;
-		transform: translateX(-6px);
+		transform: translateY(10px) scale(0.98);
 	}
 }
 
-.phone-entry:last-child {
-	border-bottom: none;
-}
-
-.phone-entry-dot {
-	width: 8px;
-	height: 8px;
-	border-radius: 50%;
-	background: var(--color-link-project);
-	flex-shrink: 0;
-	margin-top: 0.25rem;
-}
-
-.phone-entry-content {
-	flex: 1;
-	min-width: 0;
-}
-
-.phone-entry-title {
-	font-size: 0.875rem;
-	font-weight: 600;
-	color: rgba(255, 255, 255, 0.85);
-	margin-bottom: 0.25rem;
-}
-
-.phone-entry-desc {
-	font-size: 0.75rem;
-	line-height: 1.5;
-	color: rgba(255, 255, 255, 0.45);
-	margin: 0 0 0.375rem;
-}
-
-.phone-entry-meta {
+.phone-notif-head {
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
 	gap: 0.5rem;
+	margin-bottom: 0.375rem;
 }
 
-.phone-entry-tech {
-	font-family: var(--font-mono);
-	font-size: 0.5625rem;
-	color: rgba(255, 255, 255, 0.55);
-}
-
-.phone-entry-actions {
+.phone-notif-icon {
 	display: flex;
-	gap: 0.5rem;
+	align-items: center;
+	justify-content: center;
+	width: 1.625rem;
+	height: 1.625rem;
+	border-radius: 0.5rem;
+	font-family: var(--font-display);
+	font-size: 0.875rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	color: #0c0c10;
+	flex-shrink: 0;
 }
 
-.phone-entry-actions a {
-	font-family: var(--font-mono);
-	font-size: 0.5625rem;
-	color: var(--color-link-project);
-	text-decoration: none;
+/* App-icon colors cycle through the site's terminal palette */
+.phone-notif:nth-child(4n + 1) .phone-notif-icon {
+	background: #6a9fcc;
 }
 
-.phone-entry-actions a:hover {
-	color: var(--color-link-project-hover);
+.phone-notif:nth-child(4n + 2) .phone-notif-icon {
+	background: #b48ead;
 }
 
-.phone-entry-empty {
-	font-family: var(--font-mono);
-	font-size: 0.75rem;
+.phone-notif:nth-child(4n + 3) .phone-notif-icon {
+	background: #88c0d0;
+}
+
+.phone-notif:nth-child(4n + 4) .phone-notif-icon {
+	background: #febc2e;
+}
+
+.phone-notif-app {
+	font-size: 0.6875rem;
+	letter-spacing: 0.02em;
 	color: rgba(255, 255, 255, 0.55);
+	text-transform: lowercase;
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.phone-notif-age {
+	font-size: 0.6875rem;
+	color: rgba(255, 255, 255, 0.35);
+	flex-shrink: 0;
+}
+
+.phone-notif-title {
+	font-size: 0.9375rem;
+	font-weight: 600;
+	color: rgba(255, 255, 255, 0.9);
+	margin: 0 0 0.25rem;
+}
+
+.phone-notif-desc {
+	font-size: 0.8125rem;
+	line-height: 1.5;
+	color: rgba(255, 255, 255, 0.55);
+	margin: 0 0 0.5rem;
+}
+
+.phone-notif-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 0.375rem;
+}
+
+.phone-chip {
+	font-size: 0.6875rem;
+	font-weight: 500;
+	color: var(--color-link-project-hover);
+	background: rgba(106, 159, 204, 0.14);
+	border-radius: 999px;
+	padding: 0.1875rem 0.625rem;
+	text-decoration: none;
+	transition:
+		background 0.15s,
+		color 0.15s;
+}
+
+.phone-chip:hover {
+	background: rgba(106, 159, 204, 0.28);
+	color: #fff;
+}
+
+.phone-empty {
+	font-size: 0.8125rem;
+	color: rgba(255, 255, 255, 0.5);
 	padding: 2rem 0;
 	text-align: center;
 }
 
-/* Setup block */
-.phone-setup-block {
-	margin-top: 0.5rem;
-	padding-top: 0.5rem;
-	border-top: 1px solid rgba(255, 255, 255, 0.06);
+/* Setup widget */
+.phone-widget {
+	background: rgba(255, 255, 255, 0.055);
+	border: 1px solid rgba(255, 255, 255, 0.07);
+	border-radius: 1.25rem;
+	padding: 0.75rem 0.875rem;
+	animation: phone-notif-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
 
-.phone-setup-title {
-	font-family: var(--font-mono);
-	font-size: 0.5625rem;
+.phone-widget-head {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	font-size: 0.75rem;
 	font-weight: 600;
-	letter-spacing: 0.1em;
-	text-transform: uppercase;
-	color: rgba(255, 255, 255, 0.55);
-	margin-bottom: 0.5rem;
+	color: rgba(255, 255, 255, 0.7);
+	margin-bottom: 0.625rem;
 }
 
-.phone-setup-grid {
+.phone-widget-icon {
+	width: 0.875rem;
+	height: 0.875rem;
+	border-radius: 0.25rem;
+	background: linear-gradient(135deg, #6a9fcc, #b48ead);
+	flex-shrink: 0;
+}
+
+.phone-widget-grid {
 	display: grid;
 	grid-template-columns: repeat(2, 1fr);
-	gap: 0.375rem 0.75rem;
+	gap: 0.5rem 0.75rem;
 }
 
-.phone-setup-cell {
+.phone-widget-cell {
 	display: flex;
 	flex-direction: column;
 	gap: 0.125rem;
-	padding: 0.25rem 0;
 }
 
-.phone-setup-label {
-	font-family: var(--font-mono);
-	font-size: 0.5rem;
+.phone-widget-label {
+	font-size: 0.5625rem;
 	font-weight: 600;
-	letter-spacing: 0.1em;
+	letter-spacing: 0.08em;
 	text-transform: uppercase;
-	color: rgba(255, 255, 255, 0.55);
+	color: rgba(255, 255, 255, 0.4);
 }
 
-.phone-setup-value {
-	font-size: 0.6875rem;
-	color: rgba(255, 255, 255, 0.65);
-}
-
-@media (prefers-reduced-motion: reduce) {
-	.phone-entry {
-		animation: none;
-		opacity: 1;
-		transform: none;
-	}
+.phone-widget-value {
+	font-size: 0.75rem;
+	color: rgba(255, 255, 255, 0.75);
 }
 
 /* Bottom bar */
 .phone-bottom-bar {
 	display: flex;
 	justify-content: center;
-	padding: 0.5rem 0 0.625rem;
+	padding: 0.625rem 0 0.75rem;
 }
 
 .phone-bottom-pill {
-	width: 6rem;
+	width: 6.5rem;
 	height: 4px;
 	border-radius: 2px;
-	background: rgba(255, 255, 255, 0.15);
+	background: rgba(255, 255, 255, 0.2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.phone-notif,
+	.phone-widget {
+		animation: none;
+		opacity: 1;
+		transform: none;
+	}
 }

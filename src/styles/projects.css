@@ -388,6 +388,14 @@
 	margin-right: 0.125rem;
 }
 
+/* ── Idle prompt filler after the project list ─────────────── */
+
+.wm-pane-filler {
+	padding: 0.5rem;
+	font-size: 0.6875rem;
+	color: rgba(255, 255, 255, 0.5);
+}
+
 /* ── Empty state ───────────────────────────────────────────── */
 
 .wm-empty {
@@ -524,27 +532,37 @@
 	color: #febc2e !important;
 }
 
-/* ── Modal overrides for WM ────────────────────────────────── */
+/* ── Modal overrides for WM ────────────────────────────────────
+   The laptop modal is tall; fill it edge-to-edge like a real WM
+   screen instead of floating a short card inside the card. The
+   projects pane absorbs the extra height (tiling panes fill their
+   space), with setup/fastfetch tiled side by side beneath. */
 
-#content-modal-body .wm-bar {
+#content-modal-body .wm-bar-top {
 	display: none;
 }
 
 #content-modal-body .wm-env {
 	border: none;
+	margin: -1.5rem;
+	min-height: calc(100% + 3rem);
+	display: flex;
+	flex-direction: column;
 }
 
 #content-modal-body .wm-tiling {
-	min-height: auto;
+	flex: 1;
+	min-height: 0;
 	flex-direction: column;
 }
 
 #content-modal-body .wm-pane-main {
-	flex: none;
+	flex: 3;
 }
 
 #content-modal-body .wm-side-stack {
 	flex-direction: row;
+	flex: 2;
 }
 
 #content-modal-body .wm-pane-side {

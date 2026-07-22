@@ -76,6 +76,10 @@ const setupCategories = await getSetup();
               </div>
               <p class="content-no-results" data-content-no-results role="status" aria-live="polite">No matching entries.</p>
               <button class="show-more-btn" data-show-more>Show more</button>
+              {/* Idle shell prompt so empty pane space reads as a terminal, not missing content */}
+              <div class="wm-pane-filler" aria-hidden="true">
+                <span class="wm-prompt-user">omer</span><span class="wm-prompt-sep">@</span><span class="wm-prompt-host">bluefin</span><span class="wm-prompt-path"> ~/projects</span><span class="wm-prompt-dollar"> $</span> <span class="wm-cursor">█</span>
+              </div>
             </>
           )}
         </div>
