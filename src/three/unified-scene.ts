@@ -583,6 +583,7 @@ export function initUnifiedScene(
 			{
 				kind: "micro",
 				root: pen,
+				hitboxPadding: 0.04,
 				activate: () => {
 					void animateSpin(pen);
 				},
@@ -715,6 +716,9 @@ export function initUnifiedScene(
 				},
 				() => {
 					dirty = true;
+					// Dragged objects move outside the physics/animation ticks, so
+					// shadow maps must be flagged for recompute here too
+					renderer.shadowMap.needsUpdate = true;
 				},
 			);
 

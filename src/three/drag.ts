@@ -1,4 +1,15 @@
-import { type Camera, type Object3D, Plane, Raycaster, type Scene, Vector2, Vector3 } from "three";
+import {
+	BoxGeometry,
+	type Camera,
+	Mesh,
+	type Object3D,
+	Plane,
+	Raycaster,
+	type Scene,
+	Vector2,
+	Vector3,
+} from "three";
+import { ceramicMaterial } from "./materials";
 import { clamp, DESK_SURFACE_Y } from "./math-utils";
 import { collectMeshesBy, getAncestorWith, updatePointer } from "./raycast-utils";
 
@@ -9,7 +20,27 @@ const FRICTION = 8.0;
 const RESTITUTION = 0.4;
 const VELOCITY_THRESHOLD = 0.005;
 const VELOCITY_SAMPLES = 5;
-const DESK_BOUNDS = { minX: -2.3, maxX: 2.3, minZ: -1.3, maxZ: 1.3 };
+// Physical desktop half-extents — once an object's center crosses these it
+// tips over the edge and falls.
+const DESK_EDGE_X = 2.5;
+const DESK_EDGE_Z = 1.5;
+// A held object may be carried past the edge, but not out of the shot.
+const DRAG_BOUNDS = { minX: -3.4, maxX: 3.4, minZ: -2.0, maxZ: 2.4 };
+const GRAVITY = 16;
+const FLOOR_Y = -2;
+const FLOOR_RESTITUTION = 0.35;
+// Below this impact speed a landing object settles instead of bouncing again.
+const SETTLE_SPEED = 1.0;
+const FLOOR_LINGER_SEC = 1.4;
+const SHATTER_LINGER_SEC = 2.0;
+const VANISH_DURATION_SEC = 0.22;
+const SPAWN_DURATION_SEC = 0.35;
+const SHARD_COUNT = 11;
+const SHARD_FADE_SEC = 0.35;
+
+// Lifecycle of a dynamic body. "desk" is the only interactive state; the rest
+// carry an object off the edge, onto the floor, and back to its home spot.
+type BodyMode = "desk" | "airborne" | "floor" | "vanishing" | "spawning";
 
 interface PhysicsBody {
 	obj: Object3D;
@@ -20,6 +51,24 @@ interface PhysicsBody {
 	vz: number;
 	sleeping: boolean;
 	isStatic: boolean;
+	mode: BodyMode;
+	vy: number;
+	spinX: number;
+	spinZ: number;
+	timer: number;
+	wasInteractive: boolean;
+	home: { x: number; y: number; z: number; rx: number; ry: number; rz: number };
+}
+
+interface Shard {
+	mesh: Mesh;
+	vx: number;
+	vy: number;
+	vz: number;
+	spinX: number;
+	spinZ: number;
+	restY: number;
+	life: number;
 }
 
 export interface DeskPhysicsController {
@@ -37,23 +86,146 @@ export interface DeskPhysicsController {
 
 export function createDeskPhysicsController(): DeskPhysicsController {
 	const bodies: PhysicsBody[] = [];
+	const shards: Shard[] = [];
+
+	function makeBody(obj: Object3D, radius: number, isStatic: boolean): PhysicsBody {
+		return {
+			obj,
+			radius,
+			mass: 1,
+			restY: obj.position.y,
+			vx: 0,
+			vz: 0,
+			sleeping: true,
+			isStatic,
+			mode: "desk",
+			vy: 0,
+			spinX: 0,
+			spinZ: 0,
+			timer: 0,
+			wasInteractive: false,
+			home: {
+				x: obj.position.x,
+				y: obj.position.y,
+				z: obj.position.z,
+				rx: obj.rotation.x,
+				ry: obj.rotation.y,
+				rz: obj.rotation.z,
+			},
+		};
+	}
 
 	function ensureBody(obj: Object3D, radius = 0.15): PhysicsBody {
 		let body = bodies.find((candidate) => candidate.obj === obj);
 		if (!body) {
-			body = {
-				obj,
-				radius,
-				mass: 1,
-				restY: obj.position.y,
-				vx: 0,
-				vz: 0,
-				sleeping: true,
-				isStatic: false,
-			};
+			body = makeBody(obj, radius, false);
 			bodies.push(body);
 		}
 		return body;
+	}
+
+	function addStaticObstacle(obj: Object3D, radius = 0.3): void {
+		bodies.push(makeBody(obj, radius, true));
+	}
+
+	function beyondDeskEdge(obj: Object3D): boolean {
+		return Math.abs(obj.position.x) > DESK_EDGE_X || Math.abs(obj.position.z) > DESK_EDGE_Z;
+	}
+
+	function floorRestY(body: PhysicsBody): number {
+		return FLOOR_Y + (body.restY - DESK_SURFACE_Y);
+	}
+
+	function startFall(body: PhysicsBody): void {
+		body.mode = "airborne";
+		body.sleeping = false;
+		body.vy = 0;
+		// Tumble roughly around the axis perpendicular to travel, plus jitter
+		body.spinX = body.vz * 1.5 + (Math.random() - 0.5) * 3;
+		body.spinZ = -body.vx * 1.5 + (Math.random() - 0.5) * 3;
+		// Off the desk the object can't be clicked or grabbed until it respawns
+		body.wasInteractive = body.obj.userData.interactive === true;
+		body.obj.userData.interactive = false;
+		body.obj.userData.draggable = false;
+	}
+
+	function spawnShards(body: PhysicsBody): void {
+		const parent = body.obj.parent;
+		if (!parent) return;
+		const { x, z } = body.obj.position;
+		const baseY = floorRestY(body);
+		for (let i = 0; i < SHARD_COUNT; i++) {
+			const size = 0.025 + Math.random() * 0.04;
+			const mesh = new Mesh(
+				new BoxGeometry(size, size * (0.4 + Math.random() * 0.5), size),
+				ceramicMaterial,
+			);
+			mesh.castShadow = true;
+			mesh.position.set(x, baseY + 0.05, z);
+			mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
+			parent.add(mesh);
+			const angle = (i / SHARD_COUNT) * Math.PI * 2 + Math.random() * 0.7;
+			const speed = 0.5 + Math.random() * 1.1;
+			shards.push({
+				mesh,
+				vx: Math.cos(angle) * speed,
+				vz: Math.sin(angle) * speed,
+				vy: 0.8 + Math.random() * 1.6,
+				spinX: (Math.random() - 0.5) * 12,
+				spinZ: (Math.random() - 0.5) * 12,
+				restY: baseY + size * 0.4,
+				life: 1.1 + Math.random() * 0.5,
+			});
+		}
+	}
+
+	function removeShard(index: number): void {
+		const shard = shards[index];
+		shard.mesh.parent?.remove(shard.mesh);
+		// Material is the shared ceramic — only the geometry is per-shard
+		shard.mesh.geometry.dispose();
+		shards.splice(index, 1);
+	}
+
+	function respawn(body: PhysicsBody): void {
+		body.obj.position.set(body.home.x, body.home.y, body.home.z);
+		body.obj.rotation.set(body.home.rx, body.home.ry, body.home.rz);
+		body.obj.scale.setScalar(0.001);
+		body.obj.visible = true;
+		body.vx = 0;
+		body.vy = 0;
+		body.vz = 0;
+		body.spinX = 0;
+		body.spinZ = 0;
+		body.mode = "spawning";
+		body.timer = SPAWN_DURATION_SEC;
+	}
+
+	function tickShards(dt: number): boolean {
+		for (let i = shards.length - 1; i >= 0; i--) {
+			const shard = shards[i];
+			shard.life -= dt;
+			if (shard.life <= 0) {
+				removeShard(i);
+				continue;
+			}
+			shard.vy -= GRAVITY * dt;
+			shard.mesh.position.x += shard.vx * dt;
+			shard.mesh.position.y += shard.vy * dt;
+			shard.mesh.position.z += shard.vz * dt;
+			shard.mesh.rotation.x += shard.spinX * dt;
+			shard.mesh.rotation.z += shard.spinZ * dt;
+			if (shard.mesh.position.y < shard.restY && shard.vy < 0) {
+				shard.mesh.position.y = shard.restY;
+				shard.vy = -shard.vy * 0.4;
+				shard.vx *= 0.6;
+				shard.vz *= 0.6;
+				shard.spinX *= 0.5;
+				shard.spinZ *= 0.5;
+			}
+			shard.mesh.scale.setScalar(clamp(shard.life / SHARD_FADE_SEC, 0.001, 1));
+		}
+		return shards.length > 0;
 	}
 
 	function resolveAllCollisions(): void {
@@ -63,6 +235,8 @@ export function createDeskPhysicsController(): DeskPhysicsController {
 				const b = bodies[j];
 				if (a.isStatic && b.isStatic) continue;
 				if (a.sleeping && b.sleeping) continue;
+				// Only bodies on the desk surface share a collision plane
+				if (a.mode !== "desk" || b.mode !== "desk") continue;
 
 				const dx = a.obj.position.x - b.obj.position.x;
 				const dz = a.obj.position.z - b.obj.position.z;
@@ -107,55 +281,107 @@ export function createDeskPhysicsController(): DeskPhysicsController {
 		}
 	}
 
-	function addStaticObstacle(obj: Object3D, radius = 0.3): void {
-		bodies.push({
-			obj,
-			radius,
-			mass: 0,
-			restY: obj.position.y,
-			vx: 0,
-			vz: 0,
-			sleeping: true,
-			isStatic: true,
-		});
-	}
-
 	function tick(dt: number): boolean {
-		let anyActive = false;
+		let anyActive = tickShards(dt);
 
 		for (const body of bodies) {
-			if (body.isStatic || body.sleeping) continue;
+			if (body.isStatic) continue;
 
-			const frictionFactor = Math.exp(-FRICTION * dt);
-			body.vx *= frictionFactor;
-			body.vz *= frictionFactor;
+			switch (body.mode) {
+				case "desk": {
+					if (body.sleeping) break;
 
-			body.obj.position.x += body.vx * dt;
-			body.obj.position.z += body.vz * dt;
+					const frictionFactor = Math.exp(-FRICTION * dt);
+					body.vx *= frictionFactor;
+					body.vz *= frictionFactor;
+					body.obj.position.x += body.vx * dt;
+					body.obj.position.z += body.vz * dt;
 
-			if (body.obj.position.x < DESK_BOUNDS.minX) {
-				body.obj.position.x = DESK_BOUNDS.minX;
-				body.vx = Math.abs(body.vx) * RESTITUTION;
-			} else if (body.obj.position.x > DESK_BOUNDS.maxX) {
-				body.obj.position.x = DESK_BOUNDS.maxX;
-				body.vx = -Math.abs(body.vx) * RESTITUTION;
-			}
+					if (beyondDeskEdge(body.obj)) {
+						startFall(body);
+						anyActive = true;
+						break;
+					}
 
-			if (body.obj.position.z < DESK_BOUNDS.minZ) {
-				body.obj.position.z = DESK_BOUNDS.minZ;
-				body.vz = Math.abs(body.vz) * RESTITUTION;
-			} else if (body.obj.position.z > DESK_BOUNDS.maxZ) {
-				body.obj.position.z = DESK_BOUNDS.maxZ;
-				body.vz = -Math.abs(body.vz) * RESTITUTION;
-			}
+					const speed = body.vx * body.vx + body.vz * body.vz;
+					if (speed < VELOCITY_THRESHOLD * VELOCITY_THRESHOLD) {
+						body.vx = 0;
+						body.vz = 0;
+						body.sleeping = true;
+					} else {
+						anyActive = true;
+					}
+					break;
+				}
+				case "airborne": {
+					body.vy -= GRAVITY * dt;
+					body.obj.position.x += body.vx * dt;
+					body.obj.position.y += body.vy * dt;
+					body.obj.position.z += body.vz * dt;
+					body.obj.rotation.x += body.spinX * dt;
+					body.obj.rotation.z += body.spinZ * dt;
 
-			const speed = body.vx * body.vx + body.vz * body.vz;
-			if (speed < VELOCITY_THRESHOLD * VELOCITY_THRESHOLD) {
-				body.vx = 0;
-				body.vz = 0;
-				body.sleeping = true;
-			} else {
-				anyActive = true;
+					const groundY = floorRestY(body);
+					if (body.obj.position.y <= groundY && body.vy < 0) {
+						body.obj.position.y = groundY;
+						if (body.obj.userData.breakable) {
+							body.obj.visible = false;
+							spawnShards(body);
+							body.mode = "vanishing";
+							body.timer = SHATTER_LINGER_SEC;
+						} else if (-body.vy > SETTLE_SPEED) {
+							body.vy = -body.vy * FLOOR_RESTITUTION;
+							body.vx *= 0.6;
+							body.vz *= 0.6;
+							body.spinX *= 0.4;
+							body.spinZ *= 0.4;
+						} else {
+							body.vy = 0;
+							body.mode = "floor";
+							body.timer = FLOOR_LINGER_SEC;
+						}
+					}
+					anyActive = true;
+					break;
+				}
+				case "floor": {
+					const frictionFactor = Math.exp(-FRICTION * dt);
+					body.vx *= frictionFactor;
+					body.vz *= frictionFactor;
+					body.obj.position.x += body.vx * dt;
+					body.obj.position.z += body.vz * dt;
+					body.timer -= dt;
+					if (body.timer <= 0) {
+						body.mode = "vanishing";
+						body.timer = VANISH_DURATION_SEC;
+					}
+					anyActive = true;
+					break;
+				}
+				case "vanishing": {
+					// Doubles as the post-shatter wait (object already invisible)
+					body.timer -= dt;
+					if (body.obj.visible) {
+						body.obj.scale.setScalar(clamp(body.timer / VANISH_DURATION_SEC, 0.001, 1));
+					}
+					if (body.timer <= 0) respawn(body);
+					anyActive = true;
+					break;
+				}
+				case "spawning": {
+					body.timer -= dt;
+					const t = clamp(1 - body.timer / SPAWN_DURATION_SEC, 0, 1);
+					body.obj.scale.setScalar(Math.max(0.001, 1 - (1 - t) ** 3));
+					if (body.timer <= 0) {
+						body.obj.scale.setScalar(1);
+						body.mode = "desk";
+						body.sleeping = true;
+						if (body.wasInteractive) body.obj.userData.interactive = true;
+						body.obj.userData.draggable = true;
+					}
+					anyActive = true;
+					break;
+				}
 			}
 		}
 
@@ -224,6 +450,11 @@ export function createDeskPhysicsController(): DeskPhysicsController {
 					}
 					body.sleeping = false;
 				}
+			}
+
+			// Released past the desk edge — let it drop
+			if (wasDragging && dragBody && beyondDeskEdge(dragBody.obj)) {
+				startFall(dragBody);
 			}
 
 			releasePointerCapture(pointerId);
@@ -314,13 +545,13 @@ export function createDeskPhysicsController(): DeskPhysicsController {
 
 			dragged.position.x = clamp(
 				intersectionPoint.x + dragOffset.x,
-				DESK_BOUNDS.minX,
-				DESK_BOUNDS.maxX,
+				DRAG_BOUNDS.minX,
+				DRAG_BOUNDS.maxX,
 			);
 			dragged.position.z = clamp(
 				intersectionPoint.z + dragOffset.z,
-				DESK_BOUNDS.minZ,
-				DESK_BOUNDS.maxZ,
+				DRAG_BOUNDS.minZ,
+				DRAG_BOUNDS.maxZ,
 			);
 
 			const now = performance.now();
@@ -329,6 +560,7 @@ export function createDeskPhysicsController(): DeskPhysicsController {
 
 			for (const body of bodies) {
 				if (body.obj === dragged) continue;
+				if (body.mode !== "desk") continue;
 				const dx = body.obj.position.x - dragged.position.x;
 				const dz = body.obj.position.z - dragged.position.z;
 				const dist = Math.sqrt(dx * dx + dz * dz);
@@ -341,10 +573,9 @@ export function createDeskPhysicsController(): DeskPhysicsController {
 						dragged.position.x -= nx * push;
 						dragged.position.z -= nz * push;
 					} else {
+						// No clamp — pushed objects may be shoved over the edge
 						body.obj.position.x += nx * push;
 						body.obj.position.z += nz * push;
-						body.obj.position.x = clamp(body.obj.position.x, DESK_BOUNDS.minX, DESK_BOUNDS.maxX);
-						body.obj.position.z = clamp(body.obj.position.z, DESK_BOUNDS.minZ, DESK_BOUNDS.maxZ);
 						body.vx += nx * push * 8;
 						body.vz += nz * push * 8;
 						body.sleeping = false;
@@ -420,6 +651,7 @@ export function createDeskPhysicsController(): DeskPhysicsController {
 	}
 
 	function dispose(): void {
+		for (let i = shards.length - 1; i >= 0; i--) removeShard(i);
 		bodies.length = 0;
 	}
 

@@ -61,7 +61,8 @@ export function createCircuitBoard(): Group {
 		board.add(trace);
 	}
 
-	board.position.set(1.5, DESK_SURFACE_Y, -0.5);
+	// Base box is centered on the group origin, so lift by half its thickness
+	board.position.set(1.5, DESK_SURFACE_Y + 0.01, -0.5);
 	board.rotation.y = -0.3;
 
 	return board;

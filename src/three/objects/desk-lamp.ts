@@ -11,6 +11,7 @@ import {
 	SpotLight,
 } from "three";
 import { DARK_GRAY, VERY_DARK_GRAY, WARM_GLOW } from "../colors";
+import { SHADOW_BIAS } from "../constants";
 import { metalMaterial } from "../materials";
 import { DESK_SURFACE_Y } from "../math-utils";
 
@@ -89,6 +90,8 @@ export function createDeskLamp(): Group {
 	light.shadow.mapSize.width = 1024;
 	light.shadow.mapSize.height = 1024;
 	light.shadow.radius = 4;
+	light.shadow.bias = SHADOW_BIAS;
+	light.shadow.camera.near = 0.2;
 	headPivot.add(light);
 
 	// Target toward desk center (lamp is at x=1.8, so aim left and forward)
