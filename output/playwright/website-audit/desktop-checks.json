@@ -1,0 +1,518 @@
+[
+  {
+    "path": "/blog",
+    "status": 200,
+    "title": "Blog | Omer Texerman",
+    "width": 1440,
+    "scrollWidth": 1440,
+    "height": 1009,
+    "brokenImages": [],
+    "axe": [
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": [
+          {
+            "target": [
+              ".inline-flex"
+            ],
+            "summary": "Fix any of the following:\n  Element has insufficient color contrast of 3.17 (foreground color: #ffffff, background color: #ed655b, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1"
+          }
+        ]
+      },
+      {
+        "id": "region",
+        "impact": "moderate",
+        "nodes": [
+          {
+            "target": [
+              ".back-link"
+            ],
+            "summary": "Fix any of the following:\n  Some page content is not contained by landmarks"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "path": "/blog/hello-world",
+    "status": 200,
+    "title": "New blog who dis | Omer Texerman",
+    "width": 1440,
+    "scrollWidth": 1440,
+    "height": 1075,
+    "brokenImages": [],
+    "axe": [
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": [
+          {
+            "target": [
+              ".inline-flex"
+            ],
+            "summary": "Fix any of the following:\n  Element has insufficient color contrast of 3.17 (foreground color: #ffffff, background color: #ed655b, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "path": "/blog/i-wrote-this-like-2-days-ago",
+    "status": 200,
+    "title": "I wrote this like 2 days ago | Omer Texerman",
+    "width": 1440,
+    "scrollWidth": 1440,
+    "height": 2659,
+    "brokenImages": [],
+    "axe": [
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": [
+          {
+            "target": [
+              ".inline-flex"
+            ],
+            "summary": "Fix any of the following:\n  Element has insufficient color contrast of 3.17 (foreground color: #ffffff, background color: #ed655b, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "path": "/projects",
+    "status": 200,
+    "title": "Projects | Omer Texerman",
+    "width": 1440,
+    "scrollWidth": 1440,
+    "height": 985,
+    "brokenImages": [],
+    "axe": [
+      {
+        "id": "aria-prohibited-attr",
+        "impact": "serious",
+        "nodes": [
+          {
+            "target": [
+              "#wm-ff-output"
+            ],
+            "summary": "Fix all of the following:\n  aria-label attribute cannot be used on a pre with no valid role attribute."
+          }
+        ]
+      },
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": [
+          {
+            "target": [
+              ".inline-flex"
+            ],
+            "summary": "Fix any of the following:\n  Element has insufficient color contrast of 3.17 (foreground color: #ffffff, background color: #ed655b, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1"
+          },
+          {
+            "target": [
+              ".wm-ws-active"
+            ],
+            "summary": "Fix any of the following:\n  Element has insufficient color contrast of 3.17 (foreground color: #ffffff, background color: #ed655b, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1"
+          },
+          {
+            "target": [
+              ".wm-ws[href$=\"blog\"]"
+            ],
+            "summary": "Fix any of the following:\n  Element has insufficient color contrast of 3.82 (foreground color: #727277, background color: #14141c, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1"
+          },
+          {
+            "target": [
+              ".wm-ws[href$=\"reading\"]"
+            ],
+            "summary": "Fix any of the following:\n  Element has insufficient color contrast of 3.82 (foreground color: #727277, background color: #14141c, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1"
+          },
+          {
+            "target": [
+              ".wm-ws[href$=\"photos\"]"
+            ],
+            "summary": "Fix any of the following:\n  Element has insufficient color contrast of 3.82 (foreground color: #727277, background color: #14141c, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1"
+          },
+          {
+            "target": [
+              ".wm-setup-section:nth-child(4) > .wm-setup-row > .wm-setup-val"
+            ],
+            "summary": "Fix any of the following:\n  Element has insufficient color contrast of 3.13 (foreground color: #606064, background color: #0b0b10, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1"
+          },
+          {
+            "target": [
+              ".wm-setup-section:nth-child(5) > .wm-setup-row > .wm-setup-val"
+            ],
+            "summary": "Fix any of the following:\n  Element has insufficient color contrast of 3.13 (foreground color: #606064, background color: #0b0b10, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1"
+          },
+          {
+            "target": [
+              ".wm-bar-mode-indicator"
+            ],
+            "summary": "Fix any of the following:\n  Element has insufficient color contrast of 3.17 (foreground color: #ffffff, background color: #ed655b, font size: 6.8pt (9px), font weight: bold). Expected contrast ratio of 4.5:1"
+          }
+        ]
+      },
+      {
+        "id": "heading-order",
+        "impact": "moderate",
+        "nodes": [
+          {
+            "target": [
+              ".wm-setup-section:nth-child(1) > h3"
+            ],
+            "summary": "Fix any of the following:\n  Heading order invalid"
+          }
+        ]
+      },
+      {
+        "id": "region",
+        "impact": "moderate",
+        "nodes": [
+          {
+            "target": [
+              ".back-link"
+            ],
+            "summary": "Fix any of the following:\n  Some page content is not contained by landmarks"
+          }
+        ]
+      },
+      {
+        "id": "scrollable-region-focusable",
+        "impact": "serious",
+        "nodes": [
+          {
+            "target": [
+              ".wm-setup-body"
+            ],
+            "summary": "Fix any of the following:\n  Element should have focusable content\n  Element should be focusable"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "path": "/projects/phone",
+    "status": 200,
+    "title": "Projects | Omer Texerman",
+    "width": 1440,
+    "scrollWidth": 1440,
+    "height": 1034,
+    "brokenImages": [],
+    "axe": [
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": [
+          {
+            "target": [
+              ".inline-flex"
+            ],
+            "summary": "Fix any of the following:\n  Element has insufficient color contrast of 3.17 (foreground color: #ffffff, background color: #ed655b, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1"
+          }
+        ]
+      },
+      {
+        "id": "region",
+        "impact": "moderate",
+        "nodes": [
+          {
+            "target": [
+              ".back-link"
+            ],
+            "summary": "Fix any of the following:\n  Some page content is not contained by landmarks"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "path": "/reading",
+    "status": 200,
+    "title": "Reading | Omer Texerman",
+    "width": 1440,
+    "scrollWidth": 1440,
+    "height": 1214,
+    "brokenImages": [],
+    "axe": [
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": [
+          {
+            "target": [
+              ".inline-flex"
+            ],
+            "summary": "Fix any of the following:\n  Element has insufficient color contrast of 3.17 (foreground color: #ffffff, background color: #ed655b, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1"
+          }
+        ]
+      },
+      {
+        "id": "region",
+        "impact": "moderate",
+        "nodes": [
+          {
+            "target": [
+              ".back-link"
+            ],
+            "summary": "Fix any of the following:\n  Some page content is not contained by landmarks"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "path": "/photos",
+    "status": 200,
+    "title": "Photos | Omer Texerman",
+    "width": 1440,
+    "scrollWidth": 1440,
+    "height": 985,
+    "brokenImages": [],
+    "axe": [
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": [
+          {
+            "target": [
+              ".inline-flex"
+            ],
+            "summary": "Fix any of the following:\n  Element has insufficient color contrast of 3.17 (foreground color: #ffffff, background color: #ed655b, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1"
+          }
+        ]
+      },
+      {
+        "id": "region",
+        "impact": "moderate",
+        "nodes": [
+          {
+            "target": [
+              ".back-link"
+            ],
+            "summary": "Fix any of the following:\n  Some page content is not contained by landmarks"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "path": "/photos/camera",
+    "status": 200,
+    "title": "Photos | Omer Texerman",
+    "width": 1440,
+    "scrollWidth": 1440,
+    "height": 1075,
+    "brokenImages": [],
+    "axe": [
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": [
+          {
+            "target": [
+              ".inline-flex"
+            ],
+            "summary": "Fix any of the following:\n  Element has insufficient color contrast of 3.17 (foreground color: #ffffff, background color: #ed655b, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1"
+          },
+          {
+            "target": [
+              ".camera-model-text"
+            ],
+            "summary": "Fix any of the following:\n  Element has insufficient color contrast of 2.13 (foreground color: #474747, background color: #0a0a0a, font size: 6.8pt (9px), font weight: normal). Expected contrast ratio of 4.5:1"
+          },
+          {
+            "target": [
+              ".camera-meta-detail"
+            ],
+            "summary": "Fix any of the following:\n  Element has insufficient color contrast of 3.72 (foreground color: #696a6b, background color: #050709, font size: 6.8pt (9px), font weight: normal). Expected contrast ratio of 4.5:1"
+          },
+          {
+            "target": [
+              ".camera-filmstrip-item:nth-child(2) > .camera-filmstrip-label"
+            ],
+            "summary": "Fix any of the following:\n  Element has insufficient color contrast of 2.6 (foreground color: #525456, background color: #080a0e, font size: 6.0pt (8px), font weight: normal). Expected contrast ratio of 4.5:1"
+          }
+        ]
+      },
+      {
+        "id": "image-redundant-alt",
+        "impact": "minor",
+        "nodes": [
+          {
+            "target": [
+              "img[alt=\"I went to paris\"][loading=\"lazy\"][width=\"160\"]"
+            ],
+            "summary": "Fix all of the following:\n  Element contains <img> element with alt text that duplicates existing text"
+          },
+          {
+            "target": [
+              "img[alt=\"Photos I took when I was home\"]"
+            ],
+            "summary": "Fix all of the following:\n  Element contains <img> element with alt text that duplicates existing text"
+          }
+        ]
+      },
+      {
+        "id": "region",
+        "impact": "moderate",
+        "nodes": [
+          {
+            "target": [
+              ".back-link"
+            ],
+            "summary": "Fix any of the following:\n  Some page content is not contained by landmarks"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "path": "/photos/i-went-to-paris",
+    "status": 200,
+    "title": "I went to paris | Photos",
+    "width": 1440,
+    "scrollWidth": 1440,
+    "height": 1841,
+    "brokenImages": [],
+    "axe": [
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": [
+          {
+            "target": [
+              ".inline-flex"
+            ],
+            "summary": "Fix any of the following:\n  Element has insufficient color contrast of 3.17 (foreground color: #ffffff, background color: #ed655b, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1"
+          }
+        ]
+      },
+      {
+        "id": "region",
+        "impact": "moderate",
+        "nodes": [
+          {
+            "target": [
+              ".back-link"
+            ],
+            "summary": "Fix any of the following:\n  Some page content is not contained by landmarks"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "path": "/photos/photos-i-took-when-i-was-home",
+    "status": 200,
+    "title": "Photos I took when I was home | Photos",
+    "width": 1440,
+    "scrollWidth": 1440,
+    "height": 1647,
+    "brokenImages": [],
+    "axe": [
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": [
+          {
+            "target": [
+              ".inline-flex"
+            ],
+            "summary": "Fix any of the following:\n  Element has insufficient color contrast of 3.17 (foreground color: #ffffff, background color: #ed655b, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1"
+          }
+        ]
+      },
+      {
+        "id": "region",
+        "impact": "moderate",
+        "nodes": [
+          {
+            "target": [
+              ".back-link"
+            ],
+            "summary": "Fix any of the following:\n  Some page content is not contained by landmarks"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "path": "/word-of-the-day",
+    "status": 200,
+    "title": "Word of the Day | Omer Texerman",
+    "width": 1440,
+    "scrollWidth": 1440,
+    "height": 985,
+    "brokenImages": [],
+    "axe": [
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": [
+          {
+            "target": [
+              ".inline-flex"
+            ],
+            "summary": "Fix any of the following:\n  Element has insufficient color contrast of 3.17 (foreground color: #ffffff, background color: #ed655b, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1"
+          },
+          {
+            "target": [
+              ".wotd-tab-label"
+            ],
+            "summary": "Fix any of the following:\n  Element has insufficient color contrast of 3.17 (foreground color: #ffffff, background color: #ed655b, font size: 8.3pt (11px), font weight: normal). Expected contrast ratio of 4.5:1"
+          },
+          {
+            "target": [
+              ".wotd-tab-date"
+            ],
+            "summary": "Fix any of the following:\n  Element has insufficient color contrast of 2.69 (foreground color: #fce8e6, background color: #ed655b, font size: 8.3pt (11px), font weight: normal). Expected contrast ratio of 4.5:1"
+          }
+        ]
+      },
+      {
+        "id": "region",
+        "impact": "moderate",
+        "nodes": [
+          {
+            "target": [
+              ".back-link"
+            ],
+            "summary": "Fix any of the following:\n  Some page content is not contained by landmarks"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "path": "/audit-missing-page",
+    "status": 404,
+    "title": "404 — Not Found | Omer Texerman",
+    "width": 1440,
+    "scrollWidth": 1440,
+    "height": 900,
+    "brokenImages": [],
+    "axe": [
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": [
+          {
+            "target": [
+              ".inline-flex"
+            ],
+            "summary": "Fix any of the following:\n  Element has insufficient color contrast of 3.17 (foreground color: #ffffff, background color: #ed655b, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1"
+          },
+          {
+            "target": [
+              "span[data-context-back-label=\"\"]"
+            ],
+            "summary": "Fix any of the following:\n  Element has insufficient color contrast of 3.17 (foreground color: #ffffff, background color: #ed655b, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+          }
+        ]
+      }
+    ]
+  }
+]

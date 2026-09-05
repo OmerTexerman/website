@@ -10,7 +10,15 @@ export default defineConfig({
 	trailingSlash: "never",
 	output: "static",
 	adapter: vercel(),
-	integrations: [sitemap(), icon()],
+	integrations: [
+		// `/projects/phone` and `/photos/camera` render the same content as
+		// `/projects` and `/photos` in a different metaphor. They canonicalise to
+		// the primary route, so keep them out of the sitemap as well.
+		sitemap({
+			filter: (page) => !/\/(?:projects\/phone|photos\/camera)\/?$/.test(new URL(page).pathname),
+		}),
+		icon(),
+	],
 	vite: {
 		plugins: [tailwindcss()],
 		optimizeDeps: {

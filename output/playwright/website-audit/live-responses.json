@@ -1,0 +1,66 @@
+[
+  {
+    "path": "/",
+    "status": 200,
+    "type": "text/html; charset=utf-8",
+    "cache": "public, max-age=0, must-revalidate",
+    "robots": null,
+    "csp": "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: https:; connect-src 'self' https://us.i.posthog.com https://eu.i.posthog.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests"
+  },
+  {
+    "path": "/robots.txt",
+    "status": 200,
+    "type": "text/plain; charset=utf-8",
+    "cache": "public, max-age=0, must-revalidate",
+    "robots": null,
+    "csp": "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: https:; connect-src 'self' https://us.i.posthog.com https://eu.i.posthog.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests"
+  },
+  {
+    "path": "/sitemap-index.xml",
+    "status": 200,
+    "type": "application/xml",
+    "cache": "public, max-age=0, must-revalidate",
+    "robots": null,
+    "csp": "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: https:; connect-src 'self' https://us.i.posthog.com https://eu.i.posthog.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests"
+  },
+  {
+    "path": "/sitemap-0.xml",
+    "status": 200,
+    "type": "application/xml",
+    "cache": "public, max-age=0, must-revalidate",
+    "robots": null,
+    "csp": "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: https:; connect-src 'self' https://us.i.posthog.com https://eu.i.posthog.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests"
+  },
+  {
+    "path": "/rss.xml",
+    "status": 200,
+    "type": "application/xml",
+    "cache": "public, max-age=0, must-revalidate",
+    "robots": null,
+    "csp": "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: https:; connect-src 'self' https://us.i.posthog.com https://eu.i.posthog.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests"
+  },
+  {
+    "path": "/site.webmanifest",
+    "status": 200,
+    "type": "application/manifest+json; charset=utf-8",
+    "cache": "public, max-age=0, must-revalidate",
+    "robots": null,
+    "csp": "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: https:; connect-src 'self' https://us.i.posthog.com https://eu.i.posthog.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests"
+  },
+  {
+    "path": "/og-default.png",
+    "status": 200,
+    "type": "image/png",
+    "cache": "public, max-age=604800, immutable",
+    "robots": null,
+    "csp": "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: https:; connect-src 'self' https://us.i.posthog.com https://eu.i.posthog.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests"
+  },
+  {
+    "path": "/admin/",
+    "status": 200,
+    "type": "text/html; charset=utf-8",
+    "cache": "public, max-age=0, must-revalidate",
+    "robots": null,
+    "csp": "default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com https://upload-widget.cloudinary.com; style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' https://api.github.com https://github.com https://raw.githubusercontent.com https://objects.githubusercontent.com https://sveltia-cms-auth.omer-850.workers.dev https://unpkg.com https://*.cloudinary.com https://openlibrary.org https://covers.openlibrary.org; frame-src 'self' https:; media-src blob:; worker-src blob:; frame-ancestors 'none'"
+  }
+]

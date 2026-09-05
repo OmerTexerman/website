@@ -3,7 +3,7 @@ import "../styles/global.css";
 import Analytics from "@vercel/analytics/astro";
 import SpeedInsights from "@vercel/speed-insights/astro";
 import SEOHead from "../components/SEOHead.astro";
-import { analytics, blogFeed, getRootThemeStyle, site } from "../config";
+import { blogFeed, getRootThemeStyle, site } from "../config";
 
 interface Props {
 	title: string;
@@ -15,6 +15,8 @@ interface Props {
 	fullscreen?: boolean;
 	/** When true, adds noindex robots meta tag */
 	noindex?: boolean;
+	/** Absolute path of the preferred URL, when this route duplicates another. */
+	canonical?: string;
 }
 
 const {
@@ -25,10 +27,9 @@ const {
 	publishedDate,
 	fullscreen = false,
 	noindex = false,
+	canonical,
 } = Astro.props;
 
-const posthogKey = analytics.posthogKey;
-const posthogHost = analytics.posthogHost;
 const rootThemeStyle = getRootThemeStyle();
 ---
 
@@ -54,14 +55,11 @@ const rootThemeStyle = getRootThemeStyle();
       type={type}
       publishedDate={publishedDate}
       noindex={noindex}
+      canonical={canonical}
     />
     <title>{title}</title>
   </head>
-  <body
-    class={fullscreen ? "overflow-hidden h-dvh" : "min-h-screen"}
-    data-posthog-key={posthogKey || undefined}
-    data-posthog-host={posthogHost || undefined}
-  >
+  <body class={fullscreen ? "overflow-hidden h-dvh" : "min-h-screen"}>
     {!fullscreen && (
       <a
         href="#page-content"
@@ -77,22 +75,15 @@ const rootThemeStyle = getRootThemeStyle();
       <script>
         import { mountContextBackLinks } from "../dom/context-back-link";
         import { mountRevealAnimations } from "../dom/page-effects";
+        import { onPageLeave } from "../dom/page-lifecycle";
 
         const cleanupBackLinks = mountContextBackLinks();
         const cleanupReveal = mountRevealAnimations();
         const cleanupAll = () => { cleanupBackLinks(); cleanupReveal(); };
-        document.addEventListener("astro:before-preparation", cleanupAll, { once: true });
-        window.addEventListener("pagehide", cleanupAll, { once: true });
+        onPageLeave(cleanupAll);
       </script>
     )}
 
-    {posthogKey && (
-      <script>
-        import { initPosthogAnalytics } from "../dom/page-effects";
-
-        initPosthogAnalytics();
-      </script>
-    )}
     <Analytics />
     <SpeedInsights />
   </body>

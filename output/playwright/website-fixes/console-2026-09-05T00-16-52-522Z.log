@@ -1,0 +1,13 @@
+[      68ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:4323/_vercel/insights/script.js:0
+[      71ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:4323/_vercel/speed-insights/script.js:0
+[      71ms] [LOG] [Vercel Web Analytics] Failed to load script from /_vercel/insights/script.js. Be sure to enable Web Analytics for your project and deploy again. See https://vercel.com/docs/analytics/quickstart for more information. @ http://127.0.0.1:4323/:7
+[      71ms] [LOG] [Vercel Speed Insights] Failed to load script from /_vercel/speed-insights/script.js. Please check if any content blockers are enabled and try again. @ http://127.0.0.1:4323/:7
+[     933ms] [WARNING] [.WebGL-0x3fc40089f600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels @ http://127.0.0.1:4323/:0
+[    1103ms] [WARNING] [.WebGL-0x3fc40089f600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels @ http://127.0.0.1:4323/:0
+[    1270ms] [WARNING] [.WebGL-0x3fc40089f600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels @ http://127.0.0.1:4323/:0
+[    1426ms] [WARNING] [.WebGL-0x3fc40089f600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat) @ http://127.0.0.1:4323/:0
+[  155146ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://res.cloudinary.com/dyzyx5v81/image/upload/f_auto:0
+[  236075ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:4323/_vercel/insights/script.js:0
+[  236075ms] [LOG] [Vercel Web Analytics] Failed to load script from /_vercel/insights/script.js. Be sure to enable Web Analytics for your project and deploy again. See https://vercel.com/docs/analytics/quickstart for more information. @ http://127.0.0.1:4323/photos/i-went-to-paris:4
+[  236077ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:4323/_vercel/speed-insights/script.js:0
+[  236077ms] [LOG] [Vercel Speed Insights] Failed to load script from /_vercel/speed-insights/script.js. Please check if any content blockers are enabled and try again. @ http://127.0.0.1:4323/photos/i-went-to-paris:4

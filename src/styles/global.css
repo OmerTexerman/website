@@ -181,10 +181,20 @@ body {
 	outline-offset: 0;
 }
 
+/* The static portfolio card sitting behind the 3D scene. Hidden while the
+   scene is healthy; scene-app.ts flips `data-scene-fallback` on <html> when
+   the scene fails to init, loses its context, or misses its load deadline.
+   Without the second rule the card stays at opacity 0 and a failed scene
+   renders as an empty page with no navigation. */
 #scene-fallback {
 	opacity: 0;
 	pointer-events: none;
 	transition: opacity 0.3s ease;
+}
+
+html[data-scene-fallback="visible"] #scene-fallback {
+	opacity: 1;
+	pointer-events: auto;
 }
 
 /* ── Shared utilities ─────────────────────────────── */
@@ -278,7 +288,7 @@ body {
 }
 
 .back-link-button {
-	@apply rounded-lg bg-accent px-6 py-3 text-sm text-white hover:bg-accent-hover;
+	@apply rounded-lg bg-accent px-6 py-3 text-sm text-dark hover:bg-accent-hover;
 }
 
 .icon-button {
@@ -379,9 +389,13 @@ body {
 		transition-duration: 0.01ms !important;
 	}
 
-	/* Ensure scroll-animated elements show immediately */
-	[data-animate].reveal-pending,
-	#scene-fallback {
+	/* Ensure scroll-animated elements show immediately.
+	   `#scene-fallback` is deliberately NOT listed here: its visibility is
+	   owned by `data-scene-fallback`, and forcing opacity pinned the static
+	   card on top of a perfectly functional scene for reduced-motion users.
+	   The scene already honours the preference on its own — it skips the
+	   intro camera animation and disables the idle float. */
+	[data-animate].reveal-pending {
 		opacity: 1;
 		transform: none;
 	}

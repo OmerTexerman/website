@@ -3,9 +3,11 @@ interface SceneHandle {
 	transition: (target: "desktop" | "mobile") => Promise<void>;
 }
 
-interface Posthog {
-	capture: (event: string, props: Record<string, string>) => void;
-}
+/** The event queue installed by @vercel/analytics. */
+type VercelAnalytics = (
+	command: "beforeSend" | "event" | "pageview",
+	payload: Record<string, unknown>,
+) => void;
 
 interface SceneDebugState {
 	readonly mode: "desktop" | "mobile";
@@ -28,5 +30,5 @@ interface SceneDebugState {
 interface Window {
 	__sceneHandle?: SceneHandle;
 	__sceneDebug?: SceneDebugState;
-	posthog?: Posthog;
+	va?: VercelAnalytics;
 }

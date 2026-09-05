@@ -115,7 +115,7 @@
 
 .wm-bar-mode-indicator {
 	background: var(--color-accent);
-	color: #fff;
+	color: var(--color-dark);
 	font-weight: 700;
 	font-size: 0.5625rem;
 	letter-spacing: 0.06em;
@@ -146,9 +146,9 @@
 	align-items: center;
 	padding: 0 0.5rem;
 	height: 100%;
-	font-size: 0.625rem;
+	font-size: 0.75rem;
 	letter-spacing: 0.02em;
-	color: rgba(255, 255, 255, 0.4);
+	color: rgba(255, 255, 255, 0.65);
 	text-decoration: none;
 	border-right: 1px solid rgba(255, 255, 255, 0.06);
 	transition:
@@ -163,13 +163,13 @@
 
 .wm-ws-active {
 	background: var(--color-accent);
-	color: #fff;
+	color: var(--color-dark);
 	font-weight: 600;
 }
 
 .wm-ws-active:hover {
 	background: var(--color-accent);
-	color: #fff;
+	color: var(--color-dark);
 }
 
 /* ── Tiling layout ─────────────────────────────────────────── */
@@ -309,7 +309,7 @@
 }
 
 .wm-project-entry {
-	padding: 0.5rem;
+	padding: 0.75rem;
 	border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 	transition: background 0.1s;
 }
@@ -331,13 +331,13 @@
 }
 
 .wm-project-name {
-	font-size: 0.8125rem;
+	font-size: 1rem;
 	font-weight: 600;
 	color: var(--color-cream);
 }
 
 .wm-project-tech {
-	font-size: 0.625rem;
+	font-size: 0.75rem;
 	color: rgba(255, 255, 255, 0.55);
 }
 
@@ -361,8 +361,8 @@
 
 .wm-project-desc {
 	font-family: var(--font-body);
-	font-size: 0.75rem;
-	color: rgba(255, 255, 255, 0.45);
+	font-size: 0.875rem;
+	color: rgba(255, 255, 255, 0.7);
 	line-height: 1.5;
 	margin: 0;
 }
@@ -374,7 +374,10 @@
 }
 
 .wm-project-link {
-	font-size: 0.625rem;
+	display: inline-flex;
+	align-items: center;
+	min-height: 2rem;
+	font-size: 0.75rem;
 	color: var(--color-link-project);
 	text-decoration: none;
 	transition: color 0.1s;
@@ -427,7 +430,7 @@
 }
 
 .wm-setup-heading {
-	font-size: 0.5625rem;
+	font-size: 0.6875rem;
 	font-weight: 700;
 	letter-spacing: 0.1em;
 	text-transform: uppercase;
@@ -452,9 +455,9 @@
 }
 
 .wm-setup-val {
-	color: rgba(255, 255, 255, 0.35);
+	color: rgba(255, 255, 255, 0.65);
 	text-align: right;
-	font-size: 0.625rem;
+	font-size: 0.6875rem;
 }
 
 /* ── Terminal / fastfetch pane ──────────────────────────────── */

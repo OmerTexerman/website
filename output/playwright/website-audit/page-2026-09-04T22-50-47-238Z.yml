@@ -1,0 +1,36 @@
+- main [ref=e2]:
+  - generic [aria-hidden]:
+    - generic:
+      - paragraph: Portfolio
+      - heading [level=1]: Omer Texerman
+      - paragraph: Student at Northeastern University studying Computer Engineering and Computer Science :)
+      - generic:
+        - link:
+          - /url: /blog
+          - text: Blog
+        - link:
+          - /url: /projects
+          - text: Projects
+        - link:
+          - /url: /reading
+          - text: Reading
+        - link:
+          - /url: /photos
+          - text: Photos
+  - link "Skip to navigation" [ref=e55] [cursor=pointer]:
+    - /url: "#text-nav"
+  - navigation "Site navigation" [ref=e56]:
+    - list [ref=e5]:
+      - listitem [ref=e6]:
+        - link "Blog" [ref=e57] [cursor=pointer]:
+          - /url: /blog
+      - listitem [ref=e8]:
+        - link "Projects" [ref=e58] [cursor=pointer]:
+          - /url: /projects
+      - listitem [ref=e10]:
+        - link "Reading" [ref=e59] [cursor=pointer]:
+          - /url: /reading
+      - listitem [ref=e12]:
+        - link "Photos" [ref=e60] [cursor=pointer]:
+          - /url: /photos
+  - application "Interactive 3D portfolio scene. Use Tab to move between interactive objects or the skip link for text navigation." [active] [ref=e61]: Your browser does not support the interactive portfolio scene. Use the page navigation links instead.

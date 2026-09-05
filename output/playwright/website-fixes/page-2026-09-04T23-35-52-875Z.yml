@@ -1,0 +1,89 @@
+- generic [active] [ref=e1]:
+  - link "Skip to content" [ref=e2] [cursor=pointer]:
+    - /url: "#page-content"
+  - banner [ref=e3]:
+    - navigation "Main navigation" [ref=e4]:
+      - link "Back home" [ref=e5] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e6]: OT
+      - list [ref=e7]:
+        - listitem [ref=e8]:
+          - link "Blog" [ref=e9] [cursor=pointer]:
+            - /url: /blog
+        - listitem [ref=e10]:
+          - link "Projects" [ref=e11] [cursor=pointer]:
+            - /url: /projects
+        - listitem [ref=e12]:
+          - link "Reading" [ref=e13] [cursor=pointer]:
+            - /url: /reading
+        - listitem [ref=e14]:
+          - link "Photos" [ref=e15] [cursor=pointer]:
+            - /url: /photos
+  - main [ref=e16]:
+    - generic [ref=e18]:
+      - generic [ref=e19]:
+        - heading "Reading" [level=1] [ref=e20]
+        - paragraph [ref=e21]: Shit I read
+      - generic [ref=e22]:
+        - searchbox "Search books" [ref=e23]
+        - generic [ref=e24]:
+          - heading "Currently Reading" [level=2] [ref=e25]
+          - generic [ref=e27]:
+            - generic [ref=e28]:
+              - img "Cover of I am a strange loop" [ref=e32]
+              - generic [ref=e34]:
+                - paragraph [ref=e35]: I am a strange loop
+                - paragraph [ref=e36]: Douglas hofstadter
+            - generic [ref=e37]:
+              - img "Cover of The History of Western Philosophy" [ref=e41]
+              - generic [ref=e43]:
+                - paragraph [ref=e44]: The History of Western Philosophy
+                - paragraph [ref=e45]: Bertrand Russell
+        - generic [ref=e49]:
+          - heading "Finished" [level=2] [ref=e50]
+          - generic [ref=e52]:
+            - generic [ref=e53]:
+              - img "Cover of Language, Truth, and Logic" [ref=e57]
+              - generic [ref=e59]:
+                - paragraph [ref=e60]: Language, Truth, and Logic
+                - paragraph [ref=e61]: Alfred Jules Ayer
+            - generic [ref=e62]:
+              - img "Cover of Notes from Underground" [ref=e66]
+              - generic [ref=e68]:
+                - paragraph [ref=e69]: Notes from Underground
+                - paragraph [ref=e70]: Fyodor Dostoevsky
+            - generic [ref=e71]:
+              - img "Cover of On Love" [ref=e75]
+              - generic [ref=e77]:
+                - paragraph [ref=e78]: On Love
+                - paragraph [ref=e79]: Alain de Botton
+            - generic [ref=e80]:
+              - img "Cover of On Trails" [ref=e84]
+              - generic [ref=e86]:
+                - paragraph [ref=e87]: On Trails
+                - paragraph [ref=e88]: Robert Moor
+            - generic [ref=e89]:
+              - img "Cover of The Algebra of Happiness" [ref=e93]
+              - generic [ref=e95]:
+                - paragraph [ref=e96]: The Algebra of Happiness
+                - paragraph [ref=e97]: Scott Galloway
+            - generic [ref=e98]:
+              - img "Cover of The Idiot" [ref=e102]
+              - generic [ref=e104]:
+                - paragraph [ref=e105]: The Idiot
+                - paragraph [ref=e106]: Fyodor Dostoevsky
+            - generic [ref=e107]:
+              - img "Cover of The Peregrine" [ref=e111]
+              - generic [ref=e113]:
+                - paragraph [ref=e114]: The Peregrine
+                - paragraph [ref=e115]: J.A. Baker
+  - contentinfo [ref=e119]:
+    - generic [ref=e120]:
+      - paragraph [ref=e121]: © 2026 Omer Texerman
+      - generic [ref=e122]:
+        - link "GitHub (opens in a new window)" [ref=e123] [cursor=pointer]:
+          - /url: https://github.com/OmerTexerman
+        - link "LinkedIn (opens in a new window)" [ref=e126] [cursor=pointer]:
+          - /url: https://www.linkedin.com/in/omer-texerman-3b50602ba
+  - link "Back home" [ref=e129] [cursor=pointer]:
+    - /url: /

@@ -4,19 +4,19 @@ import { z } from "astro/zod";
 import { HEX_COLOR } from "./content/types";
 
 const photoSource = /^(?:\/|https?:\/\/).+/i;
+
+// An empty string and an absent key both mean "not set". Zod derives object-key
+// optionality from the *input* schema, so `.optional()` has to sit on the union
+// itself — putting it after a `.transform().pipe()` marks the key as required
+// and rejects content files that simply omit the field.
 const optionalPhoto = z
-	.string()
-	.transform((v) => v || undefined)
-	.pipe(z.string().regex(photoSource, "Image must be an absolute path or URL.").optional());
+	.union([z.literal(""), z.string().regex(photoSource, "Image must be an absolute path or URL.")])
+	.optional()
+	.transform((v) => v || undefined);
 const optionalUrl = z
-	.string()
-	.transform((v) => v || undefined)
-	.pipe(
-		z
-			.url()
-			.regex(/^https?:\/\//, "Must be an http or https URL")
-			.optional(),
-	);
+	.union([z.literal(""), z.url().regex(/^https?:\/\//, "Must be an http or https URL")])
+	.optional()
+	.transform((v) => v || undefined);
 
 const blog = defineCollection({
 	loader: glob({ pattern: "**/*.md", base: "./src/content/blog" }),

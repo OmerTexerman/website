@@ -1,0 +1,105 @@
+{
+  "recordType": "Curated observations from browser tool runs; not a raw test-runner export",
+  "date": "2026-09-04",
+  "site": "https://omer.texerman.com",
+  "browser": "Chrome 152 in the devcontainer; desktop and touch-enabled phone emulation",
+  "checks": [
+    {
+      "name": "WebGL unavailable",
+      "result": "fail",
+      "setup": "Isolated context overrides WebGL/WebGL2 getContext calls to return null before initialization",
+      "observed": { "sceneFallback": "visible", "opacity": "0", "pointerEvents": "none", "inert": false, "ariaHidden": null },
+      "screenshot": "home-no-webgl.png"
+    },
+    {
+      "name": "Reduced motion",
+      "result": "fail",
+      "setup": "Isolated context with reducedMotion set to reduce",
+      "observed": { "sceneReady": "true", "opacity": "1", "pointerEvents": "none", "inert": true, "ariaHidden": "true" },
+      "screenshot": "home-reduced-motion.png"
+    },
+    {
+      "name": "JavaScript disabled",
+      "result": "pass",
+      "observed": "Visible HTML introduction and usable navigation",
+      "screenshot": "home-no-js.png"
+    },
+    {
+      "name": "Keyboard skip navigation",
+      "result": "pass",
+      "steps": "Fresh homepage: Tab, Enter, Tab, Enter",
+      "observed": "Skip link focused with outline; text-nav revealed and focused; Blog link focused; navigation reached /blog"
+    },
+    {
+      "name": "Canvas keyboard navigation",
+      "result": "usability and semantics issue",
+      "observed": {
+        "tabLabels": ["BLOG", "PROJECTS", "READING", "PHOTOS", "WORD OF THE DAY", "BLOG", "PROJECTS", "READING"],
+        "focusRemains": "scene-canvas",
+        "accessibleNameChanges": false,
+        "escapeReleasesFocus": true
+      }
+    },
+    {
+      "name": "Reading search restored from back/forward cache",
+      "result": "fail",
+      "steps": "Search Dostoevsky, navigate to Blog through the header, browser Back, change query",
+      "observed": {
+        "pageshowPersisted": true,
+        "restored": { "query": "Dostoevsky", "visibleBooks": 9, "noResultsDisplay": "none" },
+        "afterEditing": { "query": "zzzzzznotabook", "visibleBooks": 9, "noResultsDisplay": "none" }
+      },
+      "note": "Reproduced desktop and phone. In the phone run, Playwright goBack timed out waiting for load although the page had already restored; persisted state and the subsequent input failure were inspected in the next call.",
+      "screenshot": "reading-search-after-back-mobile.png"
+    },
+    {
+      "name": "Photo viewer restored from back/forward cache",
+      "result": "fail",
+      "steps": "Fresh Paris gallery works; navigate to Blog through header, browser Back, activate first photo",
+      "observed": { "pageshowPersisted": true, "galleryMountMarker": null, "dialogOpens": false }
+    },
+    {
+      "name": "Fresh desktop photo viewer",
+      "result": "pass",
+      "observed": "First photo opens; ArrowRight advances to 2 / 7 Louvre; ArrowLeft returns; Escape closes and focus returns",
+      "screenshot": "photo-lightbox-desktop.png"
+    },
+    {
+      "name": "Fresh phone photo viewer",
+      "result": "pass with discoverability concern",
+      "observed": {
+        "beforeHorizontalSwipe": "1 / 7",
+        "afterHorizontalSwipe": "2 / 7",
+        "imageBounds": { "x": 20, "y": 151.4375, "width": 350, "height": 525.125 },
+        "closeWorks": true,
+        "restoredFocusLabel": "View photo: Eifel tower",
+        "previousNextButtons": "Hidden by mobile CSS"
+      },
+      "screenshot": "photo-lightbox-mobile.png"
+    },
+    {
+      "name": "Phone shelf",
+      "result": "pass with discoverability concern",
+      "observed": "Notebook tap opens Blog; upward touch swipe moves the shelf and reveals upper content",
+      "screenshot": "home-mobile-swiped.png"
+    },
+    {
+      "name": "Section previews",
+      "result": "pass on normal loading",
+      "observed": "Blog, Projects, Reading, Photos, and Word of the Day render content once requests settle. URL remains homepage. Close focus and full-page link are available."
+    },
+    {
+      "name": "Preview timeout",
+      "result": "fail",
+      "setup": "Isolated context holds the /blog request pending without changing production",
+      "observed": { "elapsedWaitSeconds": 11.5, "modalOpen": true, "bodyText": "", "spinnerPresent": true, "fullPageLink": "/blog" },
+      "screenshot": "modal-timeout.png"
+    },
+    {
+      "name": "Return to homepage preview",
+      "result": "pass",
+      "steps": "Open Photos preview, follow View full page to /photos, browser Back",
+      "observed": "Homepage restores with Photos preview open and collection text rendered"
+    }
+  ]
+}

@@ -206,25 +206,47 @@ function createContentModalController(elements: ContentModalElements): {
 	function renderLoading(): void {
 		bodyEl.replaceChildren();
 		const wrapper = document.createElement("div");
-		wrapper.className = "flex items-center justify-center py-12";
+		wrapper.className = "flex items-center justify-center gap-3 py-12 text-muted";
+		wrapper.setAttribute("role", "status");
 		const spinner = document.createElement("div");
 		spinner.className =
 			"w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin";
-		wrapper.append(spinner);
+		spinner.setAttribute("aria-hidden", "true");
+		wrapper.append(spinner, document.createTextNode("Loading preview…"));
 		bodyEl.append(wrapper);
 	}
 
-	function renderMessage(message: string, href: string): void {
+	function renderMessage(message: string, href: string, onRetry?: () => void): void {
 		bodyEl.replaceChildren();
+		const wrapper = document.createElement("div");
+		wrapper.className = "flex flex-col items-center gap-4 py-8 text-center";
 		const paragraph = document.createElement("p");
-		paragraph.className = "text-muted text-center py-8";
-		paragraph.append(document.createTextNode(`${message} `));
+		paragraph.className = "text-muted";
+		paragraph.setAttribute("role", "status");
+		paragraph.textContent = message;
+		wrapper.append(paragraph);
+		if (onRetry) {
+			const retry = document.createElement("button");
+			retry.type = "button";
+			retry.className = "nav-pill-link";
+			retry.textContent = "Try again";
+			retry.addEventListener(
+				"click",
+				(event) => {
+					// Retrying replaces this button; do not treat its detached target as a backdrop click.
+					event.stopPropagation();
+					onRetry();
+				},
+				{ once: true },
+			);
+			wrapper.append(retry);
+		}
 		const anchor = document.createElement("a");
 		anchor.href = href;
 		anchor.className = "text-accent underline";
 		anchor.textContent = "Visit the page";
-		paragraph.append(anchor);
-		bodyEl.append(paragraph);
+		wrapper.append(anchor);
+		bodyEl.append(wrapper);
 	}
 
 	function rememberReturnState(): void {
@@ -291,6 +313,18 @@ function createContentModalController(elements: ContentModalElements): {
 		const request = new AbortController();
 		activeRequest = request;
 
+		// Capture focus before renderLoading removes a focused retry button.
+		const activeElement = document.activeElement;
+		if (modalState === "closed") {
+			previousActiveElement = activeElement instanceof HTMLElement ? activeElement : null;
+		} else if (
+			activeElement instanceof HTMLElement &&
+			activeElement !== document.body &&
+			!rootEl.contains(activeElement)
+		) {
+			previousActiveElement = activeElement;
+		}
+
 		titleEl.textContent = label;
 		linkEl.href = safeTargetHref;
 		const path = new URL(safeTargetHref, window.location.href).pathname;
@@ -304,8 +338,6 @@ function createContentModalController(elements: ContentModalElements): {
 		renderLoading();
 
 		if (modalState === "closed") {
-			previousActiveElement =
-				document.activeElement instanceof HTMLElement ? document.activeElement : null;
 			lockDocumentScroll();
 			syncSiblings(true);
 			setMounted(true);
@@ -316,19 +348,20 @@ function createContentModalController(elements: ContentModalElements): {
 			modalState = "open";
 			closeButtonEl.focus();
 		} else {
-			// Modal already open — update the return target so close() returns
-			// focus to whichever element triggered this second open
-			previousActiveElement =
-				document.activeElement instanceof HTMLElement ? document.activeElement : null;
 			cancelAnimations();
 			setMounted(true);
 			applyOpenVisualState();
 			modalState = "open";
+			closeButtonEl.focus();
 		}
 
 		let timeoutId = 0;
+		let timedOut = false;
 		try {
-			timeoutId = window.setTimeout(() => request.abort(), 10_000);
+			timeoutId = window.setTimeout(() => {
+				timedOut = true;
+				request.abort();
+			}, 10_000);
 			const result = await loadContentPreview(safeTargetHref, request.signal);
 			if (isStalePreviewRequest(requestId)) return;
 
@@ -339,10 +372,13 @@ function createContentModalController(elements: ContentModalElements): {
 
 			bodyEl.innerHTML = result.html;
 			revealAnimatedChildren(bodyEl);
-		} catch (err: unknown) {
-			if (err instanceof DOMException && err.name === "AbortError") return;
-			if (isStalePreviewRequest(requestId)) return;
-			renderMessage("Could not load preview.", safeTargetHref);
+		} catch {
+			if (isStalePreviewRequest(requestId) || (request.signal.aborted && !timedOut)) return;
+			renderMessage(
+				timedOut ? "Preview took too long to load." : "Could not load preview.",
+				safeTargetHref,
+				() => void openModal(label, safeTargetHref, source),
+			);
 		} finally {
 			clearTimeout(timeoutId);
 			if (activeRequest === request) {

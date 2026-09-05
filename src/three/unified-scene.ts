@@ -14,6 +14,7 @@ import {
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { trackEvent } from "../analytics";
 import { getSectionById, type SiteSection } from "../config";
 import type { ShelfBook, SpotlightInfo } from "../content/types";
 import {
@@ -147,10 +148,6 @@ type OpenSelection =
 			mode: "mobile";
 			entry: ShelfSceneEntry;
 	  };
-
-function trackEvent(event: string, props: Record<string, string>): void {
-	window.posthog?.capture(event, props);
-}
 
 function easeInOutSine(t: number): number {
 	return -(Math.cos(Math.PI * t) - 1) / 2;

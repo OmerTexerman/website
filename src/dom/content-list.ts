@@ -130,7 +130,7 @@ export function mountContentList(options: ContentListOptions): () => void {
 		updateButton();
 		updateGroups();
 		if (noResultsEl) {
-			noResultsEl.style.display = matchCount === 0 ? "" : "none";
+			noResultsEl.style.display = matchCount === 0 ? "block" : "none";
 		}
 	}
 

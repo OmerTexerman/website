@@ -1,0 +1,2 @@
+[  839348ms] [WARNING] WebGL: INVALID_OPERATION: texImage3D: FLIP_Y or PREMULTIPLY_ALPHA isn't allowed for uploading 3D textures @ https://omer.texerman.com/_astro/unified-scene.D_zv2_dC.js:4024
+[  839348ms] [WARNING] WebGL: INVALID_OPERATION: texImage3D: FLIP_Y or PREMULTIPLY_ALPHA isn't allowed for uploading 3D textures @ https://omer.texerman.com/_astro/unified-scene.D_zv2_dC.js:4024

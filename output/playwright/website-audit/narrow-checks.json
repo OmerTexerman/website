@@ -1,0 +1,86 @@
+[
+  {
+    "path": "/blog",
+    "url": "/blog",
+    "width": 320,
+    "scrollWidth": 320,
+    "mainWidth": 320
+  },
+  {
+    "path": "/projects",
+    "url": "/projects/phone",
+    "width": 320,
+    "scrollWidth": 320,
+    "mainWidth": 320
+  },
+  {
+    "path": "/reading",
+    "url": "/reading",
+    "width": 320,
+    "scrollWidth": 320,
+    "mainWidth": 320
+  },
+  {
+    "path": "/photos",
+    "url": "/photos",
+    "width": 320,
+    "scrollWidth": 320,
+    "mainWidth": 320
+  },
+  {
+    "path": "/photos/camera",
+    "url": "/photos/camera",
+    "width": 320,
+    "scrollWidth": 320,
+    "mainWidth": 320
+  },
+  {
+    "path": "/word-of-the-day",
+    "url": "/word-of-the-day",
+    "width": 320,
+    "scrollWidth": 320,
+    "mainWidth": 320
+  },
+  {
+    "path": "/blog",
+    "url": "/blog",
+    "width": 768,
+    "scrollWidth": 768,
+    "mainWidth": 768
+  },
+  {
+    "path": "/projects",
+    "url": "/projects",
+    "width": 768,
+    "scrollWidth": 768,
+    "mainWidth": 768
+  },
+  {
+    "path": "/reading",
+    "url": "/reading",
+    "width": 768,
+    "scrollWidth": 768,
+    "mainWidth": 768
+  },
+  {
+    "path": "/photos",
+    "url": "/photos",
+    "width": 768,
+    "scrollWidth": 768,
+    "mainWidth": 768
+  },
+  {
+    "path": "/photos/camera",
+    "url": "/photos/camera",
+    "width": 768,
+    "scrollWidth": 768,
+    "mainWidth": 768
+  },
+  {
+    "path": "/word-of-the-day",
+    "url": "/word-of-the-day",
+    "width": 768,
+    "scrollWidth": 768,
+    "mainWidth": 768
+  }
+]

@@ -28,7 +28,7 @@
 	align-items: center;
 	padding: 0.75rem 1.5rem;
 	background: var(--color-accent);
-	color: #fff;
+	color: var(--color-dark);
 }
 
 .wotd-tab-label {
@@ -42,7 +42,6 @@
 .wotd-tab-date {
 	font-family: var(--font-mono);
 	font-size: 0.6875rem;
-	opacity: 0.85;
 }
 
 .wotd-card-body {

@@ -42,27 +42,3 @@ export function mountRevealAnimations(root: Document | Element = document): () =
 
 	return () => observer.disconnect();
 }
-
-export function initPosthogAnalytics(): void {
-	const posthogKey = document.body.dataset.posthogKey;
-	const posthogHost = document.body.dataset.posthogHost;
-
-	if (!posthogKey || !import.meta.env.PROD) return;
-
-	const timer = setTimeout(() => {
-		console.warn("[analytics] posthog-js dynamic import did not resolve within 3s");
-	}, 3000);
-	void import("posthog-js/dist/module.no-external")
-		.then(({ default: posthog }) => {
-			clearTimeout(timer);
-			posthog.init(posthogKey, {
-				api_host: posthogHost,
-				capture_pageview: true,
-				autocapture: false,
-			});
-		})
-		.catch((err) => {
-			clearTimeout(timer);
-			console.warn("[analytics] posthog-js failed to load", err);
-		});
-}

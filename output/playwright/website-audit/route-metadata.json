@@ -1,0 +1,171 @@
+[
+  {
+    "file": "404.html",
+    "title": "404 — Not Found | Omer Texerman",
+    "description": "Websoit",
+    "canonical": "https://omer.texerman.com/404",
+    "h1": [
+      "404"
+    ],
+    "ogImage": "https://omer.texerman.com/og-default.png",
+    "images": 0,
+    "responsiveImages": 0,
+    "brokenLocalLinks": []
+  },
+  {
+    "file": "index.html",
+    "title": "Omer Texerman | Websoit",
+    "description": "Student at Northeastern University studying Computer Engineering and Computer Science :)",
+    "canonical": "https://omer.texerman.com/",
+    "h1": [
+      " Omer Texerman "
+    ],
+    "ogImage": "https://omer.texerman.com/og-default.png",
+    "images": 0,
+    "responsiveImages": 0,
+    "brokenLocalLinks": []
+  },
+  {
+    "file": "blog/index.html",
+    "title": "Blog | Omer Texerman",
+    "description": "Writings",
+    "canonical": "https://omer.texerman.com/blog",
+    "h1": [
+      "Blog"
+    ],
+    "ogImage": "https://omer.texerman.com/og-default.png",
+    "images": 0,
+    "responsiveImages": 0,
+    "brokenLocalLinks": []
+  },
+  {
+    "file": "photos/index.html",
+    "title": "Photos | Omer Texerman",
+    "description": "Shit I take pictures of",
+    "canonical": "https://omer.texerman.com/photos",
+    "h1": [
+      " Photos "
+    ],
+    "ogImage": "https://omer.texerman.com/og-default.png",
+    "images": 2,
+    "responsiveImages": 0,
+    "brokenLocalLinks": []
+  },
+  {
+    "file": "projects/index.html",
+    "title": "Projects | Omer Texerman",
+    "description": "Shit I do",
+    "canonical": "https://omer.texerman.com/projects",
+    "h1": [
+      "Projects"
+    ],
+    "ogImage": "https://omer.texerman.com/og-default.png",
+    "images": 0,
+    "responsiveImages": 0,
+    "brokenLocalLinks": []
+  },
+  {
+    "file": "reading/index.html",
+    "title": "Reading | Omer Texerman",
+    "description": "Shit I read",
+    "canonical": "https://omer.texerman.com/reading",
+    "h1": [
+      " Reading "
+    ],
+    "ogImage": "https://omer.texerman.com/og-default.png",
+    "images": 9,
+    "responsiveImages": 0,
+    "brokenLocalLinks": []
+  },
+  {
+    "file": "word-of-the-day/index.html",
+    "title": "Word of the Day | Omer Texerman",
+    "description": "Daily dose of vocab",
+    "canonical": "https://omer.texerman.com/word-of-the-day",
+    "h1": [
+      "Frenetic"
+    ],
+    "ogImage": "https://omer.texerman.com/og-default.png",
+    "images": 0,
+    "responsiveImages": 0,
+    "brokenLocalLinks": []
+  },
+  {
+    "file": "blog/hello-world/index.html",
+    "title": "New blog who dis | Omer Texerman",
+    "description": "I made this in a brutal arms race against my friend",
+    "canonical": "https://omer.texerman.com/blog/hello-world",
+    "h1": [
+      "New blog who dis"
+    ],
+    "ogImage": "https://omer.texerman.com/og-default.png",
+    "images": 0,
+    "responsiveImages": 0,
+    "brokenLocalLinks": []
+  },
+  {
+    "file": "blog/i-wrote-this-like-2-days-ago/index.html",
+    "title": "I wrote this like 2 days ago | Omer Texerman",
+    "description": "But I didnt know if I should post it, but now im tired and no longer care. And I just posted the link on Instagram and so if it only had one blog.post that would look sad",
+    "canonical": "https://omer.texerman.com/blog/i-wrote-this-like-2-days-ago",
+    "h1": [
+      "I wrote this like 2 days ago"
+    ],
+    "ogImage": "https://omer.texerman.com/og-default.png",
+    "images": 0,
+    "responsiveImages": 0,
+    "brokenLocalLinks": []
+  },
+  {
+    "file": "photos/camera/index.html",
+    "title": "Photos | Omer Texerman",
+    "description": "Shit I take pictures of",
+    "canonical": "https://omer.texerman.com/photos/camera",
+    "h1": [
+      "Photos"
+    ],
+    "ogImage": "https://omer.texerman.com/og-default.png",
+    "images": 3,
+    "responsiveImages": 0,
+    "brokenLocalLinks": []
+  },
+  {
+    "file": "photos/i-went-to-paris/index.html",
+    "title": "I went to paris | Photos",
+    "description": "I went to paris. Many photos taken while my fellow traveller yelled at me to move on.\nI was really into this out of focus thing during this trip it seems",
+    "canonical": "https://omer.texerman.com/photos/i-went-to-paris",
+    "h1": [
+      " I went to paris "
+    ],
+    "ogImage": "https://omer.texerman.com/og-default.png",
+    "images": 8,
+    "responsiveImages": 0,
+    "brokenLocalLinks": []
+  },
+  {
+    "file": "photos/photos-i-took-when-i-was-home/index.html",
+    "title": "Photos I took when I was home | Photos",
+    "description": "These are from forever ago I do not care even a little bit and neither do you",
+    "canonical": "https://omer.texerman.com/photos/photos-i-took-when-i-was-home",
+    "h1": [
+      " Photos I took when I was home "
+    ],
+    "ogImage": "https://omer.texerman.com/og-default.png",
+    "images": 7,
+    "responsiveImages": 0,
+    "brokenLocalLinks": []
+  },
+  {
+    "file": "projects/phone/index.html",
+    "title": "Projects | Omer Texerman",
+    "description": "Shit I do",
+    "canonical": "https://omer.texerman.com/projects/phone",
+    "h1": [
+      "Projects"
+    ],
+    "ogImage": "https://omer.texerman.com/og-default.png",
+    "images": 0,
+    "responsiveImages": 0,
+    "brokenLocalLinks": []
+  }
+]
