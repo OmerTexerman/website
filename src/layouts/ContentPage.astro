@@ -9,9 +9,11 @@ interface Props {
 	surface?: boolean;
 	containerWidthClass?: string;
 	showIntro?: boolean;
+	/** Absolute path of the preferred URL, when this route duplicates another. */
+	canonical?: string;
 }
 
-const { section, surface, containerWidthClass, showIntro = true } = Astro.props;
+const { section, surface, containerWidthClass, showIntro = true, canonical } = Astro.props;
 ---
 
 <ContentShell
@@ -19,6 +21,7 @@ const { section, surface, containerWidthClass, showIntro = true } = Astro.props;
   description={section.description}
   surface={surface}
   containerWidthClass={containerWidthClass}
+  canonical={canonical}
 >
   {showIntro && <PageIntro title={section.label} description={section.description} />}
   <slot />

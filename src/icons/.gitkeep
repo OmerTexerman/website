@@ -1,0 +1,3 @@
+# astro-icon scans this directory for local .svg icons.
+# The site only uses the @iconify-json/simple-icons set, but astro-icon
+# warns on every build if the directory is missing.

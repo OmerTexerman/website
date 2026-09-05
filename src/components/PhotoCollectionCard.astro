@@ -1,5 +1,6 @@
 ---
 import type { PhotoCollection } from "../content/selectors";
+import { cloudinarySrcSet, cloudinaryUrl } from "../image-utils";
 
 interface Props {
 	collection: PhotoCollection;
@@ -8,6 +9,10 @@ interface Props {
 
 const { collection, featured = false } = Astro.props;
 const photoCount = collection.photos.length;
+
+// Featured cards cap at 28rem; the rest are a fixed 200px / 240px column.
+const coverWidths = featured ? ([448, 672, 896] as const) : ([200, 240, 400, 480] as const);
+const coverSizes = featured ? "(min-width: 30rem) 448px, 100vw" : "(min-width: 48rem) 240px, 200px";
 ---
 
 <a href={`/photos/${collection.id}`} class:list={["pinned-photo group", featured && "pinned-photo-featured"]}>
@@ -17,9 +22,13 @@ const photoCount = collection.photos.length;
   {/* Photo with white border */}
   <div class="pinned-photo-frame">
     <img
-      src={collection.cover}
+      src={cloudinaryUrl(collection.cover, featured ? 896 : 480)}
+      srcset={cloudinarySrcSet(collection.cover, coverWidths)}
+      sizes={coverSizes}
       alt={collection.title}
-      loading="lazy"
+      loading={featured ? "eager" : "lazy"}
+      fetchpriority={featured ? "high" : undefined}
+      decoding="async"
       width="600"
       height="400"
       class:list={[

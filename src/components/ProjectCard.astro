@@ -1,4 +1,5 @@
 ---
+import { cloudinarySrcSet, cloudinaryUrl } from "../image-utils";
 import RelatedPost from "./RelatedPost.astro";
 
 interface Props {
@@ -21,7 +22,11 @@ const { title, description, tech, image, url, repo, post } = Astro.props;
   </div>
   {image && (
     <div class="wm-project-image">
-      <img src={image} alt={`Screenshot of ${title}`} loading="lazy" width="600" height="400" />
+      <img
+        src={cloudinaryUrl(image, 800)}
+        srcset={cloudinarySrcSet(image, [400, 600, 800, 1200])}
+        sizes="(min-width: 64rem) 640px, 92vw"
+        alt={`Screenshot of ${title}`} loading="lazy" decoding="async" width="600" height="400" />
     </div>
   )}
   <p class="wm-project-desc">{description}</p>
@@ -33,7 +38,7 @@ const { title, description, tech, image, url, repo, post } = Astro.props;
     )}
     {repo && (
       <a href={repo} target="_blank" rel="noopener noreferrer" class="wm-project-link" aria-label={`View source: ${title}`}>
-        <span class="wm-link-icon">⎇</span> src
+        <span class="wm-link-icon">⎇</span> source
       </a>
     )}
     {post && <RelatedPost slug={post} />}

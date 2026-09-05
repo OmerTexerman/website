@@ -9,11 +9,24 @@ interface Props {
 	type?: "website" | "article";
 	publishedDate?: Date;
 	noindex?: boolean;
+	/** Absolute path of the preferred URL, when this route duplicates another. */
+	canonical?: string;
 }
 
-const { title, description, image, type = "website", publishedDate, noindex = false } = Astro.props;
+const {
+	title,
+	description,
+	image,
+	type = "website",
+	publishedDate,
+	noindex = false,
+	canonical,
+} = Astro.props;
 
-const canonicalURL = new URL(Astro.url.pathname, Astro.site);
+// Alternate presentations of a section (e.g. /projects/phone, /photos/camera)
+// point at the primary route so search engines pick that one instead of
+// treating the pair as duplicate content and choosing arbitrarily.
+const canonicalURL = new URL(canonical ?? Astro.url.pathname, Astro.site);
 /** Default PNG so Open Graph / Twitter get a raster image (SVG is not reliably supported). */
 const resolvedImage = image || "/og-default.png";
 const ogImageURL = new URL(resolvedImage, Astro.site);

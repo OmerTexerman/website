@@ -1,4 +1,5 @@
 ---
+import { cloudinarySrcSet, cloudinaryUrl } from "../image-utils";
 import RelatedPost from "./RelatedPost.astro";
 
 interface Props {
@@ -32,9 +33,12 @@ const linkProps = wrapsWholeCard ? { href: url, target: "_blank", rel: "noopener
     <div class="book-cover">
       {cover ? (
         <img
-          src={cover}
+          src={cloudinaryUrl(cover, 400)}
+          srcset={cloudinarySrcSet(cover, [200, 300, 400, 600])}
+          sizes="200px"
           alt={`Cover of ${title}`}
           loading="lazy"
+          decoding="async"
           width="200"
           height="300"
           class="book-cover-img"

@@ -1,0 +1,1425 @@
+{
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 9,
+      "moderate": 53,
+      "high": 46,
+      "critical": 2
+    },
+    "dependencies": 638,
+    "devDependencies": 0,
+    "optionalDependencies": 0,
+    "totalDependencies": 638
+  },
+  "advisories": [
+    {
+      "module": "h3",
+      "severity": "moderate",
+      "title": "h3: SSE Event Injection via Unsanitized Carriage Return (`\\r`) in EventStream Data and Comment Fields (Bypass of CVE Fix)",
+      "versions": [
+        "1.15.6"
+      ],
+      "paths": [
+        ".>astro>unstorage>h3"
+      ],
+      "patched": ">=1.15.9",
+      "url": "https://github.com/advisories/GHSA-4hxc-9384-m385"
+    },
+    {
+      "module": "h3",
+      "severity": "moderate",
+      "title": "h3: Double Decoding in `serveStatic` Bypasses `resolveDotSegments` Path Traversal Protection via `%252e%252e`",
+      "versions": [
+        "1.15.6"
+      ],
+      "paths": [
+        ".>astro>unstorage>h3"
+      ],
+      "patched": ">=1.15.9",
+      "url": "https://github.com/advisories/GHSA-72gr-qfp7-vwhw"
+    },
+    {
+      "module": "fast-xml-parser",
+      "severity": "high",
+      "title": "fast-xml-parser affected by numeric entity expansion bypassing all entity expansion limits (incomplete fix for CVE-2026-26278)",
+      "versions": [
+        "5.4.1"
+      ],
+      "paths": [
+        ".>@astrojs/rss>fast-xml-parser"
+      ],
+      "patched": ">=5.5.6",
+      "url": "https://github.com/advisories/GHSA-8gc5-j5rx-235r"
+    },
+    {
+      "module": "smol-toml",
+      "severity": "moderate",
+      "title": "smol-toml: Denial of Service via TOML documents containing thousands of consecutive commented lines",
+      "versions": [
+        "1.6.0"
+      ],
+      "paths": [
+        ".>astro>smol-toml"
+      ],
+      "patched": ">=1.6.1",
+      "url": "https://github.com/advisories/GHSA-v3rj-xjv7-4jmq"
+    },
+    {
+      "module": "@astrojs/vercel",
+      "severity": "moderate",
+      "title": "Astro: Unauthenticated Path Override via `x-astro-path` / `x_astro_path`",
+      "versions": [
+        "10.0.1"
+      ],
+      "paths": [
+        ".>@astrojs/vercel"
+      ],
+      "patched": ">=10.0.2",
+      "url": "https://github.com/advisories/GHSA-mr6q-rp88-fx84"
+    },
+    {
+      "module": "brace-expansion",
+      "severity": "moderate",
+      "title": "brace-expansion: Zero-step sequence causes process hang and memory exhaustion",
+      "versions": [
+        "5.0.4"
+      ],
+      "paths": [
+        ".>@astrojs/vercel>@vercel/nft>glob>minimatch>brace-expansion"
+      ],
+      "patched": ">=5.0.5",
+      "url": "https://github.com/advisories/GHSA-f886-m6hf-6m8v"
+    },
+    {
+      "module": "picomatch",
+      "severity": "moderate",
+      "title": "Picomatch: Method Injection in POSIX Character Classes causes incorrect Glob Matching",
+      "versions": [
+        "2.3.1"
+      ],
+      "paths": [
+        ".>astro>unstorage>anymatch>picomatch"
+      ],
+      "patched": ">=2.3.2",
+      "url": "https://github.com/advisories/GHSA-3v7f-55p6-f55p"
+    },
+    {
+      "module": "picomatch",
+      "severity": "moderate",
+      "title": "Picomatch: Method Injection in POSIX Character Classes causes incorrect Glob Matching",
+      "versions": [
+        "4.0.3"
+      ],
+      "paths": [
+        ".>@astrojs/check>@astrojs/language-server>tinyglobby>picomatch"
+      ],
+      "patched": ">=4.0.4",
+      "url": "https://github.com/advisories/GHSA-3v7f-55p6-f55p"
+    },
+    {
+      "module": "picomatch",
+      "severity": "high",
+      "title": "Picomatch has a ReDoS vulnerability via extglob quantifiers",
+      "versions": [
+        "2.3.1"
+      ],
+      "paths": [
+        ".>astro>unstorage>anymatch>picomatch"
+      ],
+      "patched": ">=2.3.2",
+      "url": "https://github.com/advisories/GHSA-c2c7-rcm5-vvqj"
+    },
+    {
+      "module": "picomatch",
+      "severity": "high",
+      "title": "Picomatch has a ReDoS vulnerability via extglob quantifiers",
+      "versions": [
+        "4.0.3"
+      ],
+      "paths": [
+        ".>@astrojs/check>@astrojs/language-server>tinyglobby>picomatch"
+      ],
+      "patched": ">=4.0.4",
+      "url": "https://github.com/advisories/GHSA-c2c7-rcm5-vvqj"
+    },
+    {
+      "module": "yaml",
+      "severity": "moderate",
+      "title": "yaml is vulnerable to Stack Overflow via deeply nested YAML collections",
+      "versions": [
+        "2.8.2",
+        "2.7.1"
+      ],
+      "paths": [
+        ".>@astrojs/check>@astrojs/language-server>@astrojs/yaml2ts>yaml",
+        ".>@astrojs/check>@astrojs/language-server>volar-service-yaml>yaml-language-server>yaml"
+      ],
+      "patched": ">=2.8.3",
+      "url": "https://github.com/advisories/GHSA-48c2-rrv3-qjmp"
+    },
+    {
+      "module": "happy-dom",
+      "severity": "high",
+      "title": "Happy DOM's fetch credentials include uses page-origin cookies instead of target-origin cookies",
+      "versions": [
+        "20.8.4"
+      ],
+      "paths": [
+        ".>happy-dom"
+      ],
+      "patched": ">=20.8.9",
+      "url": "https://github.com/advisories/GHSA-w4gp-fjgq-3q4g"
+    },
+    {
+      "module": "happy-dom",
+      "severity": "high",
+      "title": "Happy DOM ECMAScriptModuleCompiler: unsanitized export names are interpolated as executable code",
+      "versions": [
+        "20.8.4"
+      ],
+      "paths": [
+        ".>happy-dom"
+      ],
+      "patched": ">=20.8.8",
+      "url": "https://github.com/advisories/GHSA-6q6h-j7hj-3r64"
+    },
+    {
+      "module": "defu",
+      "severity": "high",
+      "title": "defu: Prototype pollution via `__proto__` key in defaults argument",
+      "versions": [
+        "6.1.4"
+      ],
+      "paths": [
+        ".>astro>unstorage>h3>defu"
+      ],
+      "patched": ">=6.1.5",
+      "url": "https://github.com/advisories/GHSA-737v-mqg7-c878"
+    },
+    {
+      "module": "vite",
+      "severity": "moderate",
+      "title": "Vite Vulnerable to Path Traversal in Optimized Deps `.map` Handling",
+      "versions": [
+        "7.3.1"
+      ],
+      "paths": [
+        ".>@tailwindcss/vite>vite"
+      ],
+      "patched": ">=7.3.2",
+      "url": "https://github.com/advisories/GHSA-4w7w-66w2-5vf9"
+    },
+    {
+      "module": "vite",
+      "severity": "high",
+      "title": "Vite: `server.fs.deny` bypassed with queries",
+      "versions": [
+        "7.3.1"
+      ],
+      "paths": [
+        ".>@tailwindcss/vite>vite"
+      ],
+      "patched": ">=7.3.2",
+      "url": "https://github.com/advisories/GHSA-v2wj-q39q-566r"
+    },
+    {
+      "module": "vite",
+      "severity": "high",
+      "title": "Vite Vulnerable to Arbitrary File Read via Vite Dev Server WebSocket",
+      "versions": [
+        "7.3.1"
+      ],
+      "paths": [
+        ".>@tailwindcss/vite>vite"
+      ],
+      "patched": ">=7.3.2",
+      "url": "https://github.com/advisories/GHSA-p9ff-h696-f583"
+    },
+    {
+      "module": "fast-xml-parser",
+      "severity": "moderate",
+      "title": "Entity Expansion Limits Bypassed When Set to Zero Due to JavaScript Falsy Evaluation in fast-xml-parser",
+      "versions": [
+        "5.4.1"
+      ],
+      "paths": [
+        ".>@astrojs/rss>fast-xml-parser"
+      ],
+      "patched": ">=5.5.7",
+      "url": "https://github.com/advisories/GHSA-jp2q-39xq-3w4g"
+    },
+    {
+      "module": "postcss",
+      "severity": "moderate",
+      "title": "PostCSS has XSS via Unescaped </style> in its CSS Stringify Output",
+      "versions": [
+        "8.5.8"
+      ],
+      "paths": [
+        ".>@tailwindcss/vite>vite>postcss"
+      ],
+      "patched": ">=8.5.10",
+      "url": "https://github.com/advisories/GHSA-qx2v-qp2m-jg93"
+    },
+    {
+      "module": "dompurify",
+      "severity": "moderate",
+      "title": "DOMPurify: FORBID_TAGS bypassed by function-based ADD_TAGS predicate (asymmetry with FORBID_ATTR fix)",
+      "versions": [
+        "3.3.3"
+      ],
+      "paths": [
+        ".>posthog-js>dompurify"
+      ],
+      "patched": ">=3.4.0",
+      "url": "https://github.com/advisories/GHSA-h7mw-gpvr-xq4m"
+    },
+    {
+      "module": "dompurify",
+      "severity": "moderate",
+      "title": "DOMPurify has a SAFE_FOR_TEMPLATES bypass in RETURN_DOM mode",
+      "versions": [
+        "3.3.3"
+      ],
+      "paths": [
+        ".>posthog-js>dompurify"
+      ],
+      "patched": ">=3.4.0",
+      "url": "https://github.com/advisories/GHSA-crv5-9vww-q3g8"
+    },
+    {
+      "module": "dompurify",
+      "severity": "moderate",
+      "title": "DOMPurify: Prototype Pollution to XSS Bypass via CUSTOM_ELEMENT_HANDLING Fallback",
+      "versions": [
+        "3.3.3"
+      ],
+      "paths": [
+        ".>posthog-js>dompurify"
+      ],
+      "patched": ">=3.4.0",
+      "url": "https://github.com/advisories/GHSA-v9jr-rg53-9pgp"
+    },
+    {
+      "module": "astro",
+      "severity": "moderate",
+      "title": "Astro: XSS in define:vars via incomplete </script> tag sanitization",
+      "versions": [
+        "6.0.8"
+      ],
+      "paths": [
+        ".>astro"
+      ],
+      "patched": ">=6.1.6",
+      "url": "https://github.com/advisories/GHSA-j687-52p2-xcff"
+    },
+    {
+      "module": "protobufjs",
+      "severity": "critical",
+      "title": "Arbitrary code execution in protobufjs",
+      "versions": [
+        "7.5.4"
+      ],
+      "paths": [
+        ".>posthog-js>@opentelemetry/exporter-logs-otlp-http>@opentelemetry/otlp-transformer>protobufjs"
+      ],
+      "patched": ">=7.5.5",
+      "url": "https://github.com/advisories/GHSA-xq3m-2v4x-88gg"
+    },
+    {
+      "module": "fast-xml-parser",
+      "severity": "moderate",
+      "title": "fast-xml-parser XMLBuilder: XML Comment and CDATA Injection via Unescaped Delimiters",
+      "versions": [
+        "5.4.1"
+      ],
+      "paths": [
+        ".>@astrojs/rss>fast-xml-parser"
+      ],
+      "patched": ">=5.7.0",
+      "url": "https://github.com/advisories/GHSA-gh4j-gqv2-49f6"
+    },
+    {
+      "module": "protobufjs",
+      "severity": "high",
+      "title": "protobuf.js: Code injection through bytes field defaults in generated toObject code",
+      "versions": [
+        "7.5.4"
+      ],
+      "paths": [
+        ".>posthog-js>@opentelemetry/exporter-logs-otlp-http>@opentelemetry/otlp-transformer>protobufjs"
+      ],
+      "patched": ">=7.5.6",
+      "url": "https://github.com/advisories/GHSA-66ff-xgx4-vchm"
+    },
+    {
+      "module": "astro",
+      "severity": "low",
+      "title": "Astro: Server island encrypted parameters vulnerable to cross-component replay",
+      "versions": [
+        "6.0.8"
+      ],
+      "paths": [
+        ".>astro"
+      ],
+      "patched": ">=6.1.10",
+      "url": "https://github.com/advisories/GHSA-xr5h-phrj-8vxv"
+    },
+    {
+      "module": "protobufjs",
+      "severity": "moderate",
+      "title": "protobuf.js: Denial of service from crafted field names in generated code",
+      "versions": [
+        "7.5.4"
+      ],
+      "paths": [
+        ".>posthog-js>@opentelemetry/exporter-logs-otlp-http>@opentelemetry/otlp-transformer>protobufjs"
+      ],
+      "patched": ">=7.5.6",
+      "url": "https://github.com/advisories/GHSA-2pr8-phx7-x9h3"
+    },
+    {
+      "module": "protobufjs",
+      "severity": "moderate",
+      "title": "protobuf.js: Prototype injection in generated message constructors",
+      "versions": [
+        "7.5.4"
+      ],
+      "paths": [
+        ".>posthog-js>@opentelemetry/exporter-logs-otlp-http>@opentelemetry/otlp-transformer>protobufjs"
+      ],
+      "patched": ">=7.5.6",
+      "url": "https://github.com/advisories/GHSA-fx83-v9x8-x52w"
+    },
+    {
+      "module": "protobufjs",
+      "severity": "high",
+      "title": "protobuf.js: Code generation gadget after prototype pollution",
+      "versions": [
+        "7.5.4"
+      ],
+      "paths": [
+        ".>posthog-js>@opentelemetry/exporter-logs-otlp-http>@opentelemetry/otlp-transformer>protobufjs"
+      ],
+      "patched": ">=7.5.6",
+      "url": "https://github.com/advisories/GHSA-75px-5xx7-5xc7"
+    },
+    {
+      "module": "protobufjs",
+      "severity": "high",
+      "title": "protobuf.js: Process-wide denial of service through unsafe option paths",
+      "versions": [
+        "7.5.4"
+      ],
+      "paths": [
+        ".>posthog-js>@opentelemetry/exporter-logs-otlp-http>@opentelemetry/otlp-transformer>protobufjs"
+      ],
+      "patched": ">=7.5.6",
+      "url": "https://github.com/advisories/GHSA-jvwf-75h9-cwgg"
+    },
+    {
+      "module": "protobufjs",
+      "severity": "high",
+      "title": "protobuf.js: Denial of service through unbounded protobuf recursion",
+      "versions": [
+        "7.5.4"
+      ],
+      "paths": [
+        ".>posthog-js>@opentelemetry/exporter-logs-otlp-http>@opentelemetry/otlp-transformer>protobufjs"
+      ],
+      "patched": ">=7.5.6",
+      "url": "https://github.com/advisories/GHSA-685m-2w69-288q"
+    },
+    {
+      "module": "@protobufjs/utf8",
+      "severity": "moderate",
+      "title": "protobufjs has overlong UTF-8 decoding",
+      "versions": [
+        "1.1.0"
+      ],
+      "paths": [
+        ".>posthog-js>@opentelemetry/exporter-logs-otlp-http>@opentelemetry/otlp-transformer>protobufjs>@protobufjs/utf8"
+      ],
+      "patched": ">=1.1.1",
+      "url": "https://github.com/advisories/GHSA-q6x5-8v7m-xcrf"
+    },
+    {
+      "module": "protobufjs",
+      "severity": "moderate",
+      "title": "protobufjs has overlong UTF-8 decoding",
+      "versions": [
+        "7.5.4"
+      ],
+      "paths": [
+        ".>posthog-js>@opentelemetry/exporter-logs-otlp-http>@opentelemetry/otlp-transformer>protobufjs"
+      ],
+      "patched": ">=7.5.6",
+      "url": "https://github.com/advisories/GHSA-q6x5-8v7m-xcrf"
+    },
+    {
+      "module": "fast-xml-builder",
+      "severity": "high",
+      "title": "fast-xml-builder allows attribute values with unwanted quotes to bypass malicious or unwanted attributes",
+      "versions": [
+        "1.1.4"
+      ],
+      "paths": [
+        ".>@astrojs/rss>fast-xml-parser>fast-xml-builder"
+      ],
+      "patched": ">=1.1.7",
+      "url": "https://github.com/advisories/GHSA-5wm8-gmm8-39j9"
+    },
+    {
+      "module": "ws",
+      "severity": "moderate",
+      "title": "ws: Uninitialized memory disclosure",
+      "versions": [
+        "8.20.0"
+      ],
+      "paths": [
+        ".>happy-dom>ws"
+      ],
+      "patched": ">=8.20.1",
+      "url": "https://github.com/advisories/GHSA-58qx-3vcg-4xpx"
+    },
+    {
+      "module": "protobufjs",
+      "severity": "moderate",
+      "title": "protobufjs: Denial of Service via unbounded recursive JSON descriptor expansion",
+      "versions": [
+        "7.5.4"
+      ],
+      "paths": [
+        ".>posthog-js>@opentelemetry/exporter-logs-otlp-http>@opentelemetry/otlp-transformer>protobufjs"
+      ],
+      "patched": ">=7.5.8",
+      "url": "https://github.com/advisories/GHSA-jggg-4jg4-v7c6"
+    },
+    {
+      "module": "brace-expansion",
+      "severity": "moderate",
+      "title": "brace-expansion: Large numeric range defeats documented `max` DoS protection",
+      "versions": [
+        "5.0.4"
+      ],
+      "paths": [
+        ".>@astrojs/vercel>@vercel/nft>glob>minimatch>brace-expansion"
+      ],
+      "patched": ">=5.0.6",
+      "url": "https://github.com/advisories/GHSA-jxxr-4gwj-5jf2"
+    },
+    {
+      "module": "devalue",
+      "severity": "high",
+      "title": "Svelte devalue: DoS via sparse array deserialization",
+      "versions": [
+        "5.6.4"
+      ],
+      "paths": [
+        ".>astro>devalue"
+      ],
+      "patched": ">=5.8.1",
+      "url": "https://github.com/advisories/GHSA-77vg-94rm-hx3p"
+    },
+    {
+      "module": "esbuild",
+      "severity": "low",
+      "title": "esbuild allows arbitrary file read when running the development server on Windows",
+      "versions": [
+        "0.27.4"
+      ],
+      "paths": [
+        ".>@tailwindcss/vite>vite>esbuild"
+      ],
+      "patched": ">=0.28.1",
+      "url": "https://github.com/advisories/GHSA-g7r4-m6w7-qqqr"
+    },
+    {
+      "module": "tar",
+      "severity": "moderate",
+      "title": "node-tar applies PAX size override to intermediary GNU long-name/long-link headers, causing tar parser interpretation differential (file smuggling)",
+      "versions": [
+        "7.5.11"
+      ],
+      "paths": [
+        ".>@astrojs/vercel>@vercel/nft>@mapbox/node-pre-gyp>tar"
+      ],
+      "patched": ">=7.5.16",
+      "url": "https://github.com/advisories/GHSA-vmf3-w455-68vh"
+    },
+    {
+      "module": "vite",
+      "severity": "moderate",
+      "title": "launch-editor: NTLMv2 hash disclosure via UNC path handling on Windows",
+      "versions": [
+        "7.3.1"
+      ],
+      "paths": [
+        ".>@tailwindcss/vite>vite"
+      ],
+      "patched": ">=7.3.5",
+      "url": "https://github.com/advisories/GHSA-v6wh-96g9-6wx3"
+    },
+    {
+      "module": "dompurify",
+      "severity": "moderate",
+      "title": "DOMPurify: Cross-realm IN_PLACE sanitization leaves executable markup intact via realm-bound `instanceof` checks",
+      "versions": [
+        "3.3.3"
+      ],
+      "paths": [
+        ".>posthog-js>dompurify"
+      ],
+      "patched": ">=3.4.6",
+      "url": "https://github.com/advisories/GHSA-hpcv-96wg-7vj8"
+    },
+    {
+      "module": "dompurify",
+      "severity": "moderate",
+      "title": "DOMPurify: IN_PLACE mode preserves attributes of a clobbered root element, allowing XSS via attacker-controlled root DOM",
+      "versions": [
+        "3.3.3"
+      ],
+      "paths": [
+        ".>posthog-js>dompurify"
+      ],
+      "patched": ">=3.4.6",
+      "url": "https://github.com/advisories/GHSA-r47g-fvhr-h676"
+    },
+    {
+      "module": "dompurify",
+      "severity": "moderate",
+      "title": "DOMPurify IN_PLACE Sanitization Bypass via Attached Shadow Root Inside <template>.content",
+      "versions": [
+        "3.3.3"
+      ],
+      "paths": [
+        ".>posthog-js>dompurify"
+      ],
+      "patched": ">=3.4.7",
+      "url": "https://github.com/advisories/GHSA-rp9w-3fw7-7cwq"
+    },
+    {
+      "module": "undici",
+      "severity": "high",
+      "title": "undici vulnerable to TLS certificate validation bypass via dropped requestTls in SOCKS5 ProxyAgent",
+      "versions": [
+        "7.24.4"
+      ],
+      "paths": [
+        ".>astro-icon>@iconify/tools>cheerio>undici"
+      ],
+      "patched": ">=7.28.0",
+      "url": "https://github.com/advisories/GHSA-vmh5-mc38-953g"
+    },
+    {
+      "module": "undici",
+      "severity": "moderate",
+      "title": "undici vulnerable to HTTP header injection via Set-Cookie percent-decoding",
+      "versions": [
+        "7.24.4"
+      ],
+      "paths": [
+        ".>astro-icon>@iconify/tools>cheerio>undici"
+      ],
+      "patched": ">=7.28.0",
+      "url": "https://github.com/advisories/GHSA-p88m-4jfj-68fv"
+    },
+    {
+      "module": "undici",
+      "severity": "high",
+      "title": "undici WebSocket client vulnerable to denial of service via fragment count bypass",
+      "versions": [
+        "7.24.4"
+      ],
+      "paths": [
+        ".>astro-icon>@iconify/tools>cheerio>undici"
+      ],
+      "patched": ">=7.28.0",
+      "url": "https://github.com/advisories/GHSA-vxpw-j846-p89q"
+    },
+    {
+      "module": "undici",
+      "severity": "high",
+      "title": "undici vulnerable to cross-origin request routing via SOCKS5 proxy pool reuse",
+      "versions": [
+        "7.24.4"
+      ],
+      "paths": [
+        ".>astro-icon>@iconify/tools>cheerio>undici"
+      ],
+      "patched": ">=7.28.0",
+      "url": "https://github.com/advisories/GHSA-hm92-r4w5-c3mj"
+    },
+    {
+      "module": "undici",
+      "severity": "low",
+      "title": "undici vulnerable to Set-Cookie SameSite attribute downgrade via permissive substring matching",
+      "versions": [
+        "7.24.4"
+      ],
+      "paths": [
+        ".>astro-icon>@iconify/tools>cheerio>undici"
+      ],
+      "patched": ">=7.28.0",
+      "url": "https://github.com/advisories/GHSA-g8m3-5g58-fq7m"
+    },
+    {
+      "module": "undici",
+      "severity": "moderate",
+      "title": "undici vulnerable to cross-user information disclosure via shared cache whitespace bypass",
+      "versions": [
+        "7.24.4"
+      ],
+      "paths": [
+        ".>astro-icon>@iconify/tools>cheerio>undici"
+      ],
+      "patched": ">=7.28.0",
+      "url": "https://github.com/advisories/GHSA-pr7r-676h-xcf6"
+    },
+    {
+      "module": "js-yaml",
+      "severity": "moderate",
+      "title": "JS-YAML: Quadratic-complexity DoS in merge key handling via repeated aliases",
+      "versions": [
+        "4.1.1"
+      ],
+      "paths": [
+        ".>astro>js-yaml"
+      ],
+      "patched": ">=4.2.0",
+      "url": "https://github.com/advisories/GHSA-h67p-54hq-rp68"
+    },
+    {
+      "module": "ws",
+      "severity": "high",
+      "title": "ws: Memory exhaustion DoS from tiny fragments and data chunks",
+      "versions": [
+        "8.20.0"
+      ],
+      "paths": [
+        ".>happy-dom>ws"
+      ],
+      "patched": ">=8.21.0",
+      "url": "https://github.com/advisories/GHSA-96hv-2xvq-fx4p"
+    },
+    {
+      "module": "protobufjs",
+      "severity": "high",
+      "title": "protobufjs: Denial of service through unbounded Any expansion during JSON conversion",
+      "versions": [
+        "7.5.4"
+      ],
+      "paths": [
+        ".>posthog-js>@opentelemetry/exporter-logs-otlp-http>@opentelemetry/otlp-transformer>protobufjs"
+      ],
+      "patched": ">=7.6.1",
+      "url": "https://github.com/advisories/GHSA-wcpc-wj8m-hjx6"
+    },
+    {
+      "module": "protobufjs",
+      "severity": "moderate",
+      "title": "protobufjs : Schema-derived names can shadow runtime-significant properties",
+      "versions": [
+        "7.5.4"
+      ],
+      "paths": [
+        ".>posthog-js>@opentelemetry/exporter-logs-otlp-http>@opentelemetry/otlp-transformer>protobufjs"
+      ],
+      "patched": ">=7.6.3",
+      "url": "https://github.com/advisories/GHSA-f38q-mgvj-vph7"
+    },
+    {
+      "module": "vite",
+      "severity": "high",
+      "title": "vite: `server.fs.deny` bypass on Windows alternate paths",
+      "versions": [
+        "7.3.1"
+      ],
+      "paths": [
+        ".>@tailwindcss/vite>vite"
+      ],
+      "patched": ">=7.3.5",
+      "url": "https://github.com/advisories/GHSA-fx2h-pf6j-xcff"
+    },
+    {
+      "module": "astro",
+      "severity": "moderate",
+      "title": "Astro: XSS via Unescaped Attribute Names in Spread Props",
+      "versions": [
+        "6.0.8"
+      ],
+      "paths": [
+        ".>astro"
+      ],
+      "patched": ">=6.4.6",
+      "url": "https://github.com/advisories/GHSA-jrpj-wcv7-9fh9"
+    },
+    {
+      "module": "brace-expansion",
+      "severity": "high",
+      "title": "brace-expansion: DoS via exponential-time expansion of consecutive non-expanding {} groups",
+      "versions": [
+        "5.0.4"
+      ],
+      "paths": [
+        ".>@astrojs/vercel>@vercel/nft>glob>minimatch>brace-expansion"
+      ],
+      "patched": ">=5.0.7",
+      "url": "https://github.com/advisories/GHSA-3jxr-9vmj-r5cp"
+    },
+    {
+      "module": "js-yaml",
+      "severity": "high",
+      "title": "js-yaml: YAML merge-key chains can force quadratic CPU consumption",
+      "versions": [
+        "4.1.1"
+      ],
+      "paths": [
+        ".>astro>js-yaml"
+      ],
+      "patched": ">=4.3.0",
+      "url": "https://github.com/advisories/GHSA-52cp-r559-cp3m"
+    },
+    {
+      "module": "tar",
+      "severity": "moderate",
+      "title": "node-tar: Process crash via PAX numeric path type confusion",
+      "versions": [
+        "7.5.11"
+      ],
+      "paths": [
+        ".>@astrojs/vercel>@vercel/nft>@mapbox/node-pre-gyp>tar"
+      ],
+      "patched": ">=7.5.18",
+      "url": "https://github.com/advisories/GHSA-w8wr-v893-vjvp"
+    },
+    {
+      "module": "tar",
+      "severity": "critical",
+      "title": "node-tar: Decompression/parse DoS via unlimited input",
+      "versions": [
+        "7.5.11"
+      ],
+      "paths": [
+        ".>@astrojs/vercel>@vercel/nft>@mapbox/node-pre-gyp>tar"
+      ],
+      "patched": ">=7.5.19",
+      "url": "https://github.com/advisories/GHSA-23hp-3jrh-7fpw"
+    },
+    {
+      "module": "tar",
+      "severity": "high",
+      "title": "node-tar: Negative tar entry size causes infinite loop in archive replace",
+      "versions": [
+        "7.5.11"
+      ],
+      "paths": [
+        ".>@astrojs/vercel>@vercel/nft>@mapbox/node-pre-gyp>tar"
+      ],
+      "patched": ">=7.5.18",
+      "url": "https://github.com/advisories/GHSA-8x88-c5mf-7j5w"
+    },
+    {
+      "module": "tar",
+      "severity": "moderate",
+      "title": "node-tar: Uncaught Exception DoS via NUL byte in PAX path/linkpath records",
+      "versions": [
+        "7.5.11"
+      ],
+      "paths": [
+        ".>@astrojs/vercel>@vercel/nft>@mapbox/node-pre-gyp>tar"
+      ],
+      "patched": ">=7.5.17",
+      "url": "https://github.com/advisories/GHSA-gvwx-54wh-qm9j"
+    },
+    {
+      "module": "protobufjs",
+      "severity": "moderate",
+      "title": "protobufjs: Denial of Service via infinite loop in .proto option parsing",
+      "versions": [
+        "7.5.4"
+      ],
+      "paths": [
+        ".>posthog-js>@opentelemetry/exporter-logs-otlp-http>@opentelemetry/otlp-transformer>protobufjs"
+      ],
+      "patched": ">=7.6.5",
+      "url": "https://github.com/advisories/GHSA-j3f2-48v5-ccww"
+    },
+    {
+      "module": "dompurify",
+      "severity": "low",
+      "title": "DOMPurify: `CUSTOM_ELEMENT_HANDLING` bypasses `afterSanitizeElements` for allowed custom elements.",
+      "versions": [
+        "3.3.3"
+      ],
+      "paths": [
+        ".>posthog-js>dompurify"
+      ],
+      "patched": ">=3.4.12",
+      "url": "https://github.com/advisories/GHSA-c2j3-45gr-mqc4"
+    },
+    {
+      "module": "fast-uri",
+      "severity": "high",
+      "title": "fast-uri vulnerable to host confusion via literal backslash authority delimiter",
+      "versions": [
+        "3.1.0"
+      ],
+      "paths": [
+        ".>@astrojs/check>@astrojs/language-server>volar-service-yaml>yaml-language-server>ajv>fast-uri"
+      ],
+      "patched": ">=3.1.4",
+      "url": "https://github.com/advisories/GHSA-v2hh-gcrm-f6hx"
+    },
+    {
+      "module": "sharp",
+      "severity": "high",
+      "title": "sharp inherited vulnerabilities in libvips: CVE-2026-33327, CVE-2026-33328, CVE-2026-35590, CVE-2026-35591",
+      "versions": [
+        "0.34.5"
+      ],
+      "paths": [
+        ".>astro>sharp"
+      ],
+      "patched": ">=0.35.0",
+      "url": "https://github.com/advisories/GHSA-f88m-g3jw-g9cj"
+    },
+    {
+      "module": "dompurify",
+      "severity": "moderate",
+      "title": "DOMPurify: Permanent `ALLOWED_ATTR` pollution via `setConfig()` bypassing the hook clone-guard (incomplete fix of the 3.4.7 hook-pollution patch)",
+      "versions": [
+        "3.3.3"
+      ],
+      "paths": [
+        ".>posthog-js>dompurify"
+      ],
+      "patched": ">=3.4.11",
+      "url": "https://github.com/advisories/GHSA-cmwh-pvxp-8882"
+    },
+    {
+      "module": "dompurify",
+      "severity": "low",
+      "title": "DOMPurify: Trusted Types policy survives `clearConfig()` and can poison later `RETURN_TRUSTED_TYPE` output",
+      "versions": [
+        "3.3.3"
+      ],
+      "paths": [
+        ".>posthog-js>dompurify"
+      ],
+      "patched": ">=3.4.9",
+      "url": "https://github.com/advisories/GHSA-vxr8-fq34-vvx9"
+    },
+    {
+      "module": "dompurify",
+      "severity": "low",
+      "title": "DOMPurify: SAFE_FOR_TEMPLATES bypass - template expressions survive sanitization inside <template> content when using DOM output modes",
+      "versions": [
+        "3.3.3"
+      ],
+      "paths": [
+        ".>posthog-js>dompurify"
+      ],
+      "patched": ">=3.4.8",
+      "url": "https://github.com/advisories/GHSA-gvmj-g25r-r7wr"
+    },
+    {
+      "module": "dompurify",
+      "severity": "low",
+      "title": "DOMPurify: `IN_PLACE` mode trusts attacker-controlled `nodeName` on live non-form nodes, allowing script retention and XSS via attacker-supplied DOM objects",
+      "versions": [
+        "3.3.3"
+      ],
+      "paths": [
+        ".>posthog-js>dompurify"
+      ],
+      "patched": "<0.0.0",
+      "url": "https://github.com/advisories/GHSA-x4vx-rjvf-j5p4"
+    },
+    {
+      "module": "dompurify",
+      "severity": "moderate",
+      "title": "DOMPurify: Hook mutation of `data.allowedTags` / `data.allowedAttributes` permanently pollutes `DEFAULT_ALLOWED_TAGS` / `DEFAULT_ALLOWED_ATTR`",
+      "versions": [
+        "3.3.3"
+      ],
+      "paths": [
+        ".>posthog-js>dompurify"
+      ],
+      "patched": ">=3.4.7",
+      "url": "https://github.com/advisories/GHSA-76mc-f452-cxcm"
+    },
+    {
+      "module": "dompurify",
+      "severity": "moderate",
+      "title": "DOMPurify's ADD_TAGS function form bypasses FORBID_TAGS due to short-circuit evaluation",
+      "versions": [
+        "3.3.3"
+      ],
+      "paths": [
+        ".>posthog-js>dompurify"
+      ],
+      "patched": ">=3.4.0",
+      "url": "https://github.com/advisories/GHSA-39q2-94rc-95cp"
+    },
+    {
+      "module": "postcss",
+      "severity": "high",
+      "title": "PostCSS: Arbitrary file read and information disclosure via attacker-controlled sourceMappingURL in CSS comments",
+      "versions": [
+        "8.5.8"
+      ],
+      "paths": [
+        ".>@tailwindcss/vite>vite>postcss"
+      ],
+      "patched": ">=8.5.12",
+      "url": "https://github.com/advisories/GHSA-6g55-p6wh-862q"
+    },
+    {
+      "module": "brace-expansion",
+      "severity": "high",
+      "title": "brace-expansion: DoS via unbounded expansion length causing an out-of-memory process crash",
+      "versions": [
+        "5.0.4"
+      ],
+      "paths": [
+        ".>@astrojs/vercel>@vercel/nft>glob>minimatch>brace-expansion"
+      ],
+      "patched": ">=5.0.8",
+      "url": "https://github.com/advisories/GHSA-mh99-v99m-4gvg"
+    },
+    {
+      "module": "postcss",
+      "severity": "moderate",
+      "title": "PostCSS: incomplete fix of GHSA-6g55-p6wh-862q — attacker-controlled sourceMappingURL reads arbitrary .map files when `from` is unset",
+      "versions": [
+        "8.5.8"
+      ],
+      "paths": [
+        ".>@tailwindcss/vite>vite>postcss"
+      ],
+      "patched": ">=8.5.23",
+      "url": "https://github.com/advisories/GHSA-fxqj-rqcc-2cmp"
+    },
+    {
+      "module": "undici",
+      "severity": "moderate",
+      "title": "undici vulnerable to downstream response desynchronization via retry interceptor",
+      "versions": [
+        "7.24.4"
+      ],
+      "paths": [
+        ".>astro-icon>@iconify/tools>cheerio>undici"
+      ],
+      "patched": ">=7.29.0",
+      "url": "https://github.com/advisories/GHSA-8xcm-r25x-g524"
+    },
+    {
+      "module": "undici",
+      "severity": "high",
+      "title": "undici vulnerable to cross-user information disclosure and parse-time crash via degenerate private cache directives",
+      "versions": [
+        "7.24.4"
+      ],
+      "paths": [
+        ".>astro-icon>@iconify/tools>cheerio>undici"
+      ],
+      "patched": ">=7.29.0",
+      "url": "https://github.com/advisories/GHSA-4cwx-7wf7-3272"
+    },
+    {
+      "module": "fast-uri",
+      "severity": "high",
+      "title": "fast-uri vulnerable to host confusion via backslash authority introducer",
+      "versions": [
+        "3.1.0"
+      ],
+      "paths": [
+        ".>@astrojs/check>@astrojs/language-server>volar-service-yaml>yaml-language-server>ajv>fast-uri"
+      ],
+      "patched": ">=3.1.5",
+      "url": "https://github.com/advisories/GHSA-7p8r-x3mc-p8w7"
+    },
+    {
+      "module": "undici",
+      "severity": "moderate",
+      "title": "undici vulnerable to CRLF Injection via blob-like body 'type' property",
+      "versions": [
+        "7.24.4"
+      ],
+      "paths": [
+        ".>astro-icon>@iconify/tools>cheerio>undici"
+      ],
+      "patched": ">=7.29.0",
+      "url": "https://github.com/advisories/GHSA-m8rv-5g2x-5cg5"
+    },
+    {
+      "module": "undici",
+      "severity": "moderate",
+      "title": "undici vulnerable to cross-user information disclosure via whitespace around equals in Cache-Control directives",
+      "versions": [
+        "7.24.4"
+      ],
+      "paths": [
+        ".>astro-icon>@iconify/tools>cheerio>undici"
+      ],
+      "patched": ">=7.29.0",
+      "url": "https://github.com/advisories/GHSA-jr45-8vmc-qm54"
+    },
+    {
+      "module": "undici",
+      "severity": "moderate",
+      "title": "undici vulnerable to cookie attribute injection via unsanitized domain and unparsed setCookie fields",
+      "versions": [
+        "7.24.4"
+      ],
+      "paths": [
+        ".>astro-icon>@iconify/tools>cheerio>undici"
+      ],
+      "patched": ">=7.29.0",
+      "url": "https://github.com/advisories/GHSA-v3r7-h72x-cjcm"
+    },
+    {
+      "module": "brace-expansion",
+      "severity": "high",
+      "title": "brace-expansion: DoS via unbounded intermediate arrays, bypassing the CVE-2026-14257 mitigation",
+      "versions": [
+        "5.0.4"
+      ],
+      "paths": [
+        ".>@astrojs/vercel>@vercel/nft>glob>minimatch>brace-expansion"
+      ],
+      "patched": ">=5.0.9",
+      "url": "https://github.com/advisories/GHSA-rgw5-rvv9-x895"
+    },
+    {
+      "module": "undici",
+      "severity": "low",
+      "title": "undici vulnerable to HTTP response queue poisoning via keep-alive socket reuse",
+      "versions": [
+        "7.24.4"
+      ],
+      "paths": [
+        ".>astro-icon>@iconify/tools>cheerio>undici"
+      ],
+      "patched": ">=7.28.0",
+      "url": "https://github.com/advisories/GHSA-35p6-xmwp-9g52"
+    },
+    {
+      "module": "js-yaml",
+      "severity": "high",
+      "title": "JS-YAML: Quadratic CPU consumption in !!omap resolution (3.x and 4.x) — CVE-2026-59870 fix not backported",
+      "versions": [
+        "4.1.1"
+      ],
+      "paths": [
+        ".>astro>js-yaml"
+      ],
+      "patched": ">=4.3.1",
+      "url": "https://github.com/advisories/GHSA-5p4m-2wfm-xmqj"
+    },
+    {
+      "module": "dompurify",
+      "severity": "moderate",
+      "title": "DOMPurify: IN_PLACE hook removal leaves a detached subtree executable, causing XSS",
+      "versions": [
+        "3.3.3"
+      ],
+      "paths": [
+        ".>posthog-js>dompurify"
+      ],
+      "patched": ">=3.4.13",
+      "url": "https://github.com/advisories/GHSA-55q2-fjhq-7xh7"
+    },
+    {
+      "module": "nanoid",
+      "severity": "high",
+      "title": "nanoid: non-secure generators can loop indefinitely with negative size",
+      "versions": [
+        "3.3.11"
+      ],
+      "paths": [
+        ".>@tailwindcss/vite>vite>postcss>nanoid"
+      ],
+      "patched": ">=3.3.16",
+      "url": "https://github.com/advisories/GHSA-28wg-ghj8-5hjv"
+    },
+    {
+      "module": "extract-zip",
+      "severity": "high",
+      "title": "extract-zip unvalidated symlink path traversal",
+      "versions": [
+        "2.0.1"
+      ],
+      "paths": [
+        ".>astro-icon>@iconify/tools>extract-zip"
+      ],
+      "patched": "<0.0.0",
+      "url": "https://github.com/advisories/GHSA-jmr9-qjv8-65gv"
+    },
+    {
+      "module": "astro",
+      "severity": "moderate",
+      "title": "Astro: XSS via unescaped spread attribute names in renderHTMLElement (incomplete fix for CVE-2026-54298)",
+      "versions": [
+        "6.0.8"
+      ],
+      "paths": [
+        ".>astro"
+      ],
+      "patched": ">=7.0.6",
+      "url": "https://github.com/advisories/GHSA-f48w-9m4c-m7f5"
+    },
+    {
+      "module": "@astrojs/rss",
+      "severity": "moderate",
+      "title": "@astrojs/rss: XML Injection via Unescaped RSS Feed Fields",
+      "versions": [
+        "4.0.17"
+      ],
+      "paths": [
+        ".>@astrojs/rss"
+      ],
+      "patched": ">=4.0.19",
+      "url": "https://github.com/advisories/GHSA-8j5q-mfj2-5q9q"
+    },
+    {
+      "module": "astro",
+      "severity": "low",
+      "title": "Astro: Cross-site scripting via unescaped transition:* directive values on hydrated islands",
+      "versions": [
+        "6.0.8"
+      ],
+      "paths": [
+        ".>astro"
+      ],
+      "patched": ">=7.0.4",
+      "url": "https://github.com/advisories/GHSA-7pw4-f3q4-r2p2"
+    },
+    {
+      "module": "astro",
+      "severity": "moderate",
+      "title": "Astro: Reflected XSS via unescaped View Transition animation properties",
+      "versions": [
+        "6.0.8"
+      ],
+      "paths": [
+        ".>astro"
+      ],
+      "patched": ">=7.1.0",
+      "url": "https://github.com/advisories/GHSA-4g3v-8h47-v7g6"
+    },
+    {
+      "module": "astro",
+      "severity": "high",
+      "title": "Astro: Host header SSRF in prerendered error page fetch",
+      "versions": [
+        "6.0.8"
+      ],
+      "paths": [
+        ".>astro"
+      ],
+      "patched": ">=6.4.6",
+      "url": "https://github.com/advisories/GHSA-2pvr-wf23-7pc7"
+    },
+    {
+      "module": "astro",
+      "severity": "high",
+      "title": "Astro: Reflected XSS via unescaped slot name",
+      "versions": [
+        "6.0.8"
+      ],
+      "paths": [
+        ".>astro"
+      ],
+      "patched": ">=6.3.3",
+      "url": "https://github.com/advisories/GHSA-8hv8-536x-4wqp"
+    },
+    {
+      "module": "nanoid",
+      "severity": "high",
+      "title": "nanoid: custom generators can loop indefinitely when size is zero",
+      "versions": [
+        "3.3.11"
+      ],
+      "paths": [
+        ".>@tailwindcss/vite>vite>postcss>nanoid"
+      ],
+      "patched": ">=3.3.18",
+      "url": "https://github.com/advisories/GHSA-2v37-7h3g-55p8"
+    },
+    {
+      "module": "postcss",
+      "severity": "high",
+      "title": "PostCSS: Path Traversal in Previous Source Map Auto-Loading (sourceMappingURL) leads to Arbitrary .map File Disclosure",
+      "versions": [
+        "8.5.8"
+      ],
+      "paths": [
+        ".>@tailwindcss/vite>vite>postcss"
+      ],
+      "patched": ">=8.5.18",
+      "url": "https://github.com/advisories/GHSA-r28c-9q8g-f849"
+    },
+    {
+      "module": "svgo",
+      "severity": "high",
+      "title": "SVGO removeScripts plugin leaves some executable scripts intact",
+      "versions": [
+        "4.0.1"
+      ],
+      "paths": [
+        ".>astro>svgo"
+      ],
+      "patched": ">=4.0.2",
+      "url": "https://github.com/advisories/GHSA-2p49-hgcm-8545"
+    },
+    {
+      "module": "svgo",
+      "severity": "high",
+      "title": "SVGO removeScripts plugin leaves some executable scripts intact",
+      "versions": [
+        "3.3.3"
+      ],
+      "paths": [
+        ".>astro-icon>@iconify/tools>svgo"
+      ],
+      "patched": ">=3.3.4",
+      "url": "https://github.com/advisories/GHSA-2p49-hgcm-8545"
+    },
+    {
+      "module": "fast-uri",
+      "severity": "high",
+      "title": "fast-uri vulnerable to path traversal via percent-encoded dot segments",
+      "versions": [
+        "3.1.0"
+      ],
+      "paths": [
+        ".>@astrojs/check>@astrojs/language-server>volar-service-yaml>yaml-language-server>ajv>fast-uri"
+      ],
+      "patched": ">=3.1.1",
+      "url": "https://github.com/advisories/GHSA-q3j6-qgpj-74h6"
+    },
+    {
+      "module": "tar",
+      "severity": "high",
+      "title": "node-tar: Uncontrolled recursion in mapHas/filesFilter allows uncatchable stack-overflow DoS via crafted long-path tar with member selection",
+      "versions": [
+        "7.5.11"
+      ],
+      "paths": [
+        ".>@astrojs/vercel>@vercel/nft>@mapbox/node-pre-gyp>tar"
+      ],
+      "patched": ">=7.5.21",
+      "url": "https://github.com/advisories/GHSA-r292-9mhp-454m"
+    },
+    {
+      "module": "fast-uri",
+      "severity": "high",
+      "title": "fast-uri vulnerable to host confusion via percent-encoded authority delimiters",
+      "versions": [
+        "3.1.0"
+      ],
+      "paths": [
+        ".>@astrojs/check>@astrojs/language-server>volar-service-yaml>yaml-language-server>ajv>fast-uri"
+      ],
+      "patched": ">=3.1.2",
+      "url": "https://github.com/advisories/GHSA-v39h-62p7-jpjc"
+    },
+    {
+      "module": "@opentelemetry/core",
+      "severity": "moderate",
+      "title": "OpenTelemetry Core: Unbounded memory allocation in W3C Baggage propagation",
+      "versions": [
+        "2.2.0",
+        "2.6.0"
+      ],
+      "paths": [
+        ".>posthog-js>@opentelemetry/exporter-logs-otlp-http>@opentelemetry/core",
+        ".>posthog-js>@opentelemetry/resources>@opentelemetry/core"
+      ],
+      "patched": ">=2.8.0",
+      "url": "https://github.com/advisories/GHSA-8988-4f7v-96qf"
+    },
+    {
+      "module": "nanoid",
+      "severity": "high",
+      "title": "nanoid: Integer Overflow or Wraparound",
+      "versions": [
+        "3.3.11"
+      ],
+      "paths": [
+        ".>@tailwindcss/vite>vite>postcss>nanoid"
+      ],
+      "patched": ">=3.3.12",
+      "url": "https://github.com/advisories/GHSA-xwg4-73v4-xw9w"
+    },
+    {
+      "module": "fast-uri",
+      "severity": "high",
+      "title": "fast-uri vulnerable to server-side request forgery via malformed IPv6 normalization",
+      "versions": [
+        "3.1.0"
+      ],
+      "paths": [
+        ".>@astrojs/check>@astrojs/language-server>volar-service-yaml>yaml-language-server>ajv>fast-uri"
+      ],
+      "patched": ">=3.1.6",
+      "url": "https://github.com/advisories/GHSA-f65p-4m7j-42xc"
+    },
+    {
+      "module": "fast-uri",
+      "severity": "high",
+      "title": "fast-uri vulnerable to host confusion via percent-encoded scheme normalization",
+      "versions": [
+        "3.1.0"
+      ],
+      "paths": [
+        ".>@astrojs/check>@astrojs/language-server>volar-service-yaml>yaml-language-server>ajv>fast-uri"
+      ],
+      "patched": ">=3.1.6",
+      "url": "https://github.com/advisories/GHSA-jqff-g426-hqxp"
+    },
+    {
+      "module": "fflate",
+      "severity": "moderate",
+      "title": "fflate unzipSync can enter an infinite loop when parsing malformed ZIP64 archives",
+      "versions": [
+        "0.8.2"
+      ],
+      "paths": [
+        ".>@types/three>fflate"
+      ],
+      "patched": ">=0.8.3",
+      "url": "https://github.com/advisories/GHSA-px8p-9vwx-vf98"
+    },
+    {
+      "module": "fflate",
+      "severity": "moderate",
+      "title": "fflate unzipSync can enter an infinite loop when parsing malformed ZIP64 archives",
+      "versions": [
+        "0.4.8"
+      ],
+      "paths": [
+        ".>posthog-js>fflate"
+      ],
+      "patched": ">=0.4.9",
+      "url": "https://github.com/advisories/GHSA-px8p-9vwx-vf98"
+    },
+    {
+      "module": "fast-uri",
+      "severity": "high",
+      "title": "fast-uri vulnerable to host confusion via failed IDN canonicalization",
+      "versions": [
+        "3.1.0"
+      ],
+      "paths": [
+        ".>@astrojs/check>@astrojs/language-server>volar-service-yaml>yaml-language-server>ajv>fast-uri"
+      ],
+      "patched": ">=3.1.3",
+      "url": "https://github.com/advisories/GHSA-4c8g-83qw-93j6"
+    }
+  ]
+}

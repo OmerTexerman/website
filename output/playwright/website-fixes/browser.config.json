@@ -1,0 +1,13 @@
+{
+  "browser": {
+    "browserName": "chromium",
+    "launchOptions": {
+      "channel": "chrome",
+      "headless": true,
+      "args": ["--no-sandbox"],
+      "ignoreDefaultArgs": ["--disable-back-forward-cache"]
+    },
+    "contextOptions": { "viewport": { "width": 1440, "height": 900 } }
+  },
+  "outputDir": "/workspaces/website/output/playwright/website-fixes"
+}

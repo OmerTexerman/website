@@ -1,0 +1,49 @@
+- generic [active] [ref=f2e1]:
+  - link "Skip to content" [ref=f2e2] [cursor=pointer]:
+    - /url: "#page-content"
+  - banner [ref=f2e3]:
+    - navigation "Main navigation" [ref=f2e4]:
+      - link "Back home" [ref=f2e5] [cursor=pointer]:
+        - /url: /
+        - generic [ref=f2e6]: OT
+      - list [ref=f2e7]:
+        - listitem [ref=f2e8]:
+          - link "Blog" [ref=f2e9] [cursor=pointer]:
+            - /url: /blog
+        - listitem [ref=f2e10]:
+          - link "Projects" [ref=f2e11] [cursor=pointer]:
+            - /url: /projects
+        - listitem [ref=f2e12]:
+          - link "Reading" [ref=f2e13] [cursor=pointer]:
+            - /url: /reading
+        - listitem [ref=f2e14]:
+          - link "Photos" [ref=f2e15] [cursor=pointer]:
+            - /url: /photos
+  - main [ref=f2e16]:
+    - generic [ref=f2e21]:
+      - heading "Blog" [level=1] [ref=f2e22]
+      - generic [ref=f2e23]:
+        - link "Mar 23, 2026 I wrote this like 2 days ago But I didnt know if I should post it, but now im tired and no longer care. And I just posted the link on Instagram and so if it only had one blog.post that would look sad meta · Poopy-pants" [ref=f2e25] [cursor=pointer]:
+          - /url: /blog/i-wrote-this-like-2-days-ago
+          - time [ref=f2e26]: Mar 23, 2026
+          - generic [ref=f2e27]:
+            - heading "I wrote this like 2 days ago" [level=2] [ref=f2e28]
+            - paragraph [ref=f2e29]: But I didnt know if I should post it, but now im tired and no longer care. And I just posted the link on Instagram and so if it only had one blog.post that would look sad
+            - generic [ref=f2e30]: meta · Poopy-pants
+        - link "Mar 18, 2026 New blog who dis I made this in a brutal arms race against my friend meta" [ref=f2e32] [cursor=pointer]:
+          - /url: /blog/hello-world
+          - time [ref=f2e33]: Mar 18, 2026
+          - generic [ref=f2e34]:
+            - heading "New blog who dis" [level=2] [ref=f2e35]
+            - paragraph [ref=f2e36]: I made this in a brutal arms race against my friend
+            - generic [ref=f2e37]: meta
+  - contentinfo [ref=f2e38]:
+    - generic [ref=f2e39]:
+      - paragraph [ref=f2e40]: © 2026 Omer Texerman
+      - generic [ref=f2e41]:
+        - link "GitHub (opens in a new window)" [ref=f2e42] [cursor=pointer]:
+          - /url: https://github.com/OmerTexerman
+        - link "LinkedIn (opens in a new window)" [ref=f2e45] [cursor=pointer]:
+          - /url: https://www.linkedin.com/in/omer-texerman-3b50602ba
+  - link "Back to reading" [ref=f2e48] [cursor=pointer]:
+    - /url: /reading

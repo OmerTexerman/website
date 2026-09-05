@@ -1,0 +1,17 @@
+[
+  {
+    "path": "/",
+    "status": 404,
+    "body": "<!doctype html>\n<html lang=\"en\">\n\t<head>\n\t\t<meta charset=\"UTF-8\">\n\t\t<title>404: Not Found</title>\n\t\t<style>\n\t\t\t:root {\n\t"
+  },
+  {
+    "path": "/blog",
+    "status": 404,
+    "body": "<!doctype html>\n<html lang=\"en\">\n\t<head>\n\t\t<meta charset=\"UTF-8\">\n\t\t<title>404: Not Found</title>\n\t\t<style>\n\t\t\t:root {\n\t"
+  },
+  {
+    "path": "/reading",
+    "status": 404,
+    "body": "<!doctype html>\n<html lang=\"en\">\n\t<head>\n\t\t<meta charset=\"UTF-8\">\n\t\t<title>404: Not Found</title>\n\t\t<style>\n\t\t\t:root {\n\t"
+  }
+]

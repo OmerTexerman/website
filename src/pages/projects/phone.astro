@@ -12,7 +12,7 @@ const setupCategories = await getSetup();
 const notifAges = ["now", "2m", "1h", "3h", "1d", "3d", "1w"];
 ---
 
-<ContentPage section={section} surface={false} containerWidthClass="max-w-lg" showIntro={false}>
+<ContentPage section={section} surface={false} containerWidthClass="max-w-lg" showIntro={false} canonical="/projects">
   <h1 class="sr-only">Projects</h1>
   <div class="phone-body" data-animate>
     {/* Status bar */}
@@ -97,6 +97,8 @@ const notifAges = ["now", "2m", "1h", "3h", "1d", "3d", "1w"];
 </ContentPage>
 
 <script>
+  import { onPageLeave } from "../../dom/page-lifecycle";
+
   function updatePhoneClock() {
     const now = new Date();
     const clockEl = document.getElementById("phone-clock");
@@ -119,6 +121,5 @@ const notifAges = ["now", "2m", "1h", "3h", "1d", "3d", "1w"];
   function clearPhoneTimers() {
     clearInterval(phoneClockId);
   }
-  document.addEventListener("astro:before-preparation", clearPhoneTimers, { once: true });
-  window.addEventListener("pagehide", clearPhoneTimers, { once: true });
+  onPageLeave(clearPhoneTimers);
 </script>

@@ -1,4 +1,5 @@
 import { mountContentList } from "./content-list";
+import { onPageLeave } from "./page-lifecycle";
 
 const container = document.querySelector<HTMLElement>("[data-content-list]");
 if (container) {
@@ -19,8 +20,5 @@ if (container) {
 		...(itemSelector ? { itemSelector } : {}),
 	});
 
-	document.addEventListener("astro:before-preparation", cleanup, {
-		once: true,
-	});
-	window.addEventListener("pagehide", cleanup, { once: true });
+	onPageLeave(cleanup);
 }

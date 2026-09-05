@@ -1,0 +1,64 @@
+- generic [active] [ref=f16e1]:
+  - link "Skip to content" [ref=f16e2] [cursor=pointer]:
+    - /url: "#page-content"
+  - banner [ref=f16e3]:
+    - navigation "Main navigation" [ref=f16e4]:
+      - link "Back home" [ref=f16e5] [cursor=pointer]:
+        - /url: /
+        - generic [ref=f16e6]: OT
+      - list [ref=f16e7]:
+        - listitem [ref=f16e8]:
+          - link "Blog" [ref=f16e9] [cursor=pointer]:
+            - /url: /blog
+        - listitem [ref=f16e10]:
+          - link "Projects" [ref=f16e11] [cursor=pointer]:
+            - /url: /projects
+        - listitem [ref=f16e12]:
+          - link "Reading" [ref=f16e13] [cursor=pointer]:
+            - /url: /reading
+        - listitem [ref=f16e14]:
+          - link "Photos" [ref=f16e15] [cursor=pointer]:
+            - /url: /photos
+  - main [ref=f16e16]:
+    - generic [ref=f16e18]:
+      - generic [ref=f16e19]:
+        - link "All photos" [ref=f16e21] [cursor=pointer]:
+          - /url: /photos
+        - heading "I went to paris" [level=1] [ref=f16e24]
+        - generic [ref=f16e25]:
+          - generic [ref=f16e26]: Paris
+          - generic [ref=f16e27]: /
+          - generic [ref=f16e28]: I forgot I think January
+          - generic [ref=f16e29]: /
+          - generic [ref=f16e30]: 7 photos
+        - paragraph [ref=f16e31]: I went to paris. Many photos taken while my fellow traveller yelled at me to move on. I was really into this out of focus thing during this trip it seems
+      - generic [ref=f16e34]:
+        - 'button "View photo: Eifel tower" [ref=f16e35] [cursor=pointer]':
+          - img "Eifel tower" [ref=f16e36]
+        - 'button "View photo: Louvre" [ref=f16e37] [cursor=pointer]':
+          - img "Louvre" [ref=f16e38]
+          - paragraph [ref=f16e40]: After a day of walking; I was too tired to get up and get proper framing
+        - 'button "View photo: Arc de triumph" [ref=f16e41] [cursor=pointer]':
+          - img "Arc de triumph" [ref=f16e42]
+          - paragraph [ref=f16e44]: It still annoys me that I slightly cut it off on the left side. Dont notice please
+        - 'button "View photo: Some French building and a statue" [ref=f16e45] [cursor=pointer]':
+          - img "Some French building and a statue" [ref=f16e46]
+          - paragraph [ref=f16e48]: Evil tree
+        - 'button "View photo: Eifel tower shadow" [ref=f16e49] [cursor=pointer]':
+          - img "Eifel tower shadow" [ref=f16e50]
+          - paragraph [ref=f16e52]: If youre the guy in this i think you looked very cool and mysterious
+        - 'button "View photo: Paris" [ref=f16e53] [cursor=pointer]':
+          - img "Paris" [ref=f16e54]
+        - 'button "View photo: A more different eifel tower" [ref=f16e55] [cursor=pointer]':
+          - img "A more different eifel tower" [ref=f16e56]
+          - paragraph [ref=f16e58]: I think or smth its technically illegal to take pictures of th eifel tower at night because copyright something something
+  - contentinfo [ref=f16e59]:
+    - generic [ref=f16e60]:
+      - paragraph [ref=f16e61]: © 2026 Omer Texerman
+      - generic [ref=f16e62]:
+        - link "GitHub (opens in a new window)" [ref=f16e63] [cursor=pointer]:
+          - /url: https://github.com/OmerTexerman
+        - link "LinkedIn (opens in a new window)" [ref=f16e66] [cursor=pointer]:
+          - /url: https://www.linkedin.com/in/omer-texerman-3b50602ba
+  - link "Back home" [ref=f16e69] [cursor=pointer]:
+    - /url: /

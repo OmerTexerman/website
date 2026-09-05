@@ -14,6 +14,8 @@ interface Props {
 	containerWidthClass?: string;
 	showBackLink?: boolean;
 	surface?: boolean;
+	/** Absolute path of the preferred URL, when this route duplicates another. */
+	canonical?: string;
 }
 
 const {
@@ -26,6 +28,7 @@ const {
 	containerWidthClass = "max-w-4xl",
 	showBackLink = true,
 	surface = true,
+	canonical,
 } = Astro.props;
 
 const ContainerTag = containerTag;
@@ -37,6 +40,7 @@ const ContainerTag = containerTag;
   image={image}
   type={type}
   publishedDate={publishedDate}
+  canonical={canonical}
 >
   <ContentHeader />
   <main id="page-content" class="content-page-main">

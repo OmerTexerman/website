@@ -92,9 +92,9 @@ const setupCategories = await getSetup();
           <div class="wm-pane wm-pane-side" data-animate style="transition-delay: 0.12s">
             <div class="wm-pane-title">
               <span class="wm-pane-indicator"></span>
-              <span>setup</span>
+              <h2 id="wm-setup-title">setup</h2>
             </div>
-            <div class="wm-pane-body wm-setup-body">
+            <div class="wm-pane-body wm-setup-body" tabindex="0" role="region" aria-labelledby="wm-setup-title">
               {setupCategories.map((cat) => (
                 <div class="wm-setup-section">
                   <h3 class="wm-setup-heading">{cat.name}</h3>
@@ -120,9 +120,9 @@ const setupCategories = await getSetup();
             <div class="wm-terminal-prompt" id="wm-ff-prompt">
               <span class="wm-prompt-user">omer</span><span class="wm-prompt-sep">@</span><span class="wm-prompt-host">bluefin</span><span class="wm-prompt-path"> ~</span><span class="wm-prompt-dollar"> $</span> <span class="wm-typing" id="wm-ff-cmd"></span><span class="wm-cursor" id="wm-ff-cursor">█</span>
             </div>
-            <pre class="wm-ff-output" id="wm-ff-output" aria-label="fastfetch output"></pre>
+            <pre class="wm-ff-output" id="wm-ff-output"></pre>
             {/* Static fallback for modal preview (JS won't run there) */}
-            <pre class="wm-ff-static" aria-label="fastfetch output">{`$ fastfetch --logo none
+            <pre class="wm-ff-static">{`$ fastfetch --logo none
   omertexerman@bluefin
   Bluefin (Fedora 43)
   Linux 6.18.7-200.fc43.x86_64
@@ -158,6 +158,8 @@ const setupCategories = await getSetup();
 </ContentPage>
 
 <script>
+  import { onPageLeave } from "../../dom/page-lifecycle";
+
   // ── Live clock + cpu jitter ─────────────────────────────────
   const eventAc = new AbortController();
   const timeoutIds = new Set<number>();
@@ -209,15 +211,14 @@ const setupCategories = await getSetup();
     timeoutIds.clear();
     eventAc.abort();
   }
-  document.addEventListener("astro:before-preparation", clearTimers, { once: true });
-  window.addEventListener("pagehide", clearTimers, { once: true });
+  onPageLeave(clearTimers);
 
   // ── Pane focus interaction ──────────────────────────────────
   for (const pane of document.querySelectorAll<HTMLElement>(".wm-pane")) {
     pane.addEventListener("click", () => {
       for (const p of document.querySelectorAll(".wm-pane-focused")) p.classList.remove("wm-pane-focused");
       pane.classList.add("wm-pane-focused");
-      const title = pane.querySelector(".wm-pane-title span:nth-child(2)")?.textContent ?? "";
+      const title = pane.querySelector(".wm-pane-title > :nth-child(2)")?.textContent ?? "";
       const titleEl = document.getElementById("wm-focused-title");
       if (titleEl) titleEl.textContent = `omer@dev ~/${title}`;
     }, { signal: eventAc.signal });

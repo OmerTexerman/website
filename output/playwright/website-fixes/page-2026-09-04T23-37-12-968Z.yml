@@ -1,0 +1,64 @@
+- generic [active] [ref=e1]:
+  - link "Skip to content" [ref=e2] [cursor=pointer]:
+    - /url: "#page-content"
+  - banner [ref=e3]:
+    - navigation "Main navigation" [ref=e4]:
+      - link "Back home" [ref=e5] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e6]: OT
+      - list [ref=e7]:
+        - listitem [ref=e8]:
+          - link "Blog" [ref=e9] [cursor=pointer]:
+            - /url: /blog
+        - listitem [ref=e10]:
+          - link "Projects" [ref=e11] [cursor=pointer]:
+            - /url: /projects
+        - listitem [ref=e12]:
+          - link "Reading" [ref=e13] [cursor=pointer]:
+            - /url: /reading
+        - listitem [ref=e14]:
+          - link "Photos" [ref=e15] [cursor=pointer]:
+            - /url: /photos
+  - main [ref=e16]:
+    - generic [ref=e18]:
+      - generic [ref=e19]:
+        - link "All photos" [ref=e21] [cursor=pointer]:
+          - /url: /photos
+        - heading "I went to paris" [level=1] [ref=e24]
+        - generic [ref=e25]:
+          - generic [ref=e26]: Paris
+          - generic [ref=e27]: /
+          - generic [ref=e28]: I forgot I think January
+          - generic [ref=e29]: /
+          - generic [ref=e30]: 7 photos
+        - paragraph [ref=e31]: I went to paris. Many photos taken while my fellow traveller yelled at me to move on. I was really into this out of focus thing during this trip it seems
+      - generic [ref=e34]:
+        - 'button "View photo: Eifel tower" [ref=e35] [cursor=pointer]':
+          - img "Eifel tower" [ref=e36]
+        - 'button "View photo: Louvre" [ref=e37] [cursor=pointer]':
+          - img "Louvre" [ref=e38]
+          - paragraph [ref=e40]: After a day of walking; I was too tired to get up and get proper framing
+        - 'button "View photo: Arc de triumph" [ref=e41] [cursor=pointer]':
+          - img "Arc de triumph" [ref=e42]
+          - paragraph [ref=e44]: It still annoys me that I slightly cut it off on the left side. Dont notice please
+        - 'button "View photo: Some French building and a statue" [ref=e45] [cursor=pointer]':
+          - img "Some French building and a statue" [ref=e46]
+          - paragraph [ref=e48]: Evil tree
+        - 'button "View photo: Eifel tower shadow" [ref=e49] [cursor=pointer]':
+          - img "Eifel tower shadow" [ref=e50]
+          - paragraph [ref=e52]: If youre the guy in this i think you looked very cool and mysterious
+        - 'button "View photo: Paris" [ref=e53] [cursor=pointer]':
+          - img "Paris" [ref=e54]
+        - 'button "View photo: A more different eifel tower" [ref=e55] [cursor=pointer]':
+          - img "A more different eifel tower" [ref=e56]
+          - paragraph [ref=e58]: I think or smth its technically illegal to take pictures of th eifel tower at night because copyright something something
+  - contentinfo [ref=e59]:
+    - generic [ref=e60]:
+      - paragraph [ref=e61]: © 2026 Omer Texerman
+      - generic [ref=e62]:
+        - link "GitHub (opens in a new window)" [ref=e63] [cursor=pointer]:
+          - /url: https://github.com/OmerTexerman
+        - link "LinkedIn (opens in a new window)" [ref=e66] [cursor=pointer]:
+          - /url: https://www.linkedin.com/in/omer-texerman-3b50602ba
+  - link "Back home" [ref=e69] [cursor=pointer]:
+    - /url: /

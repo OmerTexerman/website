@@ -14,9 +14,18 @@ const spotlight = await getSpotlight();
     class="absolute inset-0 w-full h-full"
     role="application"
     tabindex="0"
-    aria-label="Interactive 3D portfolio scene. Use Tab to move between interactive objects or the skip link for text navigation."
+    aria-label="Interactive 3D portfolio scene. Press Tab to move between interactive objects, Enter to open the focused one, and Escape to leave the scene. The skip link above offers plain text navigation instead."
   >
     Your browser does not support the interactive portfolio scene. Use the page navigation links instead.
   </canvas>
-  <div id="scene-labels" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
+  {/* aria-live so the floating object label is announced as Tab moves focus
+      between scene objects — without it, keyboard navigation is silent for
+      screen reader users. labels.ts only rewrites textContent when the label
+      actually changes, so this does not chatter during mouse hover. */}
+  <div
+    id="scene-labels"
+    class="absolute inset-0 pointer-events-none overflow-hidden"
+    aria-live="polite"
+    aria-atomic="true"
+  ></div>
 </div>

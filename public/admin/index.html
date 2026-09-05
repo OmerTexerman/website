@@ -7,8 +7,23 @@
     <title>Content Manager</title>
   </head>
   <body>
-    <!-- Sveltia CMS -->
-    <script src="https://unpkg.com/@sveltia/cms@0.145.0/dist/sveltia-cms.js"></script>
+    <!--
+      Sveltia CMS.
+
+      This script runs in a page that holds a GitHub OAuth token with push
+      access to this repo, so it is pinned to an exact version and guarded
+      with Subresource Integrity: if unpkg ever serves different bytes for
+      this URL, the browser refuses to execute it rather than handing a
+      compromised script the token.
+
+      When bumping the version, regenerate the hash:
+        curl -sL <url> | openssl dgst -sha384 -binary | openssl base64 -A
+    -->
+    <script
+      src="https://unpkg.com/@sveltia/cms@0.145.0/dist/sveltia-cms.js"
+      integrity="sha384-Z7qKyNy0O8vNCdcwC8ZvfVT7ozSeul33yv4YIylgcFSV/ECZcCTHlKXj8QtDLzgI"
+      crossorigin="anonymous"
+    ></script>
 
     <!-- CMS extensions -->
     <script src="/admin/cover-suggest.js" defer></script>

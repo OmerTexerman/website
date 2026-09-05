@@ -85,18 +85,39 @@ function isBlankTargetExternalLink(el: Element, attrName: string): boolean {
 }
 
 function sanitizeSrcset(value: string, baseUrl: string, allowExternal: boolean): string | null {
-	const entries = value
-		.split(",")
-		.map((entry) => entry.trim())
-		.filter(Boolean);
-	const safeEntries = entries.flatMap((entry) => {
-		const [url, ...descriptor] = entry.split(/\s+/);
+	const safeEntries: string[] = [];
+	let position = 0;
+	while (position < value.length) {
+		while (/[\t\n\f\r ,]/.test(value.charAt(position))) position++;
+		if (position >= value.length) break;
+
+		// Srcset URLs end at ASCII whitespace, not at commas inside a URL.
+		// https://html.spec.whatwg.org/multipage/images.html#parse-a-srcset-attribute
+		const urlStart = position;
+		while (position < value.length && !/[\t\n\f\r ]/.test(value.charAt(position))) position++;
+		let url = value.slice(urlStart, position);
+		let descriptor = "";
+		if (url.endsWith(",")) {
+			url = url.replace(/,+$/, "");
+		} else {
+			const descriptorStart = position;
+			let inParens = false;
+			while (position < value.length) {
+				const character = value.charAt(position);
+				if (character === "," && !inParens) break;
+				if (character === "(") inParens = true;
+				else if (character === ")") inParens = false;
+				position++;
+			}
+			descriptor = value.slice(descriptorStart, position).trim();
+			position++;
+		}
+
 		const normalizedUrl = allowExternal
 			? normalizeHttpUrl(url, baseUrl)
 			: normalizeSameOriginUrl(url, baseUrl);
-		if (!normalizedUrl) return [];
-		return [`${normalizedUrl}${descriptor.length > 0 ? ` ${descriptor.join(" ")}` : ""}`];
-	});
+		if (normalizedUrl) safeEntries.push(`${normalizedUrl}${descriptor ? ` ${descriptor}` : ""}`);
+	}
 
 	return safeEntries.length > 0 ? safeEntries.join(", ") : null;
 }

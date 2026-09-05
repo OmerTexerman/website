@@ -190,16 +190,3 @@ export const socials: { label: string; url: string; icon: string }[] = [
 		icon: "simple-icons:linkedin",
 	},
 ];
-
-/**
- * PostHog analytics — leave key empty to disable tracking.
- *
- * `PUBLIC_POSTHOG_HOST` must match what is allowlisted in `vercel.json`
- * Content-Security-Policy (`script-src` / `connect-src`). Known ingest hosts
- * are US and EU; same-origin reverse proxies work via `connect-src 'self'`.
- * Any other API host requires updating the CSP header to include that origin.
- */
-export const analytics = {
-	posthogKey: import.meta.env.PUBLIC_POSTHOG_KEY ?? "",
-	posthogHost: import.meta.env.PUBLIC_POSTHOG_HOST || "https://us.i.posthog.com",
-} as const;

@@ -6,7 +6,9 @@
 - Main checks:
   - `devcontainer exec --workspace-folder . pnpm lint`
   - `devcontainer exec --workspace-folder . pnpm check`
+  - `devcontainer exec --workspace-folder . pnpm test`
   - `devcontainer exec --workspace-folder . pnpm build` for route, config, content, or build-system changes, or when end-to-end confidence matters
+  - `devcontainer exec --workspace-folder . pnpm run verify` runs all four in order. It is named `verify`, not `ci`, because `pnpm ci` resolves to pnpm's own built-in command and never reaches the script.
 - This repo may already be dirty. Never revert unrelated changes as if they belong to the current task.
 
 ## Execution Environment

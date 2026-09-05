@@ -65,6 +65,7 @@
 			"src/content/**/*.md",
 			"src/content/**/*.yaml",
 			"*.json",
+			"*.ts",
 			"*.mjs",
 			"*.yml"
 		]

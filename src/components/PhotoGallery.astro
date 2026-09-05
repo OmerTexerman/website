@@ -1,5 +1,6 @@
 ---
 import type { PhotoGalleryPhoto } from "../dom/photo-gallery";
+import { cloudinarySrcSet, cloudinaryUrl } from "../image-utils";
 import { safeJson } from "../utils";
 
 interface Props {
@@ -7,10 +8,23 @@ interface Props {
 }
 
 const { photos } = Astro.props;
+
+// `.photo-masonry` is 1 column below 36rem, 2 up to 64rem, then 3 inside a
+// max-w-6xl container — so a thumbnail is never wider than roughly 384px on a
+// large screen, and about half the viewport on a tablet.
+const THUMB_WIDTHS = [320, 480, 640, 960] as const;
+const THUMB_SIZES = "(min-width: 64rem) 384px, (min-width: 36rem) 45vw, 92vw";
+
+// The lightbox reads `src` straight out of this JSON blob, so handing it a
+// pre-transformed URL keeps `dom/photo-gallery.ts` unaware of Cloudinary.
+const lightboxPhotos = photos.map((photo) => ({
+	...photo,
+	src: cloudinaryUrl(photo.src, 1600),
+}));
 ---
 
 <div data-photo-gallery>
-  <script is:inline type="application/json" data-photo-gallery-data set:html={safeJson(photos)} />
+  <script is:inline type="application/json" data-photo-gallery-data set:html={safeJson(lightboxPhotos)} />
 
   <!-- Masonry Grid -->
   <div class="photo-masonry">
@@ -22,9 +36,12 @@ const { photos } = Astro.props;
         aria-label={`View photo: ${photo.alt}`}
       >
         <img
-          src={photo.src}
+          src={cloudinaryUrl(photo.src, 640)}
+          srcset={cloudinarySrcSet(photo.src, THUMB_WIDTHS)}
+          sizes={THUMB_SIZES}
           alt={photo.alt}
           loading="lazy"
+          decoding="async"
           width="600"
           height="400"
           class="photo-masonry-img"
@@ -96,9 +113,9 @@ const { photos } = Astro.props;
 </div>
 
 <script>
+  import { onPageLeave } from "../dom/page-lifecycle";
   import { mountPhotoGalleries } from "../dom/photo-gallery";
 
   const cleanup = mountPhotoGalleries();
-  document.addEventListener("astro:before-preparation", cleanup, { once: true });
-  window.addEventListener("pagehide", cleanup, { once: true });
+  onPageLeave(cleanup);
 </script>
