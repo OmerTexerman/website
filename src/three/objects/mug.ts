@@ -18,8 +18,8 @@ export function createMug(): Group {
 	const handleGeo = new TorusGeometry(0.06, 0.015, 8, 12, Math.PI);
 	const handle = new Mesh(handleGeo, ceramicMaterial);
 	handle.position.set(0.12, 0.12, 0);
-	handle.rotation.z = Math.PI / 2;
-	handle.rotation.y = Math.PI / 2;
+	// Half-torus arcs over +Y by default; rotate so it bulges outward along +X
+	handle.rotation.z = -Math.PI / 2;
 	mug.add(handle);
 
 	mug.position.set(-0.6, DESK_SURFACE_Y, 0.9);
