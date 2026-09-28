@@ -17,7 +17,8 @@ export function createMug(): Group {
 	// Handle
 	const handleGeo = new TorusGeometry(0.06, 0.015, 8, 12, Math.PI);
 	const handle = new Mesh(handleGeo, ceramicMaterial);
-	handle.position.set(0.12, 0.12, 0);
+	// Body tapers to r≈0.105 at the handle's lower end; inset so both ends sink into the wall
+	handle.position.set(0.095, 0.12, 0);
 	// Half-torus arcs over +Y by default; rotate so it bulges outward along +X
 	handle.rotation.z = -Math.PI / 2;
 	mug.add(handle);
