@@ -24,6 +24,12 @@ export function mountContextBackLinks(root: ParentNode = document): () => void {
 		if (!(node instanceof HTMLAnchorElement) || node.dataset.contextBackReady === "true") {
 			continue;
 		}
+		// Home-only links (the nav's home link) always lead home; they only
+		// borrow history.back() when home is where the visitor came from, so
+		// the desk restores the modal they opened this page from.
+		if (node.dataset.contextBackHomeOnly !== undefined && referrerUrl.pathname !== "/") {
+			continue;
+		}
 
 		node.dataset.contextBackReady = "true";
 

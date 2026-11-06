@@ -12,8 +12,8 @@ const latestWord = words[0];
 const archive = words.slice(1);
 ---
 
-<ContentPage section={section} surface={false} containerWidthClass="max-w-3xl" showIntro={false}>
-  <div class="wotd-page" data-animate>
+<ContentPage section={section} surface={false} containerWidthClass="max-w-3xl">
+  <div class="wotd-page section-object" data-animate>
     {!latestWord ? (
       <p class="wotd-empty">no words yet :)</p>
     ) : (

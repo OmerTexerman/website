@@ -13,34 +13,45 @@ interface Props {
 }
 
 const { title, description, tech, image, url, repo, post } = Astro.props;
+
+// Each project gets a stable app-icon colour from its title. A class, not
+// an inline style: the modal preview sanitizer strips style attributes.
+const ICON_COLOR_COUNT = 6;
+const hash = [...title].reduce((acc, ch) => (acc * 31 + ch.charCodeAt(0)) >>> 0, 7);
+const iconClass = `os-project-icon-${hash % ICON_COLOR_COUNT}`;
 ---
 
-<div class="wm-project-entry">
-  <div class="wm-project-header">
-    <span class="wm-project-name">{title}</span>
-    <span class="wm-project-tech">{tech.join(" · ")}</span>
-  </div>
-  {image && (
-    <div class="wm-project-image">
-      <img
-        src={cloudinaryUrl(image, 800)}
-        srcset={cloudinarySrcSet(image, [400, 600, 800, 1200])}
-        sizes="(min-width: 64rem) 640px, 92vw"
-        alt={`Screenshot of ${title}`} loading="lazy" decoding="async" width="600" height="400" />
+<article class="os-project">
+  <span class:list={["os-project-icon", iconClass]} aria-hidden="true">{title.charAt(0)}</span>
+  <div class="os-project-main">
+    <h3 class="os-project-name">{title}</h3>
+    <p class="os-project-desc">{description}</p>
+    {image && (
+      <div class="os-project-image">
+        <img
+          src={cloudinaryUrl(image, 800)}
+          srcset={cloudinarySrcSet(image, [400, 600, 800, 1200])}
+          sizes="(min-width: 64rem) 560px, 92vw"
+          alt={`Screenshot of ${title}`} loading="lazy" decoding="async" width="600" height="400" />
+      </div>
+    )}
+    <div class="os-project-meta">
+      <ul class="os-project-tech" aria-label="Built with">
+        {tech.map((t) => <li>{t}</li>)}
+      </ul>
+      <div class="os-project-links">
+        {url && (
+          <a href={url} target="_blank" rel="noopener noreferrer" class="os-project-link" aria-label={`Open ${title} (opens in a new window)`}>
+            Open ↗
+          </a>
+        )}
+        {repo && (
+          <a href={repo} target="_blank" rel="noopener noreferrer" class="os-project-link" aria-label={`Source for ${title} (opens in a new window)`}>
+            Source
+          </a>
+        )}
+        {post && <RelatedPost slug={post} class="os-project-post" />}
+      </div>
     </div>
-  )}
-  <p class="wm-project-desc">{description}</p>
-  <div class="wm-project-links">
-    {url && (
-      <a href={url} target="_blank" rel="noopener noreferrer" class="wm-project-link" aria-label={`View live: ${title}`}>
-        <span class="wm-link-icon">↗</span> live
-      </a>
-    )}
-    {repo && (
-      <a href={repo} target="_blank" rel="noopener noreferrer" class="wm-project-link" aria-label={`View source: ${title}`}>
-        <span class="wm-link-icon">⎇</span> source
-      </a>
-    )}
-    {post && <RelatedPost slug={post} />}
   </div>
-</div>
+</article>

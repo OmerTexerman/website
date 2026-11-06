@@ -1,28 +1,33 @@
 ---
-import { orderedSections, site } from "../config";
+import { homeLink, orderedSections } from "../config";
+import BackArrowIcon from "./BackArrowIcon.astro";
 
 const pathname = Astro.url.pathname;
 ---
 
-<header class="fixed top-0 left-0 right-0 z-40 bg-dark/90 backdrop-blur-sm border-b border-white/10">
-  <nav class="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3" aria-label="Main navigation">
-    <a href="/" class="group flex items-center gap-2" aria-label="Back home">
-      <span class="inline-flex items-center justify-center w-9 h-9 bg-accent text-white font-display font-bold text-sm rounded-lg transition-transform group-hover:scale-105">
-        {site.initials}
-      </span>
+<header class="room-nav">
+  <nav class="room-nav-inner" aria-label="Main navigation">
+    {/* Home link. context-back-link.ts upgrades it to history.back() and a
+        "Back to desk/shelf" label only when the visitor came from home. */}
+    <a
+      href={homeLink.href}
+      class="room-nav-home group"
+      aria-label={homeLink.backLabel}
+      data-context-back-link
+      data-context-back-home-only
+    >
+      <BackArrowIcon class="transition-transform group-hover:-translate-x-0.5" />
+      {/* Drawn by Omer's sister */}
+      <img src="/alien.png" alt="" class="room-nav-alien" width="72" height="120" decoding="async" />
+      <span class="hidden sm:inline" data-context-back-label>{homeLink.backLabel}</span>
     </a>
-    <ul class="flex items-center gap-3 sm:gap-6 overflow-x-auto whitespace-nowrap no-scrollbar max-w-[75vw] sm:max-w-none" data-nav-links>
+    <ul class="room-nav-tabs no-scrollbar" data-nav-links>
       {orderedSections.map(({ href, label }) => (
         <li>
           <a
             href={href}
             aria-current={pathname.startsWith(href) ? "page" : undefined}
-            class:list={[
-              "font-mono text-xs sm:text-sm transition-colors",
-              pathname.startsWith(href)
-                ? "text-cream font-medium"
-                : "text-muted hover:text-cream",
-            ]}
+            class="room-nav-tab"
           >
             {label}
           </a>
@@ -40,13 +45,8 @@ const pathname = Astro.url.pathname;
     const path = window.location.pathname;
     const links = navLinksEl?.querySelectorAll<HTMLAnchorElement>("a[href]") ?? [];
     for (const link of links) {
-      const active = path.startsWith(link.getAttribute("href")!);
-      if (active) link.setAttribute("aria-current", "page");
+      if (path.startsWith(link.getAttribute("href")!)) link.setAttribute("aria-current", "page");
       else link.removeAttribute("aria-current");
-      link.classList.toggle("text-cream", active);
-      link.classList.toggle("font-medium", active);
-      link.classList.toggle("text-muted", !active);
-      link.classList.toggle("hover:text-cream", !active);
     }
   }
 

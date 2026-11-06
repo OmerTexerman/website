@@ -170,3 +170,26 @@ it("ignores an in-flight response after cleanup", async () => {
 	expect(root.getAttribute("aria-hidden")).toBe("true");
 	expect(body.textContent).not.toContain("Late preview");
 });
+
+it("gives the open view its section URL and restores the page URL on close", async () => {
+	const backSpy = vi.spyOn(window.history, "back");
+	const startPath = window.location.pathname;
+	await open("Reading", "/reading");
+	expect(window.location.pathname).toBe("/reading");
+	expect(document.title).toContain("Reading");
+
+	modal.close();
+	await vi.advanceTimersByTimeAsync(0);
+	expect(backSpy).toHaveBeenCalledTimes(1);
+	expect(root.getAttribute("aria-hidden")).toBe("true");
+	window.history.replaceState(null, "", startPath);
+});
+
+it("closes when the browser navigates back off the section URL", async () => {
+	const startPath = window.location.pathname;
+	await open("Photos", "/photos");
+	window.history.replaceState(null, "", startPath);
+	window.dispatchEvent(new PopStateEvent("popstate", { state: null }));
+	await vi.advanceTimersByTimeAsync(0);
+	expect(root.getAttribute("aria-hidden")).toBe("true");
+});

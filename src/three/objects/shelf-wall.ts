@@ -1,4 +1,5 @@
 import {
+	Box3,
 	BoxGeometry,
 	Color,
 	CylinderGeometry,
@@ -67,9 +68,14 @@ export interface ShelfSceneEntry {
 	source?: string;
 	target: Group;
 	item: Object3D;
+	/** How far the item must slide out (toward -x, in its target's space)
+	 *  before its back edge clears the front of the shelf, so a fall never
+	 *  passes through the plank. */
+	frontClearance: number;
 }
 
 const WALL_W = 4.8;
+const _clearanceBox = new Box3();
 const WALL_H = 5.2;
 const FLOOR_Y = -2;
 const BLEND_WALL_W = 7.4;
@@ -437,6 +443,13 @@ export function createShelfWall(
 		layout.item.rotation.y = layout.rotationY;
 		enableShadows(layout.item);
 		target.add(layout.item);
+		// Measure before the hitbox is added and before the target joins the
+		// scene (its world matrix is still identity), so the box is in target
+		// space. Compare the item's back edge against the shelf's front edge (the plank spans
+		// WALL_X - SHELF_DEPTH .. WALL_X along x).
+		_clearanceBox.setFromObject(layout.item);
+		const frontEdgeLocalX = WALL_X - SHELF_DEPTH - layout.position[0];
+		const frontClearance = Math.max(0, _clearanceBox.max.x - frontEdgeLocalX) + 0.04;
 		addHitbox(target, layout.hitboxPadding);
 		wall.add(target);
 		entries.push({
@@ -445,6 +458,7 @@ export function createShelfWall(
 			source: layout.source,
 			target,
 			item: layout.item,
+			frontClearance,
 		});
 	}
 

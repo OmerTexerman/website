@@ -4,9 +4,12 @@
    widget. Standalone page gets a device bezel;
    the modal strips it and fills edge-to-edge. */
 
-/* Phone in modal — fill the modal body like the notebook does */
+/* Phone in the full-screen view: it is a screen, so it fills the view */
+#content-modal-body:has(> .phone-body) {
+	padding: 0;
+}
+
 #content-modal-body .phone-body {
-	margin: -1.5rem;
 	border: none;
 	border-radius: 0;
 	box-shadow: none;

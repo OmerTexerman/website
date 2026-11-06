@@ -22,6 +22,7 @@ const { collection } = Astro.props;
   containerWidthClass="max-w-6xl"
   surface={false}
 >
+  <div class="corkboard section-object">
   {/* Header as a pinned note card */}
   <div class="collection-header" data-animate>
     <div class="collection-header-pin" aria-hidden="true"></div>
@@ -57,5 +58,6 @@ const { collection } = Astro.props;
   {/* Photos as pinned prints on the board */}
   <div class="corkboard-gallery" data-animate style="transition-delay: 0.15s">
     <PhotoGallery photos={collection.photos} />
+  </div>
   </div>
 </ContentShell>

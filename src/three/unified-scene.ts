@@ -1,4 +1,5 @@
 import {
+	Box3,
 	Color,
 	FogExp2,
 	Group,
@@ -37,6 +38,7 @@ import {
 	animateShelfReset,
 	animateSpin,
 	animateWobble,
+	type DeskCameraView,
 	disposeAnimations,
 	easeInOutCubic,
 	tickAnimations,
@@ -45,14 +47,19 @@ import {
 	animateIntro,
 	animateMobileIntro,
 	BASE_FOV,
+	type CameraFocusAnimation,
 	createCamera,
 	DESKTOP_LOOK,
 	DESKTOP_POS,
 	desktopFovForAspect,
+	FOCUS_IN_MS,
+	FOCUS_OUT_MS,
+	focusPoseFor,
 	idleFloat,
 	lerpCameraPose,
 	MOBILE_LOOK,
 	MOBILE_POS,
+	stepCameraFocus,
 } from "./camera";
 import { DARK, GROUND_DARK } from "./colors";
 import {
@@ -109,7 +116,9 @@ interface DeskSectionEntity {
 	obstacleRadius?: number;
 	hoverScale?: boolean;
 	modalDelayMs: number;
-	open: () => Promise<void>;
+	/** Receives the camera pose the desk will settle on, so objects that
+	 *  present themselves to the viewer aim at the zoomed-in camera. */
+	open: (view: DeskCameraView) => Promise<void>;
 	close: () => Promise<void>;
 }
 
@@ -326,6 +335,12 @@ export function initUnifiedScene(
 	let disposed = false;
 	let contextLost = false;
 	let pendingModalTimeout = 0;
+	// Desk camera focus: glide toward a clicked object, and back on close.
+	let cameraFocusAnim: CameraFocusAnimation | null = null;
+	let cameraFocused = false;
+	const cameraLook = DESKTOP_LOOK.clone();
+	const _focusBox = new Box3();
+	const _focusTarget = new Vector3();
 	let transitionAnimationId = 0;
 	let transitionResolve: (() => void) | null = null;
 
@@ -542,7 +557,7 @@ export function initUnifiedScene(
 				obstacleRadius: 0.45,
 				hoverScale: true,
 				modalDelayMs: 820,
-				open: () => animateBookLift(bookStack),
+				open: (view) => animateBookLift(bookStack, view),
 				close: () => animateBookClose(bookStack),
 			},
 			{
@@ -552,7 +567,7 @@ export function initUnifiedScene(
 				hitboxPadding: 0.15,
 				hoverScale: true,
 				modalDelayMs: 350,
-				open: () => animateFrameReveal(photoFrame),
+				open: (view) => animateFrameReveal(photoFrame, view),
 				close: () => animateFrameClose(photoFrame),
 			},
 			{
@@ -704,6 +719,49 @@ export function initUnifiedScene(
 	}
 
 	// ─── Setup interactions for current mode ─────────────────────
+	function startCameraFocus(toPos: Vector3, toLook: Vector3, duration: number): void {
+		cameraFocusAnim = {
+			fromPos: camera.position.clone(),
+			fromLook: cameraLook.clone(),
+			toPos: toPos.clone(),
+			toLook: toLook.clone(),
+			start: performance.now(),
+			duration,
+		};
+		markSceneActive();
+		dirty = true;
+	}
+
+	/** The pose the camera will glide to for `root` (the desk pose when motion is reduced). */
+	function planCameraFocus(root: Object3D): DeskCameraView {
+		if (prefersReducedMotion()) {
+			return { pos: DESKTOP_POS.clone(), look: DESKTOP_LOOK.clone() };
+		}
+		_focusBox.setFromObject(root).getCenter(_focusTarget);
+		const pos = new Vector3();
+		const look = new Vector3();
+		focusPoseFor(_focusTarget, pos, look);
+		return { pos, look };
+	}
+
+	function focusCamera(view: DeskCameraView): void {
+		if (prefersReducedMotion()) return;
+		cameraFocused = true;
+		startCameraFocus(view.pos, view.look, FOCUS_IN_MS);
+	}
+
+	function unfocusCamera(): void {
+		if (!cameraFocused) return;
+		cameraFocused = false;
+		startCameraFocus(DESKTOP_POS, DESKTOP_LOOK, FOCUS_OUT_MS);
+	}
+
+	function resetCameraFocus(): void {
+		cameraFocusAnim = null;
+		cameraFocused = false;
+		cameraLook.copy(DESKTOP_LOOK);
+	}
+
 	function setupModeInteractions(): void {
 		// Cleanup previous
 		if (cleanupInteraction) {
@@ -780,16 +838,24 @@ export function initUnifiedScene(
 					}
 					openSelection = { mode: "desktop", entity };
 					markSceneActive();
-					void entity.open();
+					// Plan the camera's end pose first so the object's own open
+					// animation can aim at it, then start both together.
+					const view = planCameraFocus(entity.root);
+					void entity.open(view);
+					focusCamera(view);
 
 					if (pendingModalTimeout) window.clearTimeout(pendingModalTimeout);
 					const { label, href } = entity.section;
+					// Let the camera get most of the way there before the view fades in.
+					const revealDelay = prefersReducedMotion()
+						? entity.modalDelayMs
+						: Math.max(entity.modalDelayMs, FOCUS_IN_MS - 150);
 					pendingModalTimeout = window.setTimeout(() => {
 						pendingModalTimeout = 0;
 						if (disposed) return;
 						if (options?.onSectionClick) options.onSectionClick(label, href);
 						else window.location.href = href;
-					}, entity.modalDelayMs);
+					}, revealDelay);
 
 					trackEvent("desk_object_click", { label, href });
 				},
@@ -870,8 +936,10 @@ export function initUnifiedScene(
 				// If this is the phone, glow the screen before falling
 				const isPhone = entry.source === "phone";
 				const presentChain = isPhone
-					? animatePhoneWake(entry.item).then(() => animateShelfPresent(entry.item))
-					: animateShelfPresent(entry.item);
+					? animatePhoneWake(entry.item).then(() =>
+							animateShelfPresent(entry.item, entry.frontClearance, camera.position),
+						)
+					: animateShelfPresent(entry.item, entry.frontClearance, camera.position);
 
 				void presentChain
 					.then(() => {
@@ -984,6 +1052,7 @@ export function initUnifiedScene(
 			markSceneActive();
 			if (openSelection.mode === "desktop") {
 				void openSelection.entity.close();
+				unfocusCamera();
 			} else {
 				resetShelfSelection();
 			}
@@ -1159,8 +1228,21 @@ export function initUnifiedScene(
 			return;
 		}
 
-		// Desktop idle float (skip when user prefers reduced motion)
-		if (currentMode === "desktop" && !transitioning && !prefersReducedMotion()) {
+		// Section focus glide (desk only)
+		if (cameraFocusAnim && currentMode === "desktop" && !transitioning) {
+			if (stepCameraFocus(camera, cameraFocusAnim, now, cameraLook)) cameraFocusAnim = null;
+			lastActiveAt = now;
+			dirty = true;
+		}
+
+		// Desktop idle float (skip when user prefers reduced motion or while focused)
+		if (
+			currentMode === "desktop" &&
+			!transitioning &&
+			!cameraFocused &&
+			!cameraFocusAnim &&
+			!prefersReducedMotion()
+		) {
 			if (idleFloat(camera, now)) dirty = true;
 		}
 
@@ -1360,6 +1442,7 @@ export function initUnifiedScene(
 
 	async function doTransition(target: "desktop" | "mobile"): Promise<void> {
 		transitioning = true;
+		resetCameraFocus();
 		introComplete = true; // ensure intro is done
 
 		// Cleanup current interactions

@@ -317,31 +317,3 @@
 		transform: none;
 	}
 }
-
-/* ── Modal overrides — Blog ──────────────────── */
-/* Make the entire modal body look like the notebook */
-
-#content-modal-body .notebook-page {
-	margin: -1.5rem;
-	border-radius: 0;
-	box-shadow: none;
-	min-height: 100%;
-}
-
-#content-modal-body .notebook-cover-edge {
-	border-radius: 0;
-}
-
-#content-modal-body .notebook-paper {
-	padding: 1.5rem;
-	border-radius: 0;
-	flex: 1;
-}
-
-#content-modal-body .notebook-paper::before {
-	display: none;
-}
-
-#content-modal-body .notebook-page-title {
-	display: none;
-}

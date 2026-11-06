@@ -77,13 +77,29 @@ const WHEEL_LINE_PIXELS = 16;
 const WHEEL_PAGE_THRESHOLD = 40;
 const WHEEL_COOLDOWN_MS = 200;
 const WHEEL_SETTLE_DELAY_MS = 100;
-const WHEEL_CONTINUOUS_VERTICAL_SPEED = 0.001;
-const WHEEL_CONTINUOUS_PAN_SPEED = 0.001;
-// Trackpad wheel velocity stays high right up until the fingers stop (there's
-// no deceleration-then-lift like touch), so the wheel flick threshold must be
-// well above the touch one or every scroll ends in a flick.
-const WHEEL_FLICK_VELOCITY_THRESHOLD = 450;
-const WHEEL_INERTIA_THRESHOLD = 2;
+// Trackpads page like swipes on a phone: one gesture moves one step (a shelf
+// row vertically, an item horizontally). macOS keeps sending decaying
+// "momentum" wheel events long after the fingers lift; following them
+// continuously made the camera fight the snap animation, so once a gesture
+// has committed its step the rest of it is ignored.
+/** Travel (px) that commits a step. */
+const TRACKPAD_STEP_THRESHOLD = 50;
+/** Quiet time (ms) that separates one gesture from the next. */
+const TRACKPAD_GESTURE_GAP_MS = 180;
+/** A jump this many times above the previous event's size is a new swipe
+ *  starting during the old one's momentum (momentum only ever decays). */
+const TRACKPAD_NEW_SWIPE_RATIO = 2.5;
+const TRACKPAD_NEW_SWIPE_MIN_PX = 15;
+/** Share of the way to the next stop the shelf leans before committing. */
+const TRACKPAD_PREVIEW = 0.22;
+/** Travel (px) before a gesture picks its axis from the accumulated motion. */
+const TRACKPAD_AXIS_LOCK_PX = 6;
+/** Horizontal swipes track the fingers directly (pan units per px)... */
+const TRACKPAD_PAN_SPEED = 0.0033;
+/** ...and commit once they cover this share of the gap to the next item. */
+const TRACKPAD_PAN_COMMIT = 0.3;
+/** Max overshoot (pan units) when swiping past the end of a row. */
+const TRACKPAD_PAN_EDGE = 0.08;
 const DRAG_VERTICAL_SPEED = 0.003;
 const DRAG_PAN_SPEED = 0.003;
 const DISCRETE_PIXEL_WHEEL_STEPS = new Set([100, 120]);
@@ -220,13 +236,15 @@ export function createMobileScrollController(
 	let wheelAccumY = 0;
 	let lastWheelPageTimeY = 0;
 	let wheelAxisLock: "v" | "h" | null = null;
-	let wheelGestureActive = false;
 	let wheelSettleTimer = 0;
-	// Accumulated continuous-wheel travel, sampled like pointer positions so
-	// trackpad gestures get the same velocity-based flick handling as touch.
-	let wheelPosX = 0;
-	let wheelPosY = 0;
-	const wheelSamples: PointerSample[] = [];
+	// Trackpad gesture state (see TRACKPAD_* above)
+	let trackpadAccum = 0;
+	let trackpadLockX = 0;
+	let trackpadLockY = 0;
+	let trackpadCommitted = false;
+	let trackpadActive = false;
+	let trackpadLastEventAt = 0;
+	let trackpadLastMagnitude = 0;
 
 	function markChanged(): true {
 		inputDirty = true;
@@ -409,8 +427,10 @@ export function createMobileScrollController(
 	function resetWheelState(): void {
 		wheelAccumY = 0;
 		wheelAxisLock = null;
-		wheelGestureActive = false;
-		wheelSamples.length = 0;
+		trackpadAccum = 0;
+		trackpadCommitted = false;
+		trackpadActive = false;
+		trackpadLastMagnitude = 0;
 		if (wheelSettleTimer) {
 			clearTimeout(wheelSettleTimer);
 			wheelSettleTimer = 0;
@@ -572,7 +592,7 @@ export function createMobileScrollController(
 	}
 
 	function cancelActiveGesture(): boolean {
-		const hadWheel = wheelGestureActive;
+		const hadWheel = trackpadActive;
 		resetWheelState();
 		if (activePointerId === null && !hadWheel) return false;
 		clearPointerTracking();
@@ -581,85 +601,19 @@ export function createMobileScrollController(
 		return settleAll();
 	}
 
-	function wheelGestureStart(): void {
-		if (wheelGestureActive) return;
-		wheelGestureActive = true;
-		state = State.IDLE;
-		stopAllAnimations();
-		captureOrigins();
-		wheelPosX = 0;
-		wheelPosY = 0;
-		wheelSamples.length = 0;
-		wheelSamples.push({ x: 0, y: 0, t: performance.now() });
-	}
-
-	function choosePanSettleTarget(row: number): number | null {
-		const points = panSnapPoints[row];
-		if (!points || points.length <= 1) return points?.[0] ?? null;
-
-		const current = panByRow[row];
-		const origin = panOriginSnap[row];
-		const displacement = current - origin;
-
-		// Find adjacent snap in the direction of movement
-		if (Math.abs(displacement) > 0.01) {
-			const dir = displacement > 0 ? 1 : -1;
-			let bestTarget: number | null = null;
-			let bestDist = Number.POSITIVE_INFINITY;
-			for (const point of points) {
-				const diff = point - origin;
-				if (dir > 0 && diff > 0.01 && diff < bestDist) {
-					bestTarget = point;
-					bestDist = diff;
-				} else if (dir < 0 && diff < -0.01 && Math.abs(diff) < bestDist) {
-					bestTarget = point;
-					bestDist = Math.abs(diff);
-				}
-			}
-
-			// Commit if moved past the commit ratio of the gap to next snap
-			if (bestTarget !== null) {
-				const gap = Math.abs(bestTarget - origin);
-				if (Math.abs(displacement) / gap > POSITION_COMMIT_RATIO) {
-					return bestTarget;
-				}
-			}
-		}
-
-		return nearestSnapPoint(current, points);
-	}
-
-	function chooseWheelVerticalTarget(velocityPx: number): number {
-		// A long continuous scrub can travel past the adjacent stop — honor it.
-		const nearest = nearestStopIndex(verticalT);
-		if (nearest !== dragOriginStop) return nearest;
-		// Otherwise settle with the same flick/commit-ratio rules as touch, so
-		// short quick trackpad swipes advance a row instead of snapping back.
-		return chooseVerticalTarget(velocityPx, WHEEL_FLICK_VELOCITY_THRESHOLD);
-	}
-
 	function wheelGestureEnd(): void {
-		const wasContinuous = wheelGestureActive;
-		wheelGestureActive = false;
-		wheelAxisLock = null;
 		wheelAccumY = 0;
-		if (wasContinuous) {
-			const vel = estimateVelocity(wheelSamples);
-			wheelSamples.length = 0;
-			let changed = beginVerticalAnimation(chooseWheelVerticalTarget(vel.vy));
+		wheelAxisLock = null;
+		// A trackpad gesture that stopped short of a step eases back.
+		if (trackpadActive && !trackpadCommitted) {
+			let changed = beginVerticalAnimation(dragOriginStop);
 			for (let i = 0; i < numRows; i++) {
-				// Flicks on the visible row honor the gesture velocity; other rows
-				// settle by commit ratio (snaps sooner in direction of movement).
-				const target =
-					i === dragOriginStop && Math.abs(vel.vx) > WHEEL_FLICK_VELOCITY_THRESHOLD
-						? choosePanTarget(i, -vel.vx)
-						: choosePanSettleTarget(i);
-				if (target !== null) {
-					changed = beginPanAnimation(i, target) || changed;
-				}
+				changed = beginPanAnimation(i, panOriginSnap[i]) || changed;
 			}
 			if (changed) inputDirty = true;
 		}
+		trackpadAccum = 0;
+		trackpadActive = false;
 	}
 
 	function armWheelSettle(): void {
@@ -747,38 +701,148 @@ export function createMobileScrollController(
 		return !!points && points.length > 1;
 	}
 
-	function onWheelContinuous(rawY: number, rawX: number): boolean {
+	/** Index of the nearest vertical stop from `fromIndex` moving verticalT in `dir`. */
+	function verticalStopInDirection(fromIndex: number, dir: -1 | 1): number | null {
+		const from = verticalStops[fromIndex];
+		let best: number | null = null;
+		let bestDist = Number.POSITIVE_INFINITY;
+		for (let i = 0; i < verticalStops.length; i++) {
+			const dist = (verticalStops[i] - from) * dir;
+			if (dist > 0.0001 && dist < bestDist) {
+				best = i;
+				bestDist = dist;
+			}
+		}
+		return best;
+	}
+
+	/** Nearest pan snap point from `from` in `dir` on `row`, if any. */
+	function panSnapInDirection(row: number, from: number, dir: -1 | 1): number | null {
+		const points = panSnapPoints[row];
+		if (!points) return null;
+		let best: number | null = null;
+		let bestDist = Number.POSITIVE_INFINITY;
+		for (const point of points) {
+			const dist = (point - from) * dir;
+			if (dist > 0.0001 && dist < bestDist) {
+				best = point;
+				bestDist = dist;
+			}
+		}
+		return best;
+	}
+
+	/** Origins for a new trackpad gesture: where any running step is heading. */
+	function captureTrackpadOrigins(): void {
+		dragOriginStop =
+			state === State.ANIMATING ? nearestStopIndex(animTargetT) : nearestStopIndex(verticalT);
+		for (let i = 0; i < numRows; i++) {
+			const points = panSnapPoints[i];
+			if (panAnimating[i]) panOriginSnap[i] = panAnimTarget[i];
+			else
+				panOriginSnap[i] = points && points.length > 0 ? nearestSnapPoint(panByRow[i], points) : 0;
+		}
+	}
+
+	function onWheelContinuous(rawY: number, rawX: number, now: number): boolean {
 		const magnitude = Math.hypot(rawY, rawX);
+		const quiet = now - trackpadLastEventAt > TRACKPAD_GESTURE_GAP_MS;
+		const newSwipe =
+			trackpadCommitted &&
+			magnitude > TRACKPAD_NEW_SWIPE_MIN_PX &&
+			magnitude > trackpadLastMagnitude * TRACKPAD_NEW_SWIPE_RATIO;
+		trackpadLastEventAt = now;
+		trackpadLastMagnitude = magnitude;
 
-		// Skip tiny inertial events — don't let them delay the settle snap
-		if (magnitude < WHEEL_INERTIA_THRESHOLD) {
-			return false;
-		}
-
-		wheelGestureStart();
-
-		const deltaY = wheelAxisLock === "h" ? 0 : rawY;
-		// Only allow horizontal pan on rows that actually have multiple snap points
-		const deltaX = wheelAxisLock === "v" || !hasHorizontalContent() ? 0 : rawX;
-		let changed = false;
-
-		// Sample the applied travel so the settle snap can honor flick velocity
-		wheelPosX += deltaX;
-		wheelPosY += deltaY;
-		wheelSamples.push({ x: wheelPosX, y: wheelPosY, t: performance.now() });
-		if (wheelSamples.length > 20) wheelSamples.shift();
-
-		if (deltaY !== 0) {
-			const rawT = getRawVertical();
-			changed = setVerticalWithRubberBand(rawT - deltaY * WHEEL_CONTINUOUS_VERTICAL_SPEED);
-		}
-
-		if (deltaX !== 0) {
-			changed = applyPanDelta(-deltaX * WHEEL_CONTINUOUS_PAN_SPEED) || changed;
+		if (quiet || newSwipe || !trackpadActive) {
+			trackpadActive = true;
+			trackpadCommitted = false;
+			trackpadAccum = 0;
+			trackpadLockX = 0;
+			trackpadLockY = 0;
+			wheelAxisLock = null;
+			captureTrackpadOrigins();
 		}
 
 		armWheelSettle();
-		return changed;
+		// This gesture already moved a step: swallow the rest, momentum included.
+		if (trackpadCommitted) return false;
+
+		// Pick the axis from the accumulated motion, not the first event: swipes
+		// rarely start perfectly straight, and a sideways swipe that began a
+		// little diagonal used to lock vertical and jump to another row.
+		if (!wheelAxisLock) {
+			trackpadLockX += rawX;
+			trackpadLockY += rawY;
+			if (Math.hypot(trackpadLockX, trackpadLockY) < TRACKPAD_AXIS_LOCK_PX) return false;
+			const horizontal = Math.abs(trackpadLockX) > Math.abs(trackpadLockY);
+			// A sideways swipe on a row with nothing to pan to is ignored rather
+			// than reinterpreted as vertical.
+			if (horizontal && !hasHorizontalContent()) {
+				trackpadCommitted = true;
+				return false;
+			}
+			wheelAxisLock = horizontal ? "h" : "v";
+			// Count the travel that went into deciding.
+			trackpadAccum = horizontal ? trackpadLockX : trackpadLockY;
+		} else {
+			trackpadAccum += wheelAxisLock === "v" ? rawY : rawX;
+		}
+		if (trackpadAccum === 0) return false;
+		// Scrolling down/right moves verticalT/pan down, matching touch drags.
+		const dir: -1 | 1 = trackpadAccum > 0 ? -1 : 1;
+		const row = dragOriginStop;
+
+		if (wheelAxisLock === "h") return trackpadPan(row, dir);
+
+		if (Math.abs(trackpadAccum) >= TRACKPAD_STEP_THRESHOLD) {
+			trackpadCommitted = true;
+			const target = verticalStopInDirection(dragOriginStop, dir) ?? dragOriginStop;
+			let changed = beginVerticalAnimation(target);
+			for (let i = 0; i < numRows; i++) {
+				changed = beginPanAnimation(i, panOriginSnap[i]) || changed;
+			}
+			return changed;
+		}
+
+		// Before committing, lean part of the way toward the next stop so the
+		// gesture feels attached. Skip while a previous step is still settling.
+		if (state === State.ANIMATING || panAnimating.some(Boolean)) return false;
+		const lean = (Math.abs(trackpadAccum) / TRACKPAD_STEP_THRESHOLD) * TRACKPAD_PREVIEW;
+		const target = verticalStopInDirection(dragOriginStop, dir);
+		const from = verticalStops[dragOriginStop];
+		// At the first/last row, give a small rubber-band instead.
+		const to = target === null ? from + dir * 0.05 : verticalStops[target];
+		return setVerticalWithRubberBand(lerp(from, to, lean));
+	}
+
+	/** Sideways swipe: follow the fingers, then finish the move once committed. */
+	function trackpadPan(row: number, dir: -1 | 1): boolean {
+		const origin = panOriginSnap[row];
+		const target = panSnapInDirection(row, origin, dir);
+		const travel = Math.abs(trackpadAccum) * TRACKPAD_PAN_SPEED;
+
+		if (target === null) {
+			// End of the row: a short rubber-band pull that eases back on release.
+			const pull = TRACKPAD_PAN_EDGE * (1 - Math.exp(-travel / TRACKPAD_PAN_EDGE));
+			const next = origin + dir * pull;
+			if (Math.abs(next - panByRow[row]) < 0.0001) return false;
+			panAnimating[row] = false;
+			panByRow[row] = next;
+			return true;
+		}
+
+		const gap = Math.abs(target - origin);
+		if (travel >= gap * TRACKPAD_PAN_COMMIT) {
+			trackpadCommitted = true;
+			return beginPanAnimation(row, target);
+		}
+		// Don't tug against a previous move that is still gliding into place.
+		if (panAnimating[row]) return false;
+		const next = origin + dir * travel;
+		if (Math.abs(next - panByRow[row]) < 0.0001) return false;
+		panByRow[row] = next;
+		return true;
 	}
 
 	function onWheel(e: WheelEvent): boolean {
@@ -799,11 +863,7 @@ export function createMobileScrollController(
 			return changed ? markChanged() : false;
 		}
 
-		// Continuous trackpad: apply axis lock
-		if (!wheelAxisLock && (Math.abs(rawX) > 1 || Math.abs(rawY) > 1)) {
-			wheelAxisLock = Math.abs(rawY) >= Math.abs(rawX) ? "v" : "h";
-		}
-		const changed = onWheelContinuous(rawY, rawX);
+		const changed = onWheelContinuous(rawY, rawX, now);
 		return changed ? markChanged() : false;
 	}
 

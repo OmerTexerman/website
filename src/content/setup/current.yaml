@@ -1,21 +1,21 @@
 categories:
   - name: Editor
     items:
-      - name: Cursor
+      - name: VS Code
         detail: ''
   - name: Terminal
     items:
-      - name: GNOME Terminal
+      - name: Ghostty
         detail: ''
   - name: Shell
     items:
-      - name: Bash
+      - name: zsh
         detail: ''
   - name: OS
     items:
-      - name: Bluefin (Fedora)
-        detail: GNOME 49
+      - name: macOS 27
+        detail: ''
   - name: Hardware
     items:
-      - name: Framework 16
-        detail: Ryzen AI 9 HX 370
+      - name: MacBook Pro 14″
+        detail: M4 Pro · 24 GB

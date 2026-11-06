@@ -1,5 +1,4 @@
 ---
-import PageIntro from "../components/PageIntro.astro";
 import type { SiteSection } from "../config";
 import { getSectionPageTitle } from "../config";
 import ContentShell from "./ContentShell.astro";
@@ -8,12 +7,11 @@ interface Props {
 	section: SiteSection;
 	surface?: boolean;
 	containerWidthClass?: string;
-	showIntro?: boolean;
 	/** Absolute path of the preferred URL, when this route duplicates another. */
 	canonical?: string;
 }
 
-const { section, surface, containerWidthClass, showIntro = true, canonical } = Astro.props;
+const { section, surface, containerWidthClass, canonical } = Astro.props;
 ---
 
 <ContentShell
@@ -23,6 +21,5 @@ const { section, surface, containerWidthClass, showIntro = true, canonical } = A
   containerWidthClass={containerWidthClass}
   canonical={canonical}
 >
-  {showIntro && <PageIntro title={section.label} description={section.description} />}
   <slot />
 </ContentShell>

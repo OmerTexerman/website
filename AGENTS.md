@@ -4,21 +4,18 @@
 
 - Package manager: `pnpm`
 - Main checks:
-  - `devcontainer exec --workspace-folder . pnpm lint`
-  - `devcontainer exec --workspace-folder . pnpm check`
-  - `devcontainer exec --workspace-folder . pnpm test`
-  - `devcontainer exec --workspace-folder . pnpm build` for route, config, content, or build-system changes, or when end-to-end confidence matters
-  - `devcontainer exec --workspace-folder . pnpm run verify` runs all four in order. It is named `verify`, not `ci`, because `pnpm ci` resolves to pnpm's own built-in command and never reaches the script.
+  - `pnpm lint`
+  - `pnpm check`
+  - `pnpm test`
+  - `pnpm build` for route, config, content, or build-system changes, or when end-to-end confidence matters
+  - `pnpm run verify` runs all four in order. It is named `verify`, not `ci`, because `pnpm ci` resolves to pnpm's own built-in command and never reaches the script.
 - This repo may already be dirty. Never revert unrelated changes as if they belong to the current task.
 
 ## Execution Environment
 
-- The devcontainer is the canonical runtime for this repo.
-- The `devcontainer` CLI is installed on the host, and the container is already set up.
-- Run project tooling and runtime-dependent commands from the host with `devcontainer exec --workspace-folder . <command>`.
-- Treat this as the default for `pnpm`, `node`, `astro`, `biome`, and any repo scripts or verification commands.
-- Prefer `devcontainer exec` over rebuilding or reinitializing the container unless the task explicitly requires container setup work.
-- Host-side exceptions include editing files, `git` inspection, and simple file reads that do not depend on the project runtime.
+- Tooling runs directly on the host. `mise.toml` pins Node and pnpm; run `mise install` once, then `pnpm install`.
+- If `pnpm` is not on `PATH`, prefix commands with `mise exec --` (e.g. `mise exec -- pnpm test`).
+- Dev server: `pnpm dev` (http://localhost:4321).
 
 ## Default Biases For This Repo
 

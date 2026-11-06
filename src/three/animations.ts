@@ -1,4 +1,4 @@
-import { type Group, MeshStandardMaterial, type Object3D, Vector3 } from "three";
+import { type Group, MeshStandardMaterial, type Object3D, Quaternion, Vector3 } from "three";
 import { clamp, lerp } from "./math-utils";
 import type { BookStackObject } from "./objects/book-stack";
 import { BASE_PAGE_THICK, type DictionaryObject } from "./objects/dictionary";
@@ -22,6 +22,10 @@ let active: ActiveAnimation[] = [];
 
 export function easeInOutCubic(t: number): number {
 	return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
+}
+
+function easeOutCubic(t: number): number {
+	return 1 - (1 - t) ** 3;
 }
 
 function cancelById(id: string): void {
@@ -131,7 +135,18 @@ function getRestPose(obj: Object3D): {
 	};
 }
 
-const DESKTOP_CAMERA_WORLD_POS = new Vector3(0, 5, 7);
+/** Where the desk camera will be once a section opens. The camera may glide
+ *  toward the clicked object, so animations that present an object to the
+ *  viewer aim at this pose rather than the resting desk pose. */
+export interface DeskCameraView {
+	pos: Vector3;
+	look: Vector3;
+}
+
+const RESTING_DESK_VIEW: DeskCameraView = {
+	pos: new Vector3(0, 5, 7),
+	look: new Vector3(0, 0.5, 0),
+};
 const _cameraLocalPos = new Vector3();
 
 // ─── NOTEBOOK (Blog) ─────────────────────────────────────────────
@@ -203,7 +218,10 @@ const READING_CAMERA_PITCH_BIAS = -0.3;
 const READING_LOOSE_PAGE_EDGE_RX =
 	READING_COVER_OPEN_RX - READING_PAGE_BLOCK_INSET_RX - READING_LOOSE_PAGE_MARGIN_RX;
 
-export function animateBookLift(stack: BookStackObject): Promise<void> {
+export function animateBookLift(
+	stack: BookStackObject,
+	view: DeskCameraView = RESTING_DESK_VIEW,
+): Promise<void> {
 	const {
 		hero,
 		lowerBooks,
@@ -254,7 +272,7 @@ export function animateBookLift(stack: BookStackObject): Promise<void> {
 		let targetYaw = restRY;
 		if (hero.parent) {
 			hero.parent.updateWorldMatrix(true, false);
-			_cameraLocalPos.copy(DESKTOP_CAMERA_WORLD_POS);
+			_cameraLocalPos.copy(view.pos);
 			hero.parent.worldToLocal(_cameraLocalPos);
 			const cameraDirX = _cameraLocalPos.x - hero.position.x;
 			const cameraDirY = _cameraLocalPos.y - hero.position.y;
@@ -432,7 +450,11 @@ export function animateBookClose(stack: BookStackObject): Promise<void> {
 
 // ─── PHOTO FRAME (Photos) ───────────────────────────────────────
 const _worldPos = new Vector3();
-const FLY_TARGET = { x: 0, y: 3.0, z: 4.5 };
+const _flyDir = new Vector3();
+/** How far in front of the camera the photo comes to rest, and its scale there. */
+const FLY_DISTANCE = 3.2;
+const FLY_SCALE = 3;
+const FLY_ARC_HEIGHT = 1.5;
 
 let flyingPhotoData: {
 	photo: Object3D;
@@ -441,11 +463,27 @@ let flyingPhotoData: {
 	restLocal: { x: number; y: number; z: number; rz: number };
 } | null = null;
 
-export function animateFrameReveal(frame: PhotoFrameObject): Promise<void> {
+export function animateFrameReveal(
+	frame: PhotoFrameObject,
+	view: DeskCameraView = RESTING_DESK_VIEW,
+): Promise<void> {
 	const photo = frame.parts.flyPhoto;
 
 	photo.getWorldPosition(_worldPos);
 	const startWorld = { x: _worldPos.x, y: _worldPos.y, z: _worldPos.z };
+
+	// Rest the photo just in front of where the camera ends up, along its view
+	// line. A zoomed-in camera is closer, so the photo stops proportionally
+	// nearer and smaller to fill the same share of the screen.
+	const distance = Math.min(FLY_DISTANCE, view.pos.distanceTo(_worldPos) * 0.6);
+	_flyDir.copy(view.look).sub(view.pos).normalize();
+	const target = {
+		x: view.pos.x + _flyDir.x * distance,
+		y: view.pos.y + _flyDir.y * distance,
+		z: view.pos.z + _flyDir.z * distance,
+	};
+	const endScale = FLY_SCALE * (distance / FLY_DISTANCE);
+	const arcHeight = FLY_ARC_HEIGHT * (distance / FLY_DISTANCE);
 	const restLocal = {
 		x: photo.position.x,
 		y: photo.position.y,
@@ -466,22 +504,20 @@ export function animateFrameReveal(frame: PhotoFrameObject): Promise<void> {
 	flyingPhotoData = { photo, frame: frame.root, startWorld, restLocal };
 
 	return animate(`frame-${frame.root.uuid}`, 800, (p) => {
-		const midY = Math.max(startWorld.y, FLY_TARGET.y) + 1.5;
+		const midY = Math.max(startWorld.y, target.y) + arcHeight;
 		const t = p;
 		const omt = 1 - t;
 		// Quadratic bezier arc
 		photo.position.x =
 			omt * omt * startWorld.x +
-			2 * omt * t * (startWorld.x * 0.3 + FLY_TARGET.x * 0.7) +
-			t * t * FLY_TARGET.x;
-		photo.position.y = omt * omt * startWorld.y + 2 * omt * t * midY + t * t * FLY_TARGET.y;
+			2 * omt * t * (startWorld.x * 0.3 + target.x * 0.7) +
+			t * t * target.x;
+		photo.position.y = omt * omt * startWorld.y + 2 * omt * t * midY + t * t * target.y;
 		photo.position.z =
-			omt * omt * startWorld.z +
-			2 * omt * t * ((startWorld.z + FLY_TARGET.z) / 2) +
-			t * t * FLY_TARGET.z;
+			omt * omt * startWorld.z + 2 * omt * t * ((startWorld.z + target.z) / 2) + t * t * target.z;
 		photo.rotation.z = lerp(startRotZ, 0, p);
 		photo.rotation.x = lerp(frame.root.rotation.x, 0, p);
-		const s = lerp(1, 3.0, p);
+		const s = lerp(1, endScale, p);
 		photo.scale.set(s, s, s);
 	});
 }
@@ -807,16 +843,59 @@ export function animatePhoneSleep(phone: Object3D): Promise<void> {
 // ─── SHELF WALL ANIMATIONS ─────────────────────────────────────
 
 /** Tip shelf items forward and drop them off the shelf before opening */
-export function animateShelfPresent(items: Object3D): Promise<void> {
+// Shelf items are yanked straight out until they fully clear the front of
+// the shelf, then drop hard: gravity-squared fall, a fast forward tumble and a
+// little drift toward the viewer. No rotation happens while the item is still
+// over the plank, so nothing dips through it.
+const SHELF_FALL_MS = 420;
+const SHELF_YANK_PHASE = 0.3;
+const SHELF_YANK_LIFT = 0.035;
+const SHELF_FALL_DROP = 2.4;
+const SHELF_FALL_FORWARD = 0.35;
+const SHELF_FALL_DRIFT = 0.25;
+const SHELF_TUMBLE = 1.25;
+const SHELF_SPIN = 0.35;
+const _shelfCameraLocal = new Vector3();
+const _shelfTumble = new Quaternion();
+const _shelfSpin = new Quaternion();
+const AXIS_Y = new Vector3(0, 1, 0);
+const AXIS_Z = new Vector3(0, 0, 1);
+
+export function animateShelfPresent(
+	items: Object3D,
+	frontClearance: number,
+	cameraWorldPos: Vector3,
+): Promise<void> {
 	saveRestPose(items);
-	const { x: restX, y: restY, z: restZ, rx: restRX, ry: restRY, rz: restRZ } = getRestPose(items);
-	return animate(`shelf-present-${items.uuid}`, 280, (p) => {
-		items.position.x = lerp(restX, restX - 0.7, p);
-		items.position.y = lerp(restY, restY - 1.45, p);
-		items.position.z = lerp(restZ, restZ + 0.12, p);
-		items.rotation.x = lerp(restRX, restRX - 0.55, p);
-		items.rotation.y = lerp(restRY, restRY + 0.12, p);
-		items.rotation.z = lerp(restRZ, restRZ + 0.3, p);
+	const { x: restX, y: restY, z: restZ } = getRestPose(items);
+	const restQuat = items.quaternion.clone();
+
+	// Sideways drift toward the camera (along the shelf), in parent space.
+	let driftZ = 0;
+	if (items.parent) {
+		items.parent.updateWorldMatrix(true, false);
+		_shelfCameraLocal.copy(cameraWorldPos);
+		items.parent.worldToLocal(_shelfCameraLocal);
+		const dz = _shelfCameraLocal.z - restZ;
+		driftZ = Math.sign(dz) * Math.min(1, Math.abs(dz));
+	}
+
+	return animate(`shelf-present-${items.uuid}`, SHELF_FALL_MS, (p) => {
+		// Yank: fast out, straight away from the wall (-x), no rotation.
+		const yank = easeOutCubic(clamp(p / SHELF_YANK_PHASE, 0, 1));
+		// Fall: starts only once the item is clear of the plank.
+		const fall = clamp((p - SHELF_YANK_PHASE) / (1 - SHELF_YANK_PHASE), 0, 1);
+		const gravity = fall * fall;
+
+		items.position.x = restX - frontClearance * yank - SHELF_FALL_FORWARD * fall;
+		items.position.y = restY + SHELF_YANK_LIFT * yank - SHELF_FALL_DROP * gravity;
+		items.position.z = restZ + driftZ * SHELF_FALL_DRIFT * fall;
+
+		// Tumble forward (top toward the viewer) about the shelf's long axis,
+		// with a touch of spin, applied in parent space on top of the rest pose.
+		_shelfTumble.setFromAxisAngle(AXIS_Z, SHELF_TUMBLE * gravity);
+		_shelfSpin.setFromAxisAngle(AXIS_Y, SHELF_SPIN * fall * Math.sign(driftZ || 1));
+		items.quaternion.copy(restQuat).premultiply(_shelfTumble).premultiply(_shelfSpin);
 	});
 }
 
@@ -829,7 +908,9 @@ export function animateShelfReset(items: Object3D): Promise<void> {
 	const curRY = items.rotation.y;
 	const curRZ = items.rotation.z;
 	const { x: restX, y: restY, z: restZ, rx: restRX, ry: restRY, rz: restRZ } = getRestPose(items);
-	return animate(`shelf-present-${items.uuid}`, 320, (p) => {
+	return animate(`shelf-present-${items.uuid}`, 420, (raw) => {
+		// Ease out so the item settles back onto the shelf rather than sliding.
+		const p = easeOutCubic(raw);
 		items.position.x = lerp(curX, restX, p);
 		items.position.y = lerp(curY, restY, p);
 		items.position.z = lerp(curZ, restZ, p);

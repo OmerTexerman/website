@@ -1,6 +1,11 @@
 ---
 /**
- * Shared content preview modal for the homepage scene.
+ * Full-screen section view for the homepage scene.
+ *
+ * Clicking a desk object zooms the camera toward it, then this view fades
+ * in over the whole screen with that section's object (notebook, laptop,
+ * bookcase, corkboard) filling it. The URL changes to the section's real
+ * address; Back to desk, Esc or the browser back button zoom back out.
  */
 ---
 
@@ -9,58 +14,69 @@
   class="fixed inset-0 z-50 invisible pointer-events-none"
   aria-hidden="true"
 >
-  <div id="content-modal-backdrop" class="absolute inset-0 bg-dark/80 backdrop-blur-sm opacity-0"></div>
+  <div id="content-modal-backdrop" class="modal-backdrop absolute inset-0 opacity-0"></div>
   <div
     id="content-modal-panel"
-    class="absolute bottom-0 left-4 right-4 top-16 will-change-transform [backface-visibility:hidden] sm:left-0 sm:right-0 sm:mx-auto sm:w-[calc(100%-2rem)] sm:max-w-3xl"
-    style="opacity: 0; translate: 0 88px;"
+    class="modal-panel will-change-transform [backface-visibility:hidden]"
+    style="opacity: 0; scale: 0.985;"
     role="dialog"
+    tabindex="-1"
     aria-modal="true"
     aria-labelledby="content-modal-title"
   >
-    <div
-      id="content-modal-surface"
-      class="flex h-full flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-dark-surface/95 shadow-2xl isolate [contain:paint]"
-    >
-      <div class="flex items-center justify-between border-b border-white/10 px-6 py-4">
-        <h2 id="content-modal-title" class="font-display text-xl font-bold text-cream"></h2>
-        <button
-          id="content-modal-close"
-          class="icon-button"
-          aria-label="Close"
-          type="button"
-        >
-          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+    <div id="content-modal-surface" class="modal-surface">
+      <div class="modal-strip">
+        <button id="content-modal-close" class="paper-tag paper-tag-action modal-back" type="button">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.25" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
+          <span data-modal-back-label>Back to desk</span>
         </button>
+        <h2 id="content-modal-title" class="sr-only"></h2>
+        <span class="modal-esc-hint" aria-hidden="true">esc</span>
       </div>
-      <div
-        id="content-modal-body"
-        class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-6 text-cream"
-      >
+      <div id="content-modal-body" class="modal-body">
         <div class="flex items-center justify-center py-12">
           <div class="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent"></div>
         </div>
-      </div>
-      <div class="border-t border-white/10 px-6 py-4">
-        <a
-          id="content-modal-link"
-          href="/"
-          class="accent-link"
-        >
-          View full page
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-          </svg>
-        </a>
       </div>
     </div>
   </div>
 </div>
 
 <script>
+  import { getBackLabel, MOBILE_BREAKPOINT, orderedSections } from "../config";
+  import { mountOsDesktop } from "../dom/os-desktop";
   import { bootstrapContentModal } from "../modal/bootstrap";
+  import { loadContentPreview } from "../modal/preview";
 
   bootstrapContentModal();
+
+  // Re-attach the behaviour that preview HTML loses with its scripts.
+  let unmountSection: (() => void) | null = null;
+  document.getElementById("content-modal")?.addEventListener("content-modal:rendered", (event) => {
+    unmountSection?.();
+    const body = (event as CustomEvent<{ body: HTMLElement }>).detail.body;
+    unmountSection = mountOsDesktop(body);
+  });
+
+  // Warm the preview cache once the page is idle, so the full-screen view
+  // fades in with its content instead of a loading spinner. Phones open
+  // the phone and camera variants of Projects and Photos.
+  const isPhone = window.innerWidth < MOBILE_BREAKPOINT;
+  const previewHrefs = orderedSections.map(({ href }) => {
+    if (isPhone && href === "/projects") return "/projects/phone";
+    if (isPhone && href === "/photos") return "/photos/camera";
+    return href;
+  });
+  const warm = () => {
+    const signal = new AbortController().signal;
+    for (const href of previewHrefs) void loadContentPreview(href, signal).catch(() => {});
+  };
+  if ("requestIdleCallback" in window) window.requestIdleCallback(warm, { timeout: 4000 });
+  else setTimeout(warm, 2000);
+
+  // "Back to desk" on desktop, "Back to shelf" on phones.
+  const backLabel = document.querySelector("[data-modal-back-label]");
+  if (backLabel) backLabel.textContent = getBackLabel("/");
 </script>

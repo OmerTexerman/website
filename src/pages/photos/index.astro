@@ -10,12 +10,19 @@ const collections = await getPhotoCollections();
 ---
 
 <ContentPage section={section} surface={false} containerWidthClass="max-w-5xl">
-  <div class="corkboard-page">
+  <div class="corkboard corkboard-page section-object">
+    <div class="title-card title-card-pinned" data-animate>
+      <span class="title-card-pin" aria-hidden="true"></span>
+      <h1 class="title-card-title">{section.label}</h1>
+      <p class="title-card-desc">{section.description}</p>
+      {collections.length > 0 && (
+        <input type="search" class="content-search" placeholder="search collections..." data-content-search aria-label="Search collections" />
+      )}
+    </div>
     {collections.length === 0 ? (
-      <p class="text-muted font-mono">nothing here yet :)</p>
+      <p class="object-empty-text">nothing here yet :)</p>
     ) : (
       <>
-        <input type="search" class="content-search" placeholder="search collections..." data-content-search aria-label="Search collections" />
         <div class="corkboard-grid" data-content-list>
           {collections.map((collection, i) => (
             <div data-animate style={`transition-delay: ${i * 0.1}s`}>

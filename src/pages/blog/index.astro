@@ -9,8 +9,8 @@ const section = getSectionById("blog");
 const posts = await getPublishedPosts();
 ---
 
-<ContentPage section={section} surface={false} containerWidthClass="max-w-3xl" showIntro={false}>
-  <div class="notebook-page" data-animate>
+<ContentPage section={section} surface={false} containerWidthClass="max-w-3xl">
+  <div class="notebook-page section-object" data-animate>
     <div class="notebook-cover-edge"></div>
     <div class="notebook-paper">
       {/* Title written on the notebook page */}

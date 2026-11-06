@@ -1,6 +1,5 @@
 ---
 import ContentHeader from "../components/ContentHeader.astro";
-import ContextBackLink from "../components/ContextBackLink.astro";
 import Footer from "../components/Footer.astro";
 import BaseLayout from "./BaseLayout.astro";
 
@@ -12,7 +11,6 @@ interface Props {
 	publishedDate?: Date;
 	containerTag?: "div" | "article";
 	containerWidthClass?: string;
-	showBackLink?: boolean;
 	surface?: boolean;
 	/** Absolute path of the preferred URL, when this route duplicates another. */
 	canonical?: string;
@@ -26,7 +24,6 @@ const {
 	publishedDate,
 	containerTag = "div",
 	containerWidthClass = "max-w-4xl",
-	showBackLink = true,
 	surface = true,
 	canonical,
 } = Astro.props;
@@ -57,5 +54,4 @@ const ContainerTag = containerTag;
     </ContainerTag>
   </main>
   <Footer />
-  {showBackLink && <ContextBackLink variant="floating" />}
 </BaseLayout>

@@ -283,20 +283,8 @@ html[data-scene-fallback="visible"] #scene-fallback {
 	@apply mb-10 text-sm text-muted hover:text-cream;
 }
 
-.back-link-floating {
-	@apply fixed bottom-4 right-4 z-30 rounded-full border border-white/10 bg-dark-surface/90 px-3 py-2 text-xs text-cream backdrop-blur-sm hover:border-accent/50 hover:text-accent sm:bottom-6 sm:right-6 sm:px-4 sm:py-2.5 sm:text-sm;
-}
-
 .back-link-button {
 	@apply rounded-lg bg-accent px-6 py-3 text-sm text-dark hover:bg-accent-hover;
-}
-
-.icon-button {
-	@apply flex min-h-11 min-w-11 items-center justify-center rounded-full text-muted-light transition-colors hover:bg-white/8 hover:text-cream;
-}
-
-.accent-link {
-	@apply inline-flex items-center gap-2 font-mono text-sm text-accent transition-colors hover:text-accent-hover;
 }
 
 /* Content card surface — dark room panel */
@@ -311,10 +299,291 @@ html[data-scene-fallback="visible"] #scene-fallback {
 	box-shadow: 0 28px 80px rgba(0, 0, 0, 0.35);
 }
 
+/* ── The room ─────────────────────────────────────
+   Every content page and the modal backdrop share the desk scene's
+   lighting: a warm pool of lamp light from above falling off into a
+   dim, slightly warm room. */
+:root {
+	--room-lamp: radial-gradient(
+		ellipse 70% 55% at 50% -8%,
+		rgba(255, 190, 120, 0.11),
+		transparent 70%
+	);
+	--room-floor: linear-gradient(180deg, #1f1c19 0%, #171513 55%, #121110 100%);
+	--paper-tag-bg: var(--color-notebook-paper);
+	--paper-tag-ink: var(--color-notebook-bg);
+}
+
+body:has(.content-page-main) {
+	background: var(--room-lamp), var(--room-floor);
+	background-color: #121110;
+	background-repeat: no-repeat;
+	min-height: 100dvh;
+}
+
 /* Shared <main> wrapper for content pages */
 .content-page-main {
-	@apply min-h-screen pt-14;
-	background: linear-gradient(180deg, #201f1e 0%, #171716 100%);
+	@apply min-h-screen;
+}
+
+/* ── Room nav ───────────────────────────────────
+   Not a toolbar: a quiet row along the top of the room. The current
+   section is a paper tab, the same paper tag the modal uses. */
+.room-nav-inner {
+	@apply mx-auto flex h-14 max-w-6xl items-end justify-between gap-3 px-4 sm:px-6;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.room-nav-home {
+	@apply mb-0 inline-flex shrink-0 items-center gap-2 font-mono text-xs text-muted-light transition-colors hover:text-cream sm:text-sm;
+}
+
+.room-nav-alien {
+	height: 2.25rem;
+	width: auto;
+	transform-origin: 50% 90%;
+	transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* A little wave hello on hover */
+.room-nav-home:hover .room-nav-alien {
+	transform: rotate(-8deg) translateY(-1px);
+}
+
+.room-nav-tabs {
+	@apply flex min-w-0 items-end gap-1 overflow-x-auto whitespace-nowrap sm:gap-2;
+}
+
+.room-nav-tab {
+	@apply block px-2.5 pb-2 pt-2 font-mono text-xs text-muted transition-colors hover:text-cream sm:px-3.5 sm:text-sm;
+	border-radius: 3px 3px 0 0;
+}
+
+.room-nav-tab[aria-current="page"] {
+	background: linear-gradient(180deg, var(--color-notebook-paper), var(--color-notebook-paper-alt));
+	color: var(--paper-tag-ink);
+	font-weight: 500;
+}
+
+/* ── Paper tag ───────────────────────────────────
+   The one shared label: the modal title, the active nav tab, and the
+   title cards clipped onto section objects all use it. */
+.paper-tag {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.875rem;
+	background: linear-gradient(180deg, var(--color-notebook-paper), var(--color-notebook-paper-alt));
+	color: var(--paper-tag-ink);
+	border-radius: 3px 3px 0 0;
+	padding: 0.5rem 0.875rem 0.45rem;
+	box-shadow:
+		0 -1px 0 rgba(255, 255, 255, 0.4) inset,
+		0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.paper-tag-title {
+	font-family: var(--font-display);
+	font-weight: 700;
+	font-size: 0.95rem;
+	line-height: 1;
+	letter-spacing: -0.01em;
+}
+
+/* Small tabs for actions (open page, close) beside the title tab */
+.paper-tag-action {
+	gap: 0.3rem;
+	min-height: 2rem;
+	padding: 0.4rem 0.7rem 0.35rem;
+	font-family: var(--font-mono);
+	font-size: 0.6875rem;
+	cursor: pointer;
+	transition:
+		color 0.15s ease,
+		background-color 0.15s ease;
+}
+
+/* Tabs stay attached to the object on hover; only the ink changes. */
+.paper-tag-action:hover {
+	color: var(--color-accent-dark);
+}
+
+.paper-tag-action:focus-visible {
+	outline: 2px solid var(--color-notebook-paper);
+	outline-offset: 2px;
+}
+
+/* ── Title card ──────────────────────────────────
+   Section title written on a cream index card and fixed onto the
+   object: pinned to the corkboard. */
+.title-card {
+	position: relative;
+	z-index: 1;
+	width: fit-content;
+	max-width: min(100%, 22rem);
+	margin-bottom: 2rem;
+	padding: 1rem 1.25rem 1.125rem;
+	background: linear-gradient(180deg, var(--color-notebook-paper), var(--color-notebook-paper-alt));
+	color: var(--paper-tag-ink);
+	border-radius: 2px;
+	box-shadow:
+		2px 3px 10px rgba(0, 0, 0, 0.3),
+		0 1px 2px rgba(0, 0, 0, 0.15);
+	transform: rotate(-1deg);
+}
+
+.title-card-title {
+	font-family: var(--font-display);
+	font-weight: 700;
+	font-size: 1.5rem;
+	line-height: 1.1;
+	letter-spacing: -0.01em;
+}
+
+.title-card-desc {
+	margin-top: 0.25rem;
+	font-family: var(--font-mono);
+	font-size: 0.75rem;
+	color: var(--color-notebook-text);
+}
+
+.title-card .content-search {
+	margin-top: 0.75rem;
+	font-size: 0.75rem;
+	color: var(--paper-tag-ink);
+	border-bottom-color: rgba(87, 77, 70, 0.35);
+}
+
+.title-card .content-search::placeholder {
+	color: var(--color-notebook-text);
+}
+
+.title-card .content-search:focus {
+	border-bottom-color: var(--color-accent-dark);
+}
+
+.title-card-pin {
+	position: absolute;
+	top: -6px;
+	left: 50%;
+	width: 13px;
+	height: 13px;
+	border-radius: 50%;
+	transform: translateX(-50%);
+	background: radial-gradient(
+		circle at 40% 35%,
+		var(--color-accent-hover),
+		var(--color-accent-dark)
+	);
+	box-shadow:
+		0 2px 4px rgba(0, 0, 0, 0.4),
+		inset 0 1px 2px rgba(255, 255, 255, 0.2);
+}
+
+.object-empty-text {
+	font-family: var(--font-mono);
+	font-size: 0.8125rem;
+	color: var(--color-cream-dark);
+	padding: 2rem 0;
+}
+
+/* ── Content modal ───────────────────────────────── */
+
+.modal-backdrop {
+	background:
+		radial-gradient(ellipse 60% 50% at 50% 0%, rgba(255, 190, 120, 0.06), transparent 70%),
+		rgba(14, 12, 10, 0.78);
+	backdrop-filter: blur(6px);
+}
+
+/* Full screen: the room, a back tab floating at the top, then the section. */
+.modal-panel {
+	position: absolute;
+	inset: 0;
+}
+
+.modal-surface {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	/* The same lamp-lit room the section pages sit in */
+	background: var(--room-lamp), var(--room-floor);
+	background-color: #121110;
+}
+
+.modal-strip {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75rem;
+	padding: max(0.625rem, env(safe-area-inset-top)) 0.875rem 0.625rem;
+}
+
+/* The back control is a whole tab here, not one hanging off an object */
+.modal-back {
+	border-radius: 4px;
+}
+
+.modal-esc-hint {
+	display: none;
+	padding: 0.05rem 0.4rem;
+	border: 1px solid rgba(255, 255, 255, 0.14);
+	border-radius: 4px;
+	color: var(--color-muted);
+	font-family: var(--font-mono);
+	font-size: 0.65rem;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.modal-esc-hint {
+		display: inline-block;
+	}
+}
+
+#content-modal-panel:focus {
+	outline: none;
+}
+
+/* The body is the room itself; the section object sits in it. */
+.modal-body {
+	position: relative;
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	padding: 0.5rem 0.75rem 3rem;
+	color: var(--color-cream);
+	isolation: isolate;
+}
+
+@media (min-width: 48rem) {
+	.modal-body {
+		padding: 1rem 2rem 4rem;
+	}
+}
+
+/* Physical objects keep their natural size in the room, as on their own
+   pages: a notebook stays notebook-sized and the view scrolls. Only a
+   screen fills the view (see projects.css). */
+#content-modal-body > .section-object {
+	margin-inline: auto;
+}
+
+#content-modal-body > .notebook-page {
+	max-width: 48rem;
+}
+
+#content-modal-body > .bookcase,
+#content-modal-body > .corkboard {
+	max-width: 64rem;
+}
+
+#content-modal-body > .wotd-page {
+	max-width: 44rem;
+}
+
+#content-modal-body > .camera-body {
+	max-width: 56rem;
 }
 
 /* Outer container for content pages (add max-w-* inline) */
@@ -364,12 +633,6 @@ html[data-scene-fallback="visible"] #scene-fallback {
 	z-index: 10;
 }
 
-/* ── Modal overrides — shared ────────────────── */
-
-#content-modal-body .page-intro {
-	display: none;
-}
-
 /* ── iOS safe area / notch support ──────────────────────────────────── */
 #scene-fallback {
 	padding-bottom: max(2rem, env(safe-area-inset-bottom));
@@ -411,8 +674,9 @@ html[data-scene-fallback="visible"] #scene-fallback {
 	.back-link-inline,
 	.show-more-btn,
 	.back-link,
-	.icon-button,
-	.accent-link {
+	.paper-tag-action,
+	.room-nav-tab,
+	.room-nav-home {
 		transition: none;
 	}
 }

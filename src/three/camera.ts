@@ -102,3 +102,45 @@ export function lerpCameraPose(
 	_lookTarget.lerpVectors(fromLook, toLook, t);
 	camera.lookAt(_lookTarget);
 }
+
+// ─── Section focus (desk) ───────────────────────────────────────
+// Clicking a desk object glides the camera most of the way toward it before
+// the section view fades in over the screen; closing glides back.
+
+export const FOCUS_IN_MS = 650;
+export const FOCUS_OUT_MS = 550;
+/** Fraction of the way from the desk pose to the object the camera travels. */
+const FOCUS_APPROACH = 0.62;
+
+export interface CameraFocusAnimation {
+	fromPos: Vector3;
+	fromLook: Vector3;
+	toPos: Vector3;
+	toLook: Vector3;
+	start: number;
+	duration: number;
+}
+
+/** Camera pose that looks at `target` from part-way along the desk view line. */
+export function focusPoseFor(target: Vector3, outPos: Vector3, outLook: Vector3): void {
+	outLook.copy(target);
+	outPos
+		.copy(DESKTOP_POS)
+		.sub(target)
+		.multiplyScalar(1 - FOCUS_APPROACH)
+		.add(target);
+}
+
+/** Advance a focus animation; writes the current look target. Returns true when done. */
+export function stepCameraFocus(
+	camera: PerspectiveCamera,
+	anim: CameraFocusAnimation,
+	now: number,
+	outLook: Vector3,
+): boolean {
+	const progress = Math.min((now - anim.start) / anim.duration, 1);
+	const eased = easeInOutCubic(progress);
+	lerpCameraPose(camera, anim.fromPos, anim.toPos, anim.fromLook, anim.toLook, eased);
+	outLook.lerpVectors(anim.fromLook, anim.toLook, eased);
+	return progress >= 1;
+}

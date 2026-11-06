@@ -1,5 +1,7 @@
+import { site } from "../config";
 import { revealAnimatedChildren } from "../dom/reveal";
 import { getSameOriginHref, getSameOriginUrl, isSafeHttpUrl } from "../url-utils";
+import { isRecord } from "../utils";
 import { type ContentModalApi, registerContentModal, unregisterContentModal } from "./api";
 import { type ContentModalHistoryState, rememberContentModalReturnState } from "./history";
 import { loadContentPreview } from "./preview";
@@ -10,11 +12,14 @@ interface ContentModalElements {
 	panelEl: HTMLElement;
 	titleEl: HTMLElement;
 	bodyEl: HTMLElement;
-	linkEl: HTMLAnchorElement;
+	/** Optional "open full page" link; the full-screen view no longer shows one. */
+	linkEl: HTMLAnchorElement | null;
 	closeButtonEl: HTMLButtonElement;
 }
 
 type ModalState = "closed" | "opening" | "open" | "closing";
+
+const VIEW_STATE_KEY = "contentModalView";
 
 const FOCUSABLE =
 	'a[href],button:not([disabled]),textarea:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])';
@@ -42,7 +47,6 @@ function resolveContentModalElements(rootEl: HTMLElement): ContentModalElements 
 		!(panelEl instanceof HTMLElement) ||
 		!(titleEl instanceof HTMLElement) ||
 		!(bodyEl instanceof HTMLElement) ||
-		!(linkEl instanceof HTMLAnchorElement) ||
 		!(closeButtonEl instanceof HTMLButtonElement)
 	) {
 		return null;
@@ -54,7 +58,7 @@ function resolveContentModalElements(rootEl: HTMLElement): ContentModalElements 
 		panelEl,
 		titleEl,
 		bodyEl,
-		linkEl,
+		linkEl: linkEl instanceof HTMLAnchorElement ? linkEl : null,
 		closeButtonEl,
 	};
 }
@@ -107,14 +111,14 @@ function createContentModalController(elements: ContentModalElements): {
 	function applyClosedVisualState(): void {
 		backdropEl.style.opacity = "0";
 		panelEl.style.opacity = "0";
-		panelEl.style.translate = "0 88px";
+		panelEl.style.scale = "0.985";
 		bodyEl.style.overflowY = "hidden";
 	}
 
 	function applyOpenVisualState(): void {
 		backdropEl.style.opacity = "1";
 		panelEl.style.opacity = "1";
-		panelEl.style.translate = "0 0";
+		panelEl.style.scale = "1";
 		bodyEl.style.overflowY = "auto";
 	}
 
@@ -149,11 +153,11 @@ function createContentModalController(elements: ContentModalElements): {
 			[
 				{
 					opacity: open ? 0 : 1,
-					translate: `0 ${open ? "88px" : "0px"}`,
+					scale: open ? "0.985" : "1",
 				},
 				{
 					opacity: open ? 1 : 0,
-					translate: `0 ${open ? "0px" : "72px"}`,
+					scale: open ? "1" : "0.985",
 				},
 			],
 			{
@@ -301,6 +305,70 @@ function createContentModalController(elements: ContentModalElements): {
 		return requestId !== previewRequestId || modalState !== "open";
 	}
 
+	// ── URL sync ────────────────────────────────────────────────
+	// The full-screen view gives each section its real URL without a page
+	// load: opening pushes a history entry, closing steps back off it, and
+	// the browser's back button closes the view. Reloading that URL serves
+	// the real page.
+	let pushedEntry = false;
+	let suppressNextPop = false;
+	let homeTitle = document.title;
+
+	function viewFromState(state: unknown): ContentModalHistoryState | null {
+		if (!isRecord(state)) return null;
+		const view = state[VIEW_STATE_KEY];
+		if (!isRecord(view) || typeof view.href !== "string" || typeof view.label !== "string") {
+			return null;
+		}
+		return { href: view.href, label: view.label };
+	}
+
+	function syncUrlOnOpen(label: string, href: string): void {
+		const target = new URL(href, window.location.href);
+		if (target.origin !== window.location.origin) return;
+		if (!pushedEntry) homeTitle = document.title;
+		document.title = `${label} | ${site.name}`;
+		if (window.location.pathname === target.pathname) {
+			pushedEntry = viewFromState(window.history.state) !== null;
+			return;
+		}
+		const base = isRecord(window.history.state) ? { ...window.history.state } : {};
+		const state = { ...base, [VIEW_STATE_KEY]: { label, href } };
+		if (pushedEntry) {
+			window.history.replaceState(state, "", target.pathname);
+		} else {
+			window.history.pushState(state, "", target.pathname);
+			pushedEntry = true;
+		}
+	}
+
+	function syncUrlOnClose(): void {
+		document.title = homeTitle;
+		if (!pushedEntry) return;
+		pushedEntry = false;
+		if (viewFromState(window.history.state)) {
+			suppressNextPop = true;
+			window.history.back();
+		}
+	}
+
+	function handlePopState(event: PopStateEvent): void {
+		if (suppressNextPop) {
+			suppressNextPop = false;
+			return;
+		}
+		const view = viewFromState(event.state);
+		if (view) {
+			// Forward onto a section entry: reopen it in place.
+			pushedEntry = true;
+			void openModal(view.label, view.href);
+		} else if (modalState === "open" || modalState === "opening") {
+			// Back off a section entry: the URL has already changed.
+			pushedEntry = false;
+			void requestClose();
+		}
+	}
+
 	async function openModal(label: string, href: string, source?: string): Promise<void> {
 		const safeTargetHref = safeHrefForModal(href);
 		if (safeTargetHref === null) {
@@ -326,7 +394,8 @@ function createContentModalController(elements: ContentModalElements): {
 		}
 
 		titleEl.textContent = label;
-		linkEl.href = safeTargetHref;
+		if (linkEl) linkEl.href = safeTargetHref;
+		syncUrlOnOpen(label, safeTargetHref);
 		const path = new URL(safeTargetHref, window.location.href).pathname;
 		rootEl.dataset.section = path.replace(/^\/|\/$/g, "").split("/")[0] || "";
 		if (source) {
@@ -346,13 +415,17 @@ function createContentModalController(elements: ContentModalElements): {
 			await animateVisualState(true);
 			if (modalState !== "opening") return;
 			modalState = "open";
-			closeButtonEl.focus();
+			// Focus the dialog itself, not the close button: a programmatic
+			// focus on the button shows its focus ring after a mouse click.
+			panelEl.focus({ preventScroll: true });
 		} else {
 			cancelAnimations();
 			setMounted(true);
 			applyOpenVisualState();
 			modalState = "open";
-			closeButtonEl.focus();
+			// Focus the dialog itself, not the close button: a programmatic
+			// focus on the button shows its focus ring after a mouse click.
+			panelEl.focus({ preventScroll: true });
 		}
 
 		let timeoutId = 0;
@@ -372,6 +445,9 @@ function createContentModalController(elements: ContentModalElements): {
 
 			bodyEl.innerHTML = result.html;
 			revealAnimatedChildren(bodyEl);
+			// Preview HTML arrives without its scripts; listeners can mount
+			// section behaviour (e.g. the laptop desktop) on the new content.
+			rootEl.dispatchEvent(new CustomEvent("content-modal:rendered", { detail: { body: bodyEl } }));
 		} catch {
 			if (isStalePreviewRequest(requestId) || (request.signal.aborted && !timedOut)) return;
 			renderMessage(
@@ -394,6 +470,7 @@ function createContentModalController(elements: ContentModalElements): {
 		activeRequest = null;
 		previewRequestId += 1;
 		modalState = "closing";
+		syncUrlOnClose();
 		await animateVisualState(false);
 		if (modalState !== "closing") return;
 
@@ -454,7 +531,8 @@ function createContentModalController(elements: ContentModalElements): {
 		closeButtonEl.removeEventListener("click", requestCloseHandler);
 		rootEl.removeEventListener("click", handleOverlayClick);
 		bodyEl.removeEventListener("click", handleNavigationIntent);
-		linkEl.removeEventListener("click", handleNavigationIntent);
+		linkEl?.removeEventListener("click", handleNavigationIntent);
+		window.removeEventListener("popstate", handlePopState);
 		document.removeEventListener("keydown", handleKeydown);
 		unregisterContentModal(cleanup);
 	}
@@ -476,7 +554,8 @@ function createContentModalController(elements: ContentModalElements): {
 		closeButtonEl.addEventListener("click", requestCloseHandler);
 		rootEl.addEventListener("click", handleOverlayClick);
 		bodyEl.addEventListener("click", handleNavigationIntent);
-		linkEl.addEventListener("click", handleNavigationIntent);
+		linkEl?.addEventListener("click", handleNavigationIntent);
+		window.addEventListener("popstate", handlePopState);
 		document.addEventListener("keydown", handleKeydown);
 	}
 

@@ -9,9 +9,9 @@ const section = getSectionById("photos");
 const collections = await getPhotoCollections();
 ---
 
-<ContentPage section={section} surface={false} containerWidthClass="max-w-4xl" showIntro={false} canonical="/photos">
+<ContentPage section={section} surface={false} containerWidthClass="max-w-4xl" canonical="/photos">
   <h1 class="sr-only">Photos</h1>
-  <div class="camera-body" data-animate>
+  <div class="camera-body section-object" data-animate>
     {/* Camera body top edge */}
     <div class="camera-top-edge">
       <div class="camera-mode-indicator">
