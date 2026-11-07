@@ -31,12 +31,12 @@ const collections = await getPhotoCollections();
         <>
           {/* Main display — featured collection */}
           <div class="camera-lcd-main">
-            <a href={`/photos/${collections[0].id}`} class="camera-lcd-photo group">
+            <a href={`/photos/${collections[0].id}`} class="camera-lcd-photo group" aria-label={collections[0].title}>
               <img
                 src={cloudinaryUrl(collections[0].cover, 1200)}
                 srcset={cloudinarySrcSet(collections[0].cover, [640, 896, 1280, 1792])}
                 sizes="(min-width: 56rem) 832px, 92vw"
-                alt={collections[0].title}
+                alt=""
                 loading="eager"
                 fetchpriority="high"
                 decoding="async"
@@ -70,7 +70,7 @@ const collections = await getPhotoCollections();
                     src={cloudinaryUrl(col.cover, 320)}
                     srcset={cloudinarySrcSet(col.cover, [160, 320, 480])}
                     sizes="160px"
-                    alt={col.title} loading="lazy" decoding="async" width="160" height="107" />
+                    alt="" loading="lazy" decoding="async" width="160" height="107" />
                   <span class="camera-filmstrip-label">{col.title}</span>
                 </a>
               ))}

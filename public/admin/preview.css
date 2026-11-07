@@ -1,0 +1,100 @@
+/*
+ * Sveltia CMS preview pane: render entries on the site's notebook paper with
+ * the site's fonts, so a post looks roughly like it will once published.
+ * Plain CSS on purpose (the CMS can't load the Tailwind build).
+ */
+
+@font-face {
+	font-family: "Inter";
+	font-weight: 100 900;
+	font-display: swap;
+	src: url("/fonts/inter-latin-400-normal.woff2") format("woff2");
+}
+
+@font-face {
+	font-family: "Space Grotesk";
+	font-weight: 300 700;
+	font-display: swap;
+	src: url("/fonts/space-grotesk-latin-400.woff2") format("woff2");
+}
+
+@font-face {
+	font-family: "JetBrains Mono";
+	font-weight: 400 800;
+	font-display: swap;
+	src: url("/fonts/jetbrains-mono-latin-400.woff2") format("woff2");
+}
+
+html,
+body {
+	background:
+		repeating-linear-gradient(
+			transparent,
+			transparent 1.75rem,
+			rgba(180, 170, 155, 0.12) 1.75rem,
+			rgba(180, 170, 155, 0.12) calc(1.75rem + 1px)
+		),
+		linear-gradient(180deg, #ece6da, #e4ddd0);
+	color: #3a3530;
+	font-family: "Inter", sans-serif;
+	font-size: 1rem;
+	line-height: 1.75;
+}
+
+body {
+	padding: 1.5rem 2rem 3rem;
+	border-top: 6px solid #9a3230;
+}
+
+h1,
+h2,
+h3,
+h4 {
+	font-family: "Space Grotesk", sans-serif;
+	font-weight: 700;
+	color: #2a2520;
+	line-height: 1.2;
+	letter-spacing: -0.01em;
+}
+
+a {
+	color: #9a3230;
+}
+
+code,
+pre {
+	font-family: "JetBrains Mono", monospace;
+}
+
+code {
+	color: #9a3230;
+}
+
+pre {
+	background: #2a2520;
+	color: #ece6da;
+	padding: 1rem;
+	border-radius: 0.75rem;
+	overflow-x: auto;
+}
+
+pre code {
+	color: inherit;
+}
+
+blockquote {
+	margin-left: 0;
+	padding-left: 1rem;
+	border-left: 3px solid rgba(154, 50, 48, 0.3);
+	color: #635850;
+}
+
+img {
+	max-width: 100%;
+	border-radius: 0.75rem;
+}
+
+hr {
+	border: none;
+	border-top: 1px solid rgba(180, 170, 155, 0.35);
+}

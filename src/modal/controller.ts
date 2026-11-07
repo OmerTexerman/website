@@ -5,6 +5,7 @@ import { isRecord } from "../utils";
 import { type ContentModalApi, registerContentModal, unregisterContentModal } from "./api";
 import { type ContentModalHistoryState, rememberContentModalReturnState } from "./history";
 import { loadContentPreview } from "./preview";
+import { mountSwipeDismiss } from "./swipe-dismiss";
 
 interface ContentModalElements {
 	rootEl: HTMLElement;
@@ -96,6 +97,7 @@ function createContentModalController(elements: ContentModalElements): {
 	let animationToken = 0;
 	let isSetup = false;
 	let isCleanedUp = false;
+	let unmountSwipe: (() => void) | null = null;
 
 	function setMounted(mounted: boolean): void {
 		rootEl.classList.toggle("invisible", !mounted);
@@ -112,6 +114,7 @@ function createContentModalController(elements: ContentModalElements): {
 		backdropEl.style.opacity = "0";
 		panelEl.style.opacity = "0";
 		panelEl.style.scale = "0.985";
+		panelEl.style.translate = "";
 		bodyEl.style.overflowY = "hidden";
 	}
 
@@ -495,10 +498,12 @@ function createContentModalController(elements: ContentModalElements): {
 		if (modalState === "closed") return;
 		const target = e.target;
 		if (!(target instanceof Node)) return;
-		// Close when clicking outside the panel surface (backdrop, panel gaps, etc.)
+		// The view fills the screen, so "outside" is the empty room around the
+		// section object: the body or surface themselves, not anything in them.
 		const surfaceEl = panelEl.querySelector("#content-modal-surface");
-		if (surfaceEl?.contains(target)) return;
-		void requestClose();
+		if (target === bodyEl || target === surfaceEl || !surfaceEl?.contains(target)) {
+			void requestClose();
+		}
 	}
 
 	function handleKeydown(e: KeyboardEvent): void {
@@ -515,6 +520,8 @@ function createContentModalController(elements: ContentModalElements): {
 	function cleanup(): void {
 		if (isCleanedUp) return;
 		isCleanedUp = true;
+		unmountSwipe?.();
+		unmountSwipe = null;
 
 		activeRequest?.abort();
 		activeRequest = null;
@@ -557,6 +564,13 @@ function createContentModalController(elements: ContentModalElements): {
 		linkEl?.addEventListener("click", handleNavigationIntent);
 		window.addEventListener("popstate", handlePopState);
 		document.addEventListener("keydown", handleKeydown);
+		unmountSwipe = mountSwipeDismiss({
+			surfaceEl: bodyEl,
+			panelEl,
+			backdropEl,
+			isOpen: () => modalState === "open",
+			onDismiss: () => void requestClose(),
+		});
 	}
 
 	return {

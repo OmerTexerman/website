@@ -17,6 +17,11 @@
 	min-height: 100%;
 }
 
+/* Leave room at the bottom for the "Back to shelf" pill */
+#content-modal-body .phone-screen {
+	padding-bottom: 4.5rem;
+}
+
 #content-modal-body .phone-status-bar {
 	padding: 0.625rem 1.25rem 0;
 }

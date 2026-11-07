@@ -28,5 +28,12 @@
     <!-- CMS extensions -->
     <script src="/admin/cover-suggest.js" defer></script>
     <script src="/admin/cloudinary-upload.js" defer></script>
+
+    <!-- Preview pane: site fonts on notebook paper (see preview.css) -->
+    <script>
+      if (window.CMS && typeof window.CMS.registerPreviewStyle === "function") {
+        window.CMS.registerPreviewStyle("/admin/preview.css");
+      }
+    </script>
   </body>
 </html>

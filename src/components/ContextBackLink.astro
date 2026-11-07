@@ -2,7 +2,7 @@
 import { homeLink } from "../config";
 import BackArrowIcon from "./BackArrowIcon.astro";
 
-type Variant = "inline" | "button";
+type Variant = "inline";
 
 interface Props {
 	fallbackHref?: string;
@@ -20,7 +20,6 @@ const {
 
 const variantClass = {
 	inline: "back-link back-link-inline",
-	button: "back-link back-link-button",
 }[variant];
 ---
 

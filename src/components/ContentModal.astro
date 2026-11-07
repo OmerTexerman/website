@@ -25,16 +25,21 @@
     aria-labelledby="content-modal-title"
   >
     <div id="content-modal-surface" class="modal-surface">
-      <div class="modal-strip">
-        <button id="content-modal-close" class="paper-tag paper-tag-action modal-back" type="button">
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.25" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-          <span data-modal-back-label>Back to desk</span>
-        </button>
-        <h2 id="content-modal-title" class="sr-only"></h2>
-        <span class="modal-esc-hint" aria-hidden="true">esc</span>
-      </div>
+      {/* No header row. One close control, placed per device:
+          phones: a "Back to shelf" pill at the bottom, in thumb reach
+          (plus swipe down from the top, and the browser's edge swipe);
+          larger screens: a small floating close button, top-right
+          (plus Esc and clicking the empty room). */}
+      <h2 id="content-modal-title" class="sr-only"></h2>
+      <button id="content-modal-close" class="modal-close" type="button" title="Back to desk (esc)">
+        <svg class="modal-close-x" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+        <svg class="modal-close-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.25" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+        <span class="modal-close-label" data-modal-back-label>Back to desk</span>
+      </button>
       <div id="content-modal-body" class="modal-body">
         <div class="flex items-center justify-center py-12">
           <div class="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent"></div>
@@ -48,6 +53,7 @@
   import { getBackLabel, MOBILE_BREAKPOINT, orderedSections } from "../config";
   import { mountOsDesktop } from "../dom/os-desktop";
   import { bootstrapContentModal } from "../modal/bootstrap";
+  import { getContentModal } from "../modal/api";
   import { loadContentPreview } from "../modal/preview";
 
   bootstrapContentModal();
@@ -72,11 +78,40 @@
   const warm = () => {
     const signal = new AbortController().signal;
     for (const href of previewHrefs) void loadContentPreview(href, signal).catch(() => {});
+    // The laptop's wallpaper is a CSS background, so fetch it ahead too.
+    if (!isPhone) new Image().src = "/wallpaper.jpg";
   };
   if ("requestIdleCallback" in window) window.requestIdleCallback(warm, { timeout: 4000 });
   else setTimeout(warm, 2000);
 
+  // Projects and Photos have a phone version (lock screen, camera) and a
+  // larger-screen version (laptop, corkboard). If the window crosses the
+  // breakpoint while one is open, swap to the matching version in place.
+  const PHONE_VARIANTS: Record<string, string> = {
+    "/projects": "/projects/phone",
+    "/photos": "/photos/camera",
+  };
+  const wideQuery = window.matchMedia(`(min-width: ${MOBILE_BREAKPOINT}px)`);
+  wideQuery.addEventListener("change", (event) => {
+    syncBackLabel();
+    const root = document.getElementById("content-modal");
+    if (!root || root.classList.contains("invisible")) return;
+    const path = window.location.pathname.replace(/\/$/, "");
+    const wide = Object.entries(PHONE_VARIANTS).find(([, phone]) => phone === path)?.[0];
+    const phone = PHONE_VARIANTS[path];
+    const next = event.matches ? wide : phone;
+    if (!next) return;
+    const label = document.getElementById("content-modal-title")?.textContent || "";
+    getContentModal()?.open(label, next);
+  });
+
   // "Back to desk" on desktop, "Back to shelf" on phones.
-  const backLabel = document.querySelector("[data-modal-back-label]");
-  if (backLabel) backLabel.textContent = getBackLabel("/");
+  function syncBackLabel(): void {
+    const backLabel = document.querySelector("[data-modal-back-label]");
+    if (!backLabel) return;
+    const label = getBackLabel("/");
+    backLabel.textContent = label;
+    backLabel.closest("button")?.setAttribute("title", `${label} (esc)`);
+  }
+  syncBackLabel();
 </script>

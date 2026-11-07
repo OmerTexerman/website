@@ -2,13 +2,67 @@
  * Cover Auto-Suggest for Sveltia CMS
  *
  * Adds a floating panel to search Open Library for book covers by title/author.
- * Click a cover to copy its URL, then paste it into the Cover Image field.
+ * Clicking a cover uploads it into Cloudinary (signed via /api/cloudinary-sign,
+ * same as the photo uploader) and copies the Cloudinary URL, so the site
+ * serves a cached, resized copy instead of hotlinking Open Library. If the
+ * upload fails, the original Open Library URL is copied instead.
  */
 (function () {
 	"use strict";
 
 	const OPEN_LIBRARY_SEARCH = "https://openlibrary.org/search.json";
 	const OPEN_LIBRARY_COVER = "https://covers.openlibrary.org/b/olid";
+	const SIGN_ENDPOINT = "/api/cloudinary-sign";
+	const COVER_FOLDER = "website/books";
+
+	function getCmsGitHubToken() {
+		try {
+			const raw = localStorage.getItem("sveltia-cms.user");
+			if (raw) {
+				const user = JSON.parse(raw);
+				if (user && typeof user.token === "string") return user.token;
+			}
+		} catch {
+			// fall through to null
+		}
+		return null;
+	}
+
+	/** Upload a remote image into Cloudinary by URL; resolves to its secure_url. */
+	async function uploadCoverToCloudinary(remoteUrl) {
+		const token = getCmsGitHubToken();
+		if (!token) throw new Error("Not signed in");
+		const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+
+		const preflight = await fetch(SIGN_ENDPOINT, {
+			method: "POST",
+			headers,
+			body: JSON.stringify({ folder: COVER_FOLDER }),
+		}).then((r) => r.json());
+		if (!preflight.cloudName) throw new Error(preflight.error || "Signing unavailable");
+
+		const params = { folder: preflight.folder, timestamp: String(Math.floor(Date.now() / 1000)) };
+		const { signature } = await fetch(SIGN_ENDPOINT, {
+			method: "POST",
+			headers,
+			body: JSON.stringify({ params_to_sign: params }),
+		}).then((r) => r.json());
+		if (!signature) throw new Error("Signing failed");
+
+		const form = new FormData();
+		form.append("file", remoteUrl);
+		form.append("api_key", preflight.apiKey);
+		form.append("folder", params.folder);
+		form.append("timestamp", params.timestamp);
+		form.append("signature", signature);
+		const res = await fetch(`https://api.cloudinary.com/v1_1/${preflight.cloudName}/image/upload`, {
+			method: "POST",
+			body: form,
+		});
+		const data = await res.json();
+		if (!res.ok || !data.secure_url) throw new Error(data.error?.message || "Upload failed");
+		return data.secure_url;
+	}
 
 	// ── Styles ──────────────────────────────────────────────────────────
 	const style = document.createElement("style");
@@ -222,10 +276,12 @@
 		if (e.detail !== "cover-suggest") panel.classList.remove("open");
 	});
 
+	let toastTimer = 0;
 	function showToast(msg, ms = 2000) {
+		clearTimeout(toastTimer);
 		toast.textContent = msg;
 		toast.classList.add("show");
-		setTimeout(() => toast.classList.remove("show"), ms);
+		toastTimer = setTimeout(() => toast.classList.remove("show"), ms);
 	}
 
 	async function searchCovers() {
@@ -302,7 +358,7 @@
 			for (const cover of covers) {
 				const card = document.createElement("div");
 				card.className = "cs-cover-option";
-				card.title = `${cover.label}\nClick to copy URL`;
+				card.title = `${cover.label}\nClick to save to Cloudinary and copy its URL`;
 
 				const img = document.createElement("img");
 				img.src = cover.thumb;
@@ -317,7 +373,7 @@
 
 				card.appendChild(img);
 				card.appendChild(edition);
-				card.addEventListener("click", () => copyUrl(cover.full));
+				card.addEventListener("click", () => chooseCover(cover.full));
 				grid.appendChild(card);
 			}
 
@@ -334,10 +390,20 @@
 		}
 	}
 
-	async function copyUrl(url) {
+	async function chooseCover(url) {
+		showToast("Saving cover to Cloudinary…", 6000);
+		try {
+			const cloudUrl = await uploadCoverToCloudinary(url);
+			await copyUrl(cloudUrl, "Cover saved to Cloudinary, URL copied! Paste it into the Cover Image field.");
+		} catch (err) {
+			await copyUrl(url, `Couldn't save to Cloudinary (${err.message}); copied the Open Library URL instead.`);
+		}
+	}
+
+	async function copyUrl(url, message = "Cover URL copied! Paste into the Cover Image field.") {
 		try {
 			await navigator.clipboard.writeText(url);
-			showToast("Cover URL copied! Paste into the Cover Image field.");
+			showToast(message, 4000);
 		} catch {
 			// Fallback for older browsers
 			const ta = document.createElement("textarea");
@@ -348,7 +414,7 @@
 			ta.select();
 			document.execCommand("copy");
 			document.body.removeChild(ta);
-			showToast("Cover URL copied! Paste into the Cover Image field.");
+			showToast(message, 4000);
 		}
 	}
 

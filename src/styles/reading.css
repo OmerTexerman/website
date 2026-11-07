@@ -86,6 +86,10 @@
 	max-width: 16rem;
 }
 
+.bookcase .reading-section:last-of-type {
+	margin-bottom: 0;
+}
+
 .bookcase .reading-glow {
 	top: -2rem;
 	width: 90%;

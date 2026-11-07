@@ -27,7 +27,7 @@
 	overflow: hidden;
 	border: 10px solid #0e0d12;
 	border-radius: 16px;
-	/* Wallpaper: a sunset Omer shot in Korea */
+	/* Wallpaper: a sunset I shot in Korea */
 	/* Anchored low so the mountain and rooftops stay in frame; sky crops first */
 	background: url("/wallpaper.jpg") center bottom / cover no-repeat #1c140e;
 	box-shadow:

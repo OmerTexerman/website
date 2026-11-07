@@ -3,11 +3,11 @@
 
 /* ---------- Self-hosted Google Fonts (latin + latin-ext) ---------- */
 
-/* Inter – normal 400 */
+/* Inter – variable 100–900 (file names keep the "400" suffix) */
 @font-face {
 	font-family: "Inter";
 	font-style: normal;
-	font-weight: 400;
+	font-weight: 100 900;
 	font-display: swap;
 	src: url("/fonts/inter-latin-ext-400-normal.woff2") format("woff2");
 	unicode-range:
@@ -19,7 +19,7 @@
 @font-face {
 	font-family: "Inter";
 	font-style: normal;
-	font-weight: 400;
+	font-weight: 100 900;
 	font-display: swap;
 	src: url("/fonts/inter-latin-400-normal.woff2") format("woff2");
 	unicode-range:
@@ -53,11 +53,11 @@
 		U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
-/* JetBrains Mono – normal 400 */
+/* JetBrains Mono – variable 400–800 */
 @font-face {
 	font-family: "JetBrains Mono";
 	font-style: normal;
-	font-weight: 400;
+	font-weight: 400 800;
 	font-display: swap;
 	src: url("/fonts/jetbrains-mono-latin-ext-400.woff2") format("woff2");
 	unicode-range:
@@ -69,7 +69,7 @@
 @font-face {
 	font-family: "JetBrains Mono";
 	font-style: normal;
-	font-weight: 400;
+	font-weight: 400 800;
 	font-display: swap;
 	src: url("/fonts/jetbrains-mono-latin-400.woff2") format("woff2");
 	unicode-range:
@@ -78,11 +78,11 @@
 		U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
-/* Space Grotesk – normal 400 */
+/* Space Grotesk – variable 300–700 */
 @font-face {
 	font-family: "Space Grotesk";
 	font-style: normal;
-	font-weight: 400;
+	font-weight: 300 700;
 	font-display: swap;
 	src: url("/fonts/space-grotesk-latin-ext-400.woff2") format("woff2");
 	unicode-range:
@@ -94,7 +94,7 @@
 @font-face {
 	font-family: "Space Grotesk";
 	font-style: normal;
-	font-weight: 400;
+	font-weight: 300 700;
 	font-display: swap;
 	src: url("/fonts/space-grotesk-latin-400.woff2") format("woff2");
 	unicode-range:
@@ -283,10 +283,6 @@ html[data-scene-fallback="visible"] #scene-fallback {
 	@apply mb-10 text-sm text-muted hover:text-cream;
 }
 
-.back-link-button {
-	@apply rounded-lg bg-accent px-6 py-3 text-sm text-dark hover:bg-accent-hover;
-}
-
 /* Content card surface — dark room panel */
 .content-surface,
 .content-surface-padded {
@@ -310,8 +306,7 @@ html[data-scene-fallback="visible"] #scene-fallback {
 		transparent 70%
 	);
 	--room-floor: linear-gradient(180deg, #1f1c19 0%, #171513 55%, #121110 100%);
-	--paper-tag-bg: var(--color-notebook-paper);
-	--paper-tag-ink: var(--color-notebook-bg);
+	--paper-ink: var(--color-notebook-bg);
 }
 
 body:has(.content-page-main) {
@@ -327,19 +322,19 @@ body:has(.content-page-main) {
 }
 
 /* ── Room nav ───────────────────────────────────
-   Not a toolbar: a quiet row along the top of the room. The current
-   section is a paper tab, the same paper tag the modal uses. */
+   A quiet row at the top of the room: the alien and name on the left,
+   section links on the right. The current section is marked by brighter
+   text and a small coral dot, not a tab. */
 .room-nav-inner {
-	@apply mx-auto flex h-14 max-w-6xl items-end justify-between gap-3 px-4 sm:px-6;
-	border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+	@apply mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6;
 }
 
 .room-nav-home {
-	@apply mb-0 inline-flex shrink-0 items-center gap-2 font-mono text-xs text-muted-light transition-colors hover:text-cream sm:text-sm;
+	@apply -ml-2 inline-flex min-h-11 min-w-11 shrink-0 items-center gap-2.5 rounded-lg px-2 text-cream transition-colors hover:text-white;
 }
 
 .room-nav-alien {
-	height: 2.25rem;
+	height: 1.9rem;
 	width: auto;
 	transform-origin: 50% 90%;
 	transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -347,69 +342,35 @@ body:has(.content-page-main) {
 
 /* A little wave hello on hover */
 .room-nav-home:hover .room-nav-alien {
-	transform: rotate(-8deg) translateY(-1px);
+	transform: rotate(-8deg);
 }
 
-.room-nav-tabs {
-	@apply flex min-w-0 items-end gap-1 overflow-x-auto whitespace-nowrap sm:gap-2;
+.room-nav-name {
+	@apply hidden font-display text-[0.95rem] font-semibold tracking-tight sm:inline;
 }
 
-.room-nav-tab {
-	@apply block px-2.5 pb-2 pt-2 font-mono text-xs text-muted transition-colors hover:text-cream sm:px-3.5 sm:text-sm;
-	border-radius: 3px 3px 0 0;
+.room-nav-links {
+	@apply flex min-w-0 items-center gap-1 overflow-x-auto whitespace-nowrap sm:gap-2;
 }
 
-.room-nav-tab[aria-current="page"] {
-	background: linear-gradient(180deg, var(--color-notebook-paper), var(--color-notebook-paper-alt));
-	color: var(--paper-tag-ink);
-	font-weight: 500;
+.room-nav-link {
+	@apply relative block rounded-md px-2.5 py-1.5 text-sm text-muted-light transition-colors hover:text-cream sm:px-3;
 }
 
-/* ── Paper tag ───────────────────────────────────
-   The one shared label: the modal title, the active nav tab, and the
-   title cards clipped onto section objects all use it. */
-.paper-tag {
-	display: inline-flex;
-	align-items: center;
-	gap: 0.875rem;
-	background: linear-gradient(180deg, var(--color-notebook-paper), var(--color-notebook-paper-alt));
-	color: var(--paper-tag-ink);
-	border-radius: 3px 3px 0 0;
-	padding: 0.5rem 0.875rem 0.45rem;
-	box-shadow:
-		0 -1px 0 rgba(255, 255, 255, 0.4) inset,
-		0 6px 18px rgba(0, 0, 0, 0.35);
+.room-nav-link[aria-current="page"] {
+	color: var(--color-cream);
 }
 
-.paper-tag-title {
-	font-family: var(--font-display);
-	font-weight: 700;
-	font-size: 0.95rem;
-	line-height: 1;
-	letter-spacing: -0.01em;
-}
-
-/* Small tabs for actions (open page, close) beside the title tab */
-.paper-tag-action {
-	gap: 0.3rem;
-	min-height: 2rem;
-	padding: 0.4rem 0.7rem 0.35rem;
-	font-family: var(--font-mono);
-	font-size: 0.6875rem;
-	cursor: pointer;
-	transition:
-		color 0.15s ease,
-		background-color 0.15s ease;
-}
-
-/* Tabs stay attached to the object on hover; only the ink changes. */
-.paper-tag-action:hover {
-	color: var(--color-accent-dark);
-}
-
-.paper-tag-action:focus-visible {
-	outline: 2px solid var(--color-notebook-paper);
-	outline-offset: 2px;
+.room-nav-link[aria-current="page"]::after {
+	content: "";
+	position: absolute;
+	left: 50%;
+	bottom: 0.05rem;
+	width: 4px;
+	height: 4px;
+	border-radius: 50%;
+	transform: translateX(-50%);
+	background: var(--color-accent);
 }
 
 /* ── Title card ──────────────────────────────────
@@ -423,7 +384,7 @@ body:has(.content-page-main) {
 	margin-bottom: 2rem;
 	padding: 1rem 1.25rem 1.125rem;
 	background: linear-gradient(180deg, var(--color-notebook-paper), var(--color-notebook-paper-alt));
-	color: var(--paper-tag-ink);
+	color: var(--paper-ink);
 	border-radius: 2px;
 	box-shadow:
 		2px 3px 10px rgba(0, 0, 0, 0.3),
@@ -449,7 +410,7 @@ body:has(.content-page-main) {
 .title-card .content-search {
 	margin-top: 0.75rem;
 	font-size: 0.75rem;
-	color: var(--paper-tag-ink);
+	color: var(--paper-ink);
 	border-bottom-color: rgba(87, 77, 70, 0.35);
 }
 
@@ -495,13 +456,14 @@ body:has(.content-page-main) {
 	backdrop-filter: blur(6px);
 }
 
-/* Full screen: the room, a back tab floating at the top, then the section. */
+/* Full screen: the room with the section in it; no header row. */
 .modal-panel {
 	position: absolute;
 	inset: 0;
 }
 
 .modal-surface {
+	position: relative;
 	display: flex;
 	flex-direction: column;
 	height: 100%;
@@ -510,33 +472,145 @@ body:has(.content-page-main) {
 	background-color: #121110;
 }
 
-.modal-strip {
-	display: flex;
-	flex-shrink: 0;
+/* ── Close control ──
+   Phones: a pill at the bottom centre, where the thumb already is.
+   Larger screens: a small round button floating top-right over the room. */
+.modal-close {
+	position: absolute;
+	z-index: 10;
+	display: inline-flex;
 	align-items: center;
-	justify-content: space-between;
-	gap: 0.75rem;
-	padding: max(0.625rem, env(safe-area-inset-top)) 0.875rem 0.625rem;
+	justify-content: center;
+	gap: 0.4rem;
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	background: rgba(22, 19, 16, 0.78);
+	backdrop-filter: blur(12px);
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+	color: var(--color-cream);
+	cursor: pointer;
+	transition:
+		background-color 0.15s ease,
+		border-color 0.15s ease;
 }
 
-/* The back control is a whole tab here, not one hanging off an object */
-.modal-back {
-	border-radius: 4px;
+.modal-close:hover {
+	background: rgba(40, 34, 28, 0.9);
+	border-color: rgba(255, 255, 255, 0.24);
 }
 
-.modal-esc-hint {
+.modal-close:focus-visible {
+	outline: 2px solid var(--color-cream);
+	outline-offset: 2px;
+}
+
+.modal-close svg {
+	width: 1rem;
+	height: 1rem;
+	flex-shrink: 0;
+}
+
+/* Phone */
+.modal-close {
+	left: 50%;
+	bottom: max(1rem, calc(env(safe-area-inset-bottom) + 0.5rem));
+	transform: translateX(-50%);
+	min-height: 2.75rem;
+	padding: 0 1.1rem 0 0.85rem;
+	border-radius: 999px;
+	font-size: 0.875rem;
+	font-weight: 500;
+}
+
+.modal-close-x {
 	display: none;
-	padding: 0.05rem 0.4rem;
-	border: 1px solid rgba(255, 255, 255, 0.14);
-	border-radius: 4px;
-	color: var(--color-muted);
-	font-family: var(--font-mono);
-	font-size: 0.65rem;
 }
 
-@media (hover: hover) and (pointer: fine) {
-	.modal-esc-hint {
-		display: inline-block;
+/* Tablet and desktop */
+@media (min-width: 48rem) {
+	.modal-close {
+		left: auto;
+		right: max(1rem, env(safe-area-inset-right));
+		top: max(1rem, env(safe-area-inset-top));
+		bottom: auto;
+		transform: none;
+		width: 2.5rem;
+		min-height: 0;
+		height: 2.5rem;
+		padding: 0;
+		border-radius: 50%;
+	}
+
+	.modal-close-x {
+		display: block;
+	}
+
+	.modal-close-arrow,
+	.modal-close-label {
+		display: none;
+	}
+
+	/* On the laptop screen the button joins the menu bar as its last item */
+	.modal-surface:has(.os-laptop) .modal-close {
+		top: 0;
+		right: 0;
+		width: 2.5rem;
+		height: 1.75rem;
+		border: none;
+		border-radius: 0;
+		background: transparent;
+		box-shadow: none;
+		backdrop-filter: none;
+	}
+
+	.modal-surface:has(.os-laptop) .modal-close:hover {
+		background: rgba(255, 255, 255, 0.14);
+	}
+
+	.modal-surface:has(.os-laptop) .modal-close svg {
+		width: 0.85rem;
+		height: 0.85rem;
+	}
+
+	#content-modal-body .os-menubar {
+		padding-right: 3rem;
+	}
+}
+
+/* A phone-sized screen (lock screen, camera) always gets the bottom pill,
+   whatever the window size, so the control never sits on its status bar. */
+@media (min-width: 48rem) {
+	.modal-surface:has(.phone-body, .camera-body) .modal-close {
+		left: 50%;
+		right: auto;
+		top: auto;
+		bottom: max(1rem, calc(env(safe-area-inset-bottom) + 0.5rem));
+		transform: translateX(-50%);
+		width: auto;
+		height: auto;
+		min-height: 2.75rem;
+		padding: 0 1.1rem 0 0.85rem;
+		border-radius: 999px;
+	}
+
+	#content-modal-body:has(> .camera-body) {
+		padding-bottom: 5rem;
+	}
+
+	.modal-surface:has(.phone-body, .camera-body) .modal-close-x {
+		display: none;
+	}
+
+	.modal-surface:has(.phone-body, .camera-body) .modal-close-arrow,
+	.modal-surface:has(.phone-body, .camera-body) .modal-close-label {
+		display: inline;
+	}
+}
+
+@media (min-width: 48rem) and (pointer: coarse) {
+	/* Bigger touch target on tablets */
+	.modal-close {
+		width: 2.75rem;
+		height: 2.75rem;
 	}
 }
 
@@ -551,14 +625,14 @@ body:has(.content-page-main) {
 	min-height: 0;
 	overflow-y: auto;
 	overscroll-behavior: contain;
-	padding: 0.5rem 0.75rem 3rem;
+	padding: max(0.75rem, env(safe-area-inset-top)) 0.75rem 5rem;
 	color: var(--color-cream);
 	isolation: isolate;
 }
 
 @media (min-width: 48rem) {
 	.modal-body {
-		padding: 1rem 2rem 4rem;
+		padding: 2rem 4.5rem 3rem;
 	}
 }
 
@@ -674,8 +748,8 @@ body:has(.content-page-main) {
 	.back-link-inline,
 	.show-more-btn,
 	.back-link,
-	.paper-tag-action,
-	.room-nav-tab,
+	.modal-close,
+	.room-nav-link,
 	.room-nav-home {
 		transition: none;
 	}

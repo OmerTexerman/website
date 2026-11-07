@@ -1,6 +1,5 @@
 ---
-import { homeLink, orderedSections } from "../config";
-import BackArrowIcon from "./BackArrowIcon.astro";
+import { homeLink, orderedSections, site } from "../config";
 
 const pathname = Astro.url.pathname;
 ---
@@ -11,23 +10,23 @@ const pathname = Astro.url.pathname;
         "Back to desk/shelf" label only when the visitor came from home. */}
     <a
       href={homeLink.href}
-      class="room-nav-home group"
-      aria-label={homeLink.backLabel}
+      class="room-nav-home"
       data-context-back-link
       data-context-back-home-only
     >
-      <BackArrowIcon class="transition-transform group-hover:-translate-x-0.5" />
-      {/* Drawn by Omer's sister */}
-      <img src="/alien.png" alt="" class="room-nav-alien" width="72" height="120" decoding="async" />
-      <span class="hidden sm:inline" data-context-back-label>{homeLink.backLabel}</span>
+      {/* Drawn by my sister */}
+      <img src="/alien.svg" alt="" class="room-nav-alien" width="508" height="837" decoding="async" />
+      <span class="room-nav-name">{site.name}</span>
+      {/* context-back-link.ts rewrites this label; keep it for screen readers only */}
+      <span class="sr-only" data-context-back-label>{homeLink.backLabel}</span>
     </a>
-    <ul class="room-nav-tabs no-scrollbar" data-nav-links>
+    <ul class="room-nav-links no-scrollbar" data-nav-links>
       {orderedSections.map(({ href, label }) => (
         <li>
           <a
             href={href}
             aria-current={pathname.startsWith(href) ? "page" : undefined}
-            class="room-nav-tab"
+            class="room-nav-link"
           >
             {label}
           </a>
