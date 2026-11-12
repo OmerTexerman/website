@@ -576,10 +576,10 @@ body:has(.content-page-main) {
 	}
 }
 
-/* A phone-sized screen (lock screen, camera) always gets the bottom pill,
+/* A phone-sized screen (the lock screen) always gets the bottom pill,
    whatever the window size, so the control never sits on its status bar. */
 @media (min-width: 48rem) {
-	.modal-surface:has(.phone-body, .camera-body) .modal-close {
+	.modal-surface:has(.phone-body) .modal-close {
 		left: 50%;
 		right: auto;
 		top: auto;
@@ -592,16 +592,12 @@ body:has(.content-page-main) {
 		border-radius: 999px;
 	}
 
-	#content-modal-body:has(> .camera-body) {
-		padding-bottom: 5rem;
-	}
-
-	.modal-surface:has(.phone-body, .camera-body) .modal-close-x {
+	.modal-surface:has(.phone-body) .modal-close-x {
 		display: none;
 	}
 
-	.modal-surface:has(.phone-body, .camera-body) .modal-close-arrow,
-	.modal-surface:has(.phone-body, .camera-body) .modal-close-label {
+	.modal-surface:has(.phone-body) .modal-close-arrow,
+	.modal-surface:has(.phone-body) .modal-close-label {
 		display: inline;
 	}
 }
@@ -654,10 +650,6 @@ body:has(.content-page-main) {
 
 #content-modal-body > .wotd-page {
 	max-width: 44rem;
-}
-
-#content-modal-body > .camera-body {
-	max-width: 56rem;
 }
 
 /* Outer container for content pages (add max-w-* inline) */

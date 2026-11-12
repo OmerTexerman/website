@@ -68,11 +68,10 @@
 
   // Warm the preview cache once the page is idle, so the full-screen view
   // fades in with its content instead of a loading spinner. Phones open
-  // the phone and camera variants of Projects and Photos.
+  // the phone variant of Projects.
   const isPhone = window.innerWidth < MOBILE_BREAKPOINT;
   const previewHrefs = orderedSections.map(({ href }) => {
     if (isPhone && href === "/projects") return "/projects/phone";
-    if (isPhone && href === "/photos") return "/photos/camera";
     return href;
   });
   const warm = () => {
@@ -84,12 +83,11 @@
   if ("requestIdleCallback" in window) window.requestIdleCallback(warm, { timeout: 4000 });
   else setTimeout(warm, 2000);
 
-  // Projects and Photos have a phone version (lock screen, camera) and a
-  // larger-screen version (laptop, corkboard). If the window crosses the
+  // Projects has a phone version (lock screen) and a larger-screen version
+  // (laptop). If the window crosses the
   // breakpoint while one is open, swap to the matching version in place.
   const PHONE_VARIANTS: Record<string, string> = {
     "/projects": "/projects/phone",
-    "/photos": "/photos/camera",
   };
   const wideQuery = window.matchMedia(`(min-width: ${MOBILE_BREAKPOINT}px)`);
   wideQuery.addEventListener("change", (event) => {

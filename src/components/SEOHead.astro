@@ -23,7 +23,7 @@ const {
 	canonical,
 } = Astro.props;
 
-// Alternate presentations of a section (e.g. /projects/phone, /photos/camera)
+// Alternate presentations of a section (e.g. /projects/phone)
 // point at the primary route so search engines pick that one instead of
 // treating the pair as duplicate content and choosing arbitrarily.
 const canonicalURL = new URL(canonical ?? Astro.url.pathname, Astro.site);
