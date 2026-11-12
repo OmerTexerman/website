@@ -26,6 +26,7 @@ import { createRoomWall } from "../room-wall";
 import { SHELF_BOT_Y, SHELF_MID_Y, SHELF_TOP_Y, SHELF_WALL_X, SHELF_WALL_Z } from "../shelf-layout";
 import { createSpineTexture } from "../spine-texture";
 import { createGreetingSign } from "./greeting-sign";
+import { createShelfIdBadge } from "./id-badge";
 import { createShelfCamera } from "./shelf-camera";
 import { createShelfCandle, toggleCandle } from "./shelf-candle";
 import { createShelfClock, syncClockToTime } from "./shelf-clock";
@@ -326,6 +327,14 @@ export function createShelfWall(
 			rotationY: -Math.PI / 2,
 			hitboxPadding: 0.1,
 		},
+		{
+			sectionId: "about" as const,
+			item: createShelfIdBadge(),
+			// Top shelf, left of the books.
+			position: [SHELF_CENTER_X - 0.02, TOP_Y + SHELF_THICK / 2, WALL_Z - 0.92] as const,
+			rotationY: -Math.PI / 2,
+			hitboxPadding: 0.1,
+		},
 	];
 
 	for (const layout of shelfLayouts) {
@@ -416,6 +425,8 @@ export function createShelfWall(
 
 	// Spotlight frame — wall-mounted between mid and bottom shelves
 	const spotlightFrameGroup = createShelfSpotlightFrame(spotlight);
+	// Big enough to hold the wall between the shelves, with a readable caption.
+	spotlightFrameGroup.scale.setScalar(1.6);
 	decor.push(
 		addDecorItem(
 			wall,

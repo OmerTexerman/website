@@ -27,7 +27,7 @@ export function createGuitarPick(): Group {
 	mesh.castShadow = true;
 	pick.add(mesh);
 
-	pick.position.set(0.8, DESK_SURFACE_Y, 0.9);
+	pick.position.set(0.95, DESK_SURFACE_Y, 0.82);
 	pick.rotation.y = 0.8;
 
 	return pick;

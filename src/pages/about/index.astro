@@ -1,0 +1,56 @@
+---
+import "../../styles/about.css";
+import { about, getSectionById, socials } from "../../config";
+import { getSpotlight } from "../../content/selectors";
+import ContentPage from "../../layouts/ContentPage.astro";
+
+const section = getSectionById("about");
+const spotlight = await getSpotlight();
+// "Thing I am obsessed with" + "Pepper X" → "currently obsessed with: Pepper X"
+const currently = spotlight
+	? `${spotlight.title.replace(/^thing i am\s*/i, "currently ").toLowerCase()}: ${spotlight.name ?? ""}`.replace(
+			/:\s*$/,
+			"",
+		)
+	: null;
+// "https://github.com/OmerTexerman" → "OmerTexerman"
+const handle = (url: string) => url.replace(/\/+$/, "").split("/").pop() ?? url;
+---
+
+<ContentPage section={section} surface={false} containerWidthClass="max-w-3xl">
+  {/* The business card from the desk, picked up: same design, at reading size. */}
+  <article class="about-card section-object" data-animate data-about-card>
+    <div class="about-card-stripe" aria-hidden="true"></div>
+    <div class="about-card-inner">
+      <header class="about-card-head">
+        <h1 class="about-card-name">Omer<br />Texerman</h1>
+        <img src="/alien.svg" alt="" class="about-card-avatar" width="508" height="837" decoding="async" />
+      </header>
+
+      <p class="about-card-bio">{about.bio}</p>
+      {currently && <p class="about-card-currently">{currently}</p>}
+
+      <dl class="about-card-contact">
+        {socials.map(({ label, url }) => (
+          <div>
+            <dt>{label.toLowerCase()}</dt>
+            <dd><a href={url} target="_blank" rel="noopener noreferrer">{handle(url)}</a></dd>
+          </div>
+        ))}
+        <div>
+          <dt>email</dt>
+          <dd>
+            {/* Assembled on click (dom/about-card.ts), so the address is never
+                in the page for bots to scrape. */}
+            <a href="#" data-email-user={about.email.user} data-email-domain={about.email.domain}>tap to reveal</a>
+          </dd>
+        </div>
+      </dl>
+    </div>
+  </article>
+
+  <script>
+    import { mountAboutCard } from "../../dom/about-card";
+    mountAboutCard();
+  </script>
+</ContentPage>

@@ -21,6 +21,7 @@ import { trackEvent } from "../analytics";
 import { getSectionById, type SiteSection, site } from "../config";
 import type { ShelfBook, SpotlightInfo } from "../content/types";
 import {
+	animateBadgeSwing,
 	animateBoardBlink,
 	animateBookClose,
 	animateBookLift,
@@ -42,6 +43,7 @@ import {
 	animateSignSwing,
 	animateSpin,
 	animateWobble,
+	badgeSwayAngle,
 	bookPresentedPosition,
 	type DeskCameraView,
 	disposeAnimations,
@@ -97,6 +99,7 @@ import { createDeskWindow } from "./objects/desk-window";
 import { createDictionary } from "./objects/dictionary";
 import { createGreetingSign } from "./objects/greeting-sign";
 import { createGuitarPick } from "./objects/guitar-pick";
+import { createWallIdBadge } from "./objects/id-badge";
 import { createLaptop } from "./objects/laptop";
 import { createMug } from "./objects/mug";
 import { createNotebook } from "./objects/notebook";
@@ -150,6 +153,8 @@ interface DeskSceneData {
 	roots: Object3D[];
 	/** Stops timers the desk objects run (the window's sky clock). */
 	cleanup: () => void;
+	/** The hanging badge's idle-sway pivot. */
+	badgeSway: Object3D;
 	interactiveEntityByRoot: Map<Object3D, DeskInteractiveEntity>;
 	hoverTargets: Object3D[];
 }
@@ -321,7 +326,9 @@ export function initUnifiedScene(
 		new Vector2(initialSize.width, initialSize.height),
 		BLOOM_STRENGTH,
 		0,
-		0.7,
+		// High enough that plain white surfaces under the desk's fill light
+		// (the photo, book pages) don't glow, only things that emit light.
+		0.9,
 	);
 	// The bloom blurs at five sizes; the two widest spread a lit sign or lamp
 	// into big faint discs across the room. Keep only the tight levels, so
@@ -533,6 +540,7 @@ export function initUnifiedScene(
 		const mug = createMug();
 		const pen = createPen();
 		const dictionary = createDictionary();
+		const idBadge = createWallIdBadge();
 		const spotlightFrame = createSpotlightFrame(options?.spotlight);
 		const roots: Object3D[] = [
 			desk,
@@ -557,12 +565,15 @@ export function initUnifiedScene(
 			line: "pull up a chair, ignore the mess.",
 			width: 2.6,
 			// Glows on its own, kept under the desk bloom so it never blows out.
-			glow: 0.05,
+			glow: 0.25,
 			halo: 0.4,
 		});
 		greeting.position.set(0, 2.55, -2.18);
 		greeting.userData = { interactive: true };
 		greetingRoot.add(greeting);
+		// ID badge hanging on a wall hook beside the desk.
+		idBadge.root.position.set(-3.25, 1.75, -2.2);
+		greetingRoot.add(idBadge.root);
 		const deskWindow = createDeskWindow(() => {
 			markSceneActive();
 			dirty = true;
@@ -643,6 +654,16 @@ export function initUnifiedScene(
 				modalDelayMs: 800,
 				open: () => animateDictionaryOpen(dictionary),
 				close: () => animateDictionaryClose(dictionary),
+			},
+			{
+				kind: "section",
+				section: getSectionById("about"),
+				root: idBadge.root,
+				hitboxPadding: 0.06,
+				hoverScale: true,
+				modalDelayMs: 350,
+				open: () => animateBadgeSwing(idBadge.parts.swing),
+				close: () => Promise.resolve(),
 			},
 			{
 				kind: "micro",
@@ -732,6 +753,7 @@ export function initUnifiedScene(
 		deskScene = {
 			roots,
 			cleanup: () => deskWindow.dispose(),
+			badgeSway: idBadge.parts.sway,
 			interactiveEntityByRoot: new Map(interactiveEntities.map((entity) => [entity.root, entity])),
 			hoverTargets: interactiveEntities
 				.filter((entity) => entity.hoverScale)
@@ -1332,6 +1354,11 @@ export function initUnifiedScene(
 			!prefersReducedMotion()
 		) {
 			if (idleFloat(camera, now)) dirty = true;
+		}
+		// The ID badge drifts on its peg like a wind chime.
+		if (currentMode === "desktop" && deskScene?.badgeSway && !prefersReducedMotion()) {
+			deskScene.badgeSway.rotation.z = badgeSwayAngle(now);
+			dirty = true;
 		}
 
 		let scrolling = false;

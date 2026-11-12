@@ -174,7 +174,8 @@ export function createSpotlightFrame(spotlight?: SpotlightInfo | null): Spotligh
 	root.userData = { interactive: true };
 
 	// Position just behind the notebook, leaning back, angled toward camera
-	root.position.set(-1.6, 0.12, -0.4);
+	// Clear of both the notebook's cover and the dictionary's when they open.
+	root.position.set(-1.72, 0.12, -0.5);
 	root.rotation.set(-0.8, 0.35, 0.2);
 
 	return { root, parts: { frame, imagePlane } };

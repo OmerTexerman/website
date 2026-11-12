@@ -917,6 +917,30 @@ export function animateCameraFlash(camera: Object3D): Promise<void> {
 	);
 }
 
+/** Wind-chime drift for the hanging badge: a few slow, out-of-step sines so
+ *  it never quite repeats. `now` in ms. */
+export function badgeSwayAngle(now: number): number {
+	const t = now / 1000;
+	return (
+		0.045 * Math.sin(t * 0.9) + 0.025 * Math.sin(t * 1.7 + 1.3) + 0.012 * Math.sin(t * 3.1 + 0.4)
+	);
+}
+
+/** Give the hanging ID badge a swing on its peg; it settles back on its own. */
+export function animateBadgeSwing(swing: Object3D): Promise<void> {
+	saveRest(swing, "rz", swing.rotation.z);
+	const rest = getRest(swing, "rz");
+	return animate(
+		`badge-${swing.uuid}`,
+		1600,
+		(p) => {
+			const decay = (1 - p) ** 2;
+			swing.rotation.z = p >= 1 ? rest : rest + Math.sin(p * Math.PI * 5) * 0.32 * decay;
+		},
+		(t) => t,
+	);
+}
+
 // ─── PHONE (Shelf) ─────────────────────────────────────────────
 
 /** Fade the phone screen on before shelf fall. */

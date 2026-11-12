@@ -51,6 +51,7 @@
 
 <script>
   import { getBackLabel, MOBILE_BREAKPOINT, orderedSections } from "../config";
+  import { mountAboutCard } from "../dom/about-card";
   import { mountOsDesktop } from "../dom/os-desktop";
   import { bootstrapContentModal } from "../modal/bootstrap";
   import { getContentModal } from "../modal/api";
@@ -63,7 +64,12 @@
   document.getElementById("content-modal")?.addEventListener("content-modal:rendered", (event) => {
     unmountSection?.();
     const body = (event as CustomEvent<{ body: HTMLElement }>).detail.body;
-    unmountSection = mountOsDesktop(body);
+    const unmountDesktop = mountOsDesktop(body);
+    const unmountAbout = mountAboutCard(body);
+    unmountSection = () => {
+      unmountDesktop();
+      unmountAbout();
+    };
   });
 
   // Warm the preview cache once the page is idle, so the full-screen view

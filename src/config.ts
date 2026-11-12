@@ -57,7 +57,7 @@ export const homeLink = {
 	backLabel: "Back home",
 } as const;
 
-const sectionOrder = ["blog", "projects", "reading", "photos", "wordOfTheDay"] as const;
+const sectionOrder = ["blog", "projects", "reading", "photos", "wordOfTheDay", "about"] as const;
 
 export type SectionId = (typeof sectionOrder)[number];
 
@@ -107,7 +107,23 @@ const sections: Record<SectionId, SiteSection> = {
 		backLabel: "Back to words",
 		hidden: true,
 	},
+	about: {
+		id: "about",
+		label: "About",
+		href: "/about",
+		description: "Who I am, and how to reach me",
+		backLabel: "Back to about",
+		hidden: true,
+	},
 };
+
+/** The about card (the business cards on the desk and shelf). */
+export const about = {
+	bio: "Hi, I'm Omer. I study Computer Engineering and CS at Northeastern. When I'm not doing that I'm probably going on a walk, taking out-of-focus photos, or reading something. Reach out to chat or anything!",
+	// Split so the full address never appears in the page for scrapers; the
+	// card puts it together only when someone clicks.
+	email: { user: "contact", domain: "texerman.com" },
+} as const;
 
 export const orderedSections = sectionOrder.map((id) => sections[id]).filter((s) => !s.hidden);
 

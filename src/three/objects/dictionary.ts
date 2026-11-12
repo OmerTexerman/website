@@ -201,7 +201,8 @@ export function createDictionary(): DictionaryObject {
 	frontCoverPivot.add(subtitle);
 
 	// ─── Position on desk ────────────────────────────────────────
-	dictionary.position.set(-0.8, DESK_SURFACE_Y, -0.5);
+	// Far enough right that its cover opens clear of the photo frame.
+	dictionary.position.set(-0.56, DESK_SURFACE_Y, -0.5);
 	dictionary.rotation.y = 0.15;
 
 	return {
