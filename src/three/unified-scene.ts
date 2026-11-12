@@ -24,6 +24,7 @@ import {
 	animateBoardBlink,
 	animateBookClose,
 	animateBookLift,
+	animateCameraFlash,
 	animateDictionaryClose,
 	animateDictionaryOpen,
 	animateFrameClose,
@@ -116,19 +117,6 @@ import {
 } from "./shelf-layout";
 
 const BLOOM_STRENGTH = 0.6;
-
-/** A quick white camera flash over the whole view (skipped for reduced motion). */
-function fireCameraFlash(): void {
-	if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-	const flash = document.createElement("div");
-	flash.setAttribute("aria-hidden", "true");
-	flash.style.cssText =
-		"position:fixed;inset:0;z-index:60;pointer-events:none;background:#fff;opacity:0.9";
-	document.body.appendChild(flash);
-	flash
-		.animate([{ opacity: 0.9 }, { opacity: 0 }], { duration: 450, easing: "ease-out" })
-		.finished.finally(() => flash.remove());
-}
 
 interface DeskSectionEntity {
 	kind: "section";
@@ -1029,7 +1017,7 @@ export function initUnifiedScene(
 				const section = getSectionById(entry.sectionId);
 
 				// If this is the phone, glow the screen before falling
-				if (entry.source === "camera") fireCameraFlash();
+				if (entry.source === "camera") void animateCameraFlash(entry.item);
 				const isPhone = entry.source === "phone";
 				const presentChain = isPhone
 					? animatePhoneWake(entry.item).then(() =>

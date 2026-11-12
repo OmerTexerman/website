@@ -1,4 +1,13 @@
-import { type Group, MeshStandardMaterial, type Object3D, Quaternion, Vector3 } from "three";
+import {
+	type Group,
+	MeshStandardMaterial,
+	type Object3D,
+	type PointLight,
+	Quaternion,
+	type Sprite,
+	type SpriteMaterial,
+	Vector3,
+} from "three";
 import { clamp, lerp } from "./math-utils";
 import type { BookStackObject } from "./objects/book-stack";
 import { BASE_PAGE_THICK, type DictionaryObject } from "./objects/dictionary";
@@ -880,6 +889,29 @@ export function animateSignWiggle(sign: Object3D): Promise<void> {
 		(p) => {
 			const decay = (1 - p) ** 2;
 			sign.rotation.z = p >= 1 ? rest : rest + Math.sin(p * Math.PI * 6) * 0.09 * decay;
+		},
+		(t) => t,
+	);
+}
+
+/** Fire the shelf camera's flash: a quick burst from its flash window. */
+export function animateCameraFlash(camera: Object3D): Promise<void> {
+	const flash = camera.userData.flash as { burst: Sprite; flashLight: PointLight } | undefined;
+	if (!flash) return Promise.resolve();
+	const { burst, flashLight } = flash;
+	const material = burst.material as SpriteMaterial;
+	burst.visible = true;
+	return animate(
+		`camera-flash-${camera.uuid}`,
+		420,
+		(p) => {
+			// Snap on, then fade out.
+			const on = p < 0.08 ? p / 0.08 : 1 - (p - 0.08) / 0.92;
+			const fade = Math.max(0, on) ** 1.5;
+			material.opacity = fade;
+			burst.scale.setScalar(0.15 + 0.55 * Math.min(1, p * 3));
+			flashLight.intensity = 6 * fade;
+			if (p >= 1) burst.visible = false;
 		},
 		(t) => t,
 	);

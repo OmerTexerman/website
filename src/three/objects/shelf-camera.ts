@@ -1,11 +1,16 @@
 import {
+	AdditiveBlending,
 	BoxGeometry,
+	CanvasTexture,
 	Color,
 	CylinderGeometry,
 	Group,
 	Mesh,
 	MeshBasicMaterial,
 	MeshStandardMaterial,
+	PointLight,
+	Sprite,
+	SpriteMaterial,
 } from "three";
 
 /**
@@ -78,6 +83,36 @@ export function createShelfCamera(): Group {
 	ovf.position.set(W / 2 - 0.075, LOWER_H + TOP_H * 0.45, D / 2 + 0.003);
 	g.add(ovf);
 
+	// Flash window, top left of the front, and the burst it fires on tap:
+	// a glow that pops and fades, plus a short light onto the shelf around.
+	const flashX = -W / 2 + 0.065;
+	const flashY = LOWER_H + TOP_H * 0.45;
+	const flashWindow = new Mesh(
+		new BoxGeometry(0.06, 0.035, 0.006),
+		new MeshStandardMaterial({ color: new Color(0xe8e6df), roughness: 0.3, metalness: 0.1 }),
+	);
+	flashWindow.position.set(flashX, flashY, D / 2 + 0.003);
+	g.add(flashWindow);
+
+	const burst = new Sprite(
+		new SpriteMaterial({
+			map: createBurstTexture(),
+			color: new Color(0xfff8ec),
+			transparent: true,
+			opacity: 0,
+			blending: AdditiveBlending,
+			depthWrite: false,
+		}),
+	);
+	burst.position.set(flashX, flashY, D / 2 + 0.03);
+	burst.visible = false;
+	g.add(burst);
+
+	const flashLight = new PointLight(new Color(0xfff4e0), 0, 3, 1.5);
+	flashLight.position.set(flashX, flashY, D / 2 + 0.12);
+	g.add(flashLight);
+	g.userData.flash = { burst, flashLight };
+
 	// Top: shutter-speed dial, shutter button, hot shoe.
 	const dial = new Mesh(new CylinderGeometry(0.045, 0.045, 0.03, 16), silver);
 	dial.position.set(-W / 2 + 0.11, H + 0.015, -0.005);
@@ -93,4 +128,21 @@ export function createShelfCamera(): Group {
 
 	g.rotation.y = 0.15;
 	return g;
+}
+
+/** A soft white disc with a bright core, for the flash burst. */
+function createBurstTexture(): CanvasTexture {
+	const canvas = document.createElement("canvas");
+	canvas.width = 128;
+	canvas.height = 128;
+	const ctx = canvas.getContext("2d");
+	if (ctx) {
+		const fade = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+		fade.addColorStop(0, "rgba(255,255,255,1)");
+		fade.addColorStop(0.25, "rgba(255,255,255,0.8)");
+		fade.addColorStop(1, "rgba(255,255,255,0)");
+		ctx.fillStyle = fade;
+		ctx.fillRect(0, 0, 128, 128);
+	}
+	return new CanvasTexture(canvas);
 }
