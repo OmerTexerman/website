@@ -102,9 +102,13 @@ export function createShelfCamera(): Group {
 			opacity: 0,
 			blending: AdditiveBlending,
 			depthWrite: false,
+			// Drawn over the camera body rather than cut by it, so the burst
+			// reads as light leaving the flash window, not a disc clipping in.
+			depthTest: false,
 		}),
 	);
-	burst.position.set(flashX, flashY, D / 2 + 0.03);
+	burst.renderOrder = 10;
+	burst.position.set(flashX, flashY, D / 2 + 0.06);
 	burst.visible = false;
 	g.add(burst);
 
