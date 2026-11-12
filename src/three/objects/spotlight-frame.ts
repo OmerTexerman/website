@@ -174,7 +174,7 @@ export function createSpotlightFrame(spotlight?: SpotlightInfo | null): Spotligh
 	root.userData = { interactive: true };
 
 	// Position just behind the notebook, leaning back, angled toward camera
-	root.position.set(-1.6, 0.12, -0.55);
+	root.position.set(-1.6, 0.12, -0.4);
 	root.rotation.set(-0.8, 0.35, 0.2);
 
 	return { root, parts: { frame, imagePlane } };

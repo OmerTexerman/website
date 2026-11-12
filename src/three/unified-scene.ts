@@ -3,6 +3,7 @@ import {
 	Color,
 	FogExp2,
 	Group,
+	HalfFloatType,
 	Mesh,
 	MeshStandardMaterial,
 	type Object3D,
@@ -11,12 +12,13 @@ import {
 	Vector2,
 	Vector3,
 	WebGLRenderer,
+	WebGLRenderTarget,
 } from "three";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { trackEvent } from "../analytics";
-import { getSectionById, type SiteSection } from "../config";
+import { getSectionById, type SiteSection, site } from "../config";
 import type { ShelfBook, SpotlightInfo } from "../content/types";
 import {
 	animateBoardBlink,
@@ -36,8 +38,10 @@ import {
 	animatePickFlip,
 	animateShelfPresent,
 	animateShelfReset,
+	animateSignSwing,
 	animateSpin,
 	animateWobble,
+	bookPresentedPosition,
 	type DeskCameraView,
 	disposeAnimations,
 	easeInOutCubic,
@@ -88,7 +92,9 @@ import { createMobileScrollController, type MobileScrollController } from "./mob
 import { createBookStack } from "./objects/book-stack";
 import { createCircuitBoard } from "./objects/circuit-board";
 import { createDeskLamp, toggleLamp } from "./objects/desk-lamp";
+import { createDeskWindow } from "./objects/desk-window";
 import { createDictionary } from "./objects/dictionary";
+import { createGreetingSign } from "./objects/greeting-sign";
 import { createGuitarPick } from "./objects/guitar-pick";
 import { createLaptop } from "./objects/laptop";
 import { createMug } from "./objects/mug";
@@ -98,6 +104,7 @@ import { createPhotoFrame } from "./objects/photo-frame";
 import { createShelfWall, type ShelfDecorEntry, type ShelfSceneEntry } from "./objects/shelf-wall";
 import { createSpotlightFrame, disposeSpotlightTextures } from "./objects/spotlight-frame";
 import { invalidateCanvasRect } from "./raycast-utils";
+import { createRoomWall } from "./room-wall";
 import {
 	MOBILE_SHELF_SCROLL,
 	MOBILE_SHELF_STOPS,
@@ -107,6 +114,21 @@ import {
 	SHELF_MID_Y,
 	SHELF_TOP_Y,
 } from "./shelf-layout";
+
+const BLOOM_STRENGTH = 0.6;
+
+/** A quick white camera flash over the whole view (skipped for reduced motion). */
+function fireCameraFlash(): void {
+	if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+	const flash = document.createElement("div");
+	flash.setAttribute("aria-hidden", "true");
+	flash.style.cssText =
+		"position:fixed;inset:0;z-index:60;pointer-events:none;background:#fff;opacity:0.9";
+	document.body.appendChild(flash);
+	flash
+		.animate([{ opacity: 0.9 }, { opacity: 0 }], { duration: 450, easing: "ease-out" })
+		.finished.finally(() => flash.remove());
+}
 
 interface DeskSectionEntity {
 	kind: "section";
@@ -120,6 +142,9 @@ interface DeskSectionEntity {
 	 *  present themselves to the viewer aim at the zoomed-in camera. */
 	open: (view: DeskCameraView) => Promise<void>;
 	close: () => Promise<void>;
+	/** Where the camera should look, when not the object's resting centre
+	 *  (e.g. a book that lifts off its stack). */
+	focusTarget?: (out: Vector3) => Vector3;
 }
 
 interface DeskMicroEntity {
@@ -135,6 +160,8 @@ type DeskInteractiveEntity = DeskSectionEntity | DeskMicroEntity;
 
 interface DeskSceneData {
 	roots: Object3D[];
+	/** Stops timers the desk objects run (the window's sky clock). */
+	cleanup: () => void;
 	interactiveEntityByRoot: Map<Object3D, DeskInteractiveEntity>;
 	hoverTargets: Object3D[];
 }
@@ -289,15 +316,31 @@ export function initUnifiedScene(
 	renderer.setSize(initialSize.width, initialSize.height, false);
 
 	// Post-processing — bloom for screen glow (desktop/transition)
-	const composer = new EffectComposer(renderer);
+	// The composer renders into its own buffer, which skips the canvas's
+	// antialiasing; multisample that buffer so edges stay smooth through bloom.
+	const composer = new EffectComposer(
+		renderer,
+		new WebGLRenderTarget(initialSize.width, initialSize.height, {
+			type: HalfFloatType,
+			samples: 4,
+		}),
+	);
 	const renderPass = new RenderPass(scene, camera);
 	composer.addPass(renderPass);
+	// Strength, radius, threshold. Radius 0 so the per-level weights below
+	// apply as written.
 	const bloomPass = new UnrealBloomPass(
 		new Vector2(initialSize.width, initialSize.height),
-		0.6,
-		0.8,
+		BLOOM_STRENGTH,
+		0,
 		0.7,
 	);
+	// The bloom blurs at five sizes; the two widest spread a lit sign or lamp
+	// into big faint discs across the room. Keep only the tight levels, so
+	// glows hug whatever emits them.
+	bloomPass.compositeMaterial.uniforms.bloomFactors.value = [1.0, 0.75, 0.35, 0, 0];
+	// Desk-only: the shelf has no screen-wide glow (the sign glows on its own).
+	if (initialMode !== "desktop") bloomPass.strength = 0;
 	composer.addPass(bloomPass);
 
 	// ─── Room group ──────────────────────────────────────────────
@@ -310,8 +353,12 @@ export function initUnifiedScene(
 		color: new Color(GROUND_DARK),
 		roughness: 0.95,
 		metalness: 0.0,
+		// Dithered so the soft light falloff across the dark floor doesn't band.
+		dithering: true,
 	});
-	const ground = new Mesh(new PlaneGeometry(20, 20), groundMat);
+	// Big enough that its edge never comes into view, even from the intro's
+	// high, wide start.
+	const ground = new Mesh(new PlaneGeometry(80, 80), groundMat);
 	ground.rotation.x = -Math.PI / 2;
 	ground.position.y = -2;
 	ground.receiveShadow = true;
@@ -512,6 +559,33 @@ export function initUnifiedScene(
 			pen,
 		];
 
+		// Back wall with the greeting sign and a window onto Boston's sky.
+		const greetingRoot = new Group();
+		const deskWall = createRoomWall(60);
+		deskWall.position.z = -2.2;
+		greetingRoot.add(deskWall);
+		const greeting = createGreetingSign({
+			title: `hi, I'm ${site.name.split(" ")[0]}.`,
+			line: "pull up a chair, ignore the mess.",
+			width: 2.6,
+			// Glows on its own, kept under the desk bloom so it never blows out.
+			glow: 0.05,
+			halo: 0.4,
+		});
+		greeting.position.set(0, 2.55, -2.18);
+		greeting.userData = { interactive: true };
+		greetingRoot.add(greeting);
+		const deskWindow = createDeskWindow(() => {
+			markSceneActive();
+			dirty = true;
+		});
+		deskWindow.root.position.set(3.4, 1.4, -2.19);
+		// Hover text reads the live time each time it is shown.
+		deskWindow.root.userData = { interactive: true, labelOffsetY: deskWindow.labelOffsetY };
+		Object.defineProperty(deskWindow.root.userData, "label", { get: deskWindow.label });
+		greetingRoot.add(deskWindow.root);
+		roots.push(greetingRoot);
+
 		for (const root of roots) {
 			room.add(root);
 		}
@@ -557,6 +631,7 @@ export function initUnifiedScene(
 				obstacleRadius: 0.45,
 				hoverScale: true,
 				modalDelayMs: 820,
+				focusTarget: (out) => bookPresentedPosition(bookStack, out),
 				open: (view) => animateBookLift(bookStack, view),
 				close: () => animateBookClose(bookStack),
 			},
@@ -618,6 +693,23 @@ export function initUnifiedScene(
 			},
 		];
 
+		interactiveEntities.push({
+			kind: "micro",
+			root: deskWindow.root,
+			hitboxPadding: 0.05,
+			activate: () => {
+				deskWindow.playTimelapse();
+			},
+		});
+		interactiveEntities.push({
+			kind: "micro",
+			root: greeting,
+			hitboxPadding: 0.05,
+			activate: () => {
+				void animateSignSwing(greeting);
+			},
+		});
+
 		if (guitarPick) {
 			const pick = guitarPick;
 			interactiveEntities.push({
@@ -651,6 +743,7 @@ export function initUnifiedScene(
 
 		deskScene = {
 			roots,
+			cleanup: () => deskWindow.dispose(),
 			interactiveEntityByRoot: new Map(interactiveEntities.map((entity) => [entity.root, entity])),
 			hoverTargets: interactiveEntities
 				.filter((entity) => entity.hoverScale)
@@ -696,6 +789,7 @@ export function initUnifiedScene(
 	// ─── Disposal helpers for scene transitions ──────────────────
 	function disposeDeskScene(): void {
 		if (!deskScene) return;
+		deskScene.cleanup();
 		cleanupDeskLights?.();
 		cleanupDeskLights = null;
 		for (const root of deskScene.roots) {
@@ -733,11 +827,12 @@ export function initUnifiedScene(
 	}
 
 	/** The pose the camera will glide to for `root` (the desk pose when motion is reduced). */
-	function planCameraFocus(root: Object3D): DeskCameraView {
+	function planCameraFocus(entity: DeskSectionEntity): DeskCameraView {
 		if (prefersReducedMotion()) {
 			return { pos: DESKTOP_POS.clone(), look: DESKTOP_LOOK.clone() };
 		}
-		_focusBox.setFromObject(root).getCenter(_focusTarget);
+		if (entity.focusTarget) entity.focusTarget(_focusTarget);
+		else _focusBox.setFromObject(entity.root).getCenter(_focusTarget);
 		const pos = new Vector3();
 		const look = new Vector3();
 		focusPoseFor(_focusTarget, pos, look);
@@ -840,7 +935,7 @@ export function initUnifiedScene(
 					markSceneActive();
 					// Plan the camera's end pose first so the object's own open
 					// animation can aim at it, then start both together.
-					const view = planCameraFocus(entity.root);
+					const view = planCameraFocus(entity);
 					void entity.open(view);
 					focusCamera(view);
 
@@ -934,6 +1029,7 @@ export function initUnifiedScene(
 				const section = getSectionById(entry.sectionId);
 
 				// If this is the phone, glow the screen before falling
+				if (entry.source === "camera") fireCameraFlash();
 				const isPhone = entry.source === "phone";
 				const presentChain = isPhone
 					? animatePhoneWake(entry.item).then(() =>
@@ -1305,13 +1401,9 @@ export function initUnifiedScene(
 		}
 
 		if (dirty || transitioning) {
-			if (currentMode === "desktop" || transitioning) {
-				// Skip bloom pass when its strength is negligible to save GPU work
-				if (bloomPass.strength > 0.01) {
-					composer.render();
-				} else {
-					renderer.render(scene, camera);
-				}
+			// Skip the bloom pass when its strength is negligible.
+			if (bloomPass.strength > 0.01) {
+				composer.render();
 			} else {
 				renderer.render(scene, camera);
 			}
@@ -1336,6 +1428,7 @@ export function initUnifiedScene(
 
 		applyRenderSettings(currentMode);
 		renderer.setSize(width, height, false);
+		composer.setPixelRatio(renderer.getPixelRatio());
 		composer.setSize(width, height);
 		bloomPass.resolution.set(width, height);
 		camera.aspect = width / height;
@@ -1350,11 +1443,8 @@ export function initUnifiedScene(
 		}
 
 		// Render immediately so the resized canvas doesn't flash black
-		if (currentMode === "desktop" || transitioning) {
-			composer.render();
-		} else {
-			renderer.render(scene, camera);
-		}
+		if (bloomPass.strength > 0.01) composer.render();
+		else renderer.render(scene, camera);
 		dirty = false;
 	}
 
@@ -1472,8 +1562,9 @@ export function initUnifiedScene(
 		}
 
 		// Smoothly fade bloom to avoid render-path flicker at transition end
-		const bloomFrom = currentMode === "desktop" ? 0.6 : 0;
-		const bloomTo = target === "desktop" ? 0.6 : 0;
+		// Bloom is desk-only; it fades across the transition.
+		const bloomFrom = bloomPass.strength;
+		const bloomTo = target === "desktop" ? BLOOM_STRENGTH : 0;
 		bloomPass.strength = bloomFrom;
 
 		// Sync canvas size before building content: the mode switch can fire
@@ -1490,7 +1581,9 @@ export function initUnifiedScene(
 		setDeskVisible(true);
 		setShelfVisible(true);
 
-		// Compute shadow maps once for the transition (objects don't move during it)
+		// Shadows are recomputed every frame below: the room rotates under the
+		// scene-level lights, so a map computed once would leave shadows painted
+		// where they were, then jump into place when the transition ends.
 		renderer.shadowMap.enabled = true;
 		renderer.shadowMap.needsUpdate = true;
 		markSceneActive(); // Full framerate during transition
@@ -1562,6 +1655,7 @@ export function initUnifiedScene(
 
 					// Rotate room
 					room.rotation.y = fromRotY + (toRotY - fromRotY) * eased;
+					renderer.shadowMap.needsUpdate = true;
 
 					// Interpolate FOV (desktop compensates for narrow aspect ratios)
 					camera.fov = fromFov + (toFov - fromFov) * eased;
@@ -1620,6 +1714,7 @@ export function initUnifiedScene(
 			applyRenderSettings("desktop");
 			// setPixelRatio clears the canvas buffer — re-sync composer and
 			// render immediately so the browser never paints a black frame
+			composer.setPixelRatio(renderer.getPixelRatio());
 			composer.setSize(lastCanvasWidth, lastCanvasHeight);
 			bloomPass.resolution.set(lastCanvasWidth, lastCanvasHeight);
 			composer.render();
@@ -1629,6 +1724,11 @@ export function initUnifiedScene(
 			disposeDeskScene();
 			disposeSpotlightTextures();
 			applyRenderSettings("mobile");
+			// Keep the bloom buffers at the phone's lower pixel ratio for when
+			// the view goes back to the desk.
+			composer.setPixelRatio(renderer.getPixelRatio());
+			composer.setSize(lastCanvasWidth, lastCanvasHeight);
+			bloomPass.resolution.set(lastCanvasWidth, lastCanvasHeight);
 			renderer.render(scene, camera);
 			markSceneActive();
 		}

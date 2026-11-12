@@ -11,6 +11,8 @@ import { CERAMIC, WARM_GLOW } from "../colors";
 
 const CANDLE_ON_INTENSITY = 1.2;
 
+const FLAME_GLOW = 2.0;
+
 /** Small jar candle for the shelf. Tap to light / extinguish. */
 export function createShelfCandle(): Group {
 	// Per-call materials so scene teardown can dispose them without corrupting rebuilds.
@@ -54,15 +56,21 @@ export function createShelfCandle(): Group {
 	const flameMat = new MeshStandardMaterial({
 		color: new Color(WARM_GLOW),
 		emissive: new Color(WARM_GLOW),
-		emissiveIntensity: 2.0,
+		emissiveIntensity: FLAME_GLOW,
 	});
 	const flame = new Mesh(new ConeGeometry(0.015, 0.04, 6), flameMat);
 	flame.position.y = 0.16;
 	candle.add(flame);
 
-	// Point light for warm glow
+	// Point light for warm glow. It casts shadows so the plank keeps its light
+	// on its own shelf instead of shining through onto the wall below.
 	const light = new PointLight(new Color(WARM_GLOW), CANDLE_ON_INTENSITY, 2.5, 1.5);
 	light.position.y = 0.16;
+	light.castShadow = true;
+	light.shadow.mapSize.set(256, 256);
+	light.shadow.camera.near = 0.05;
+	light.shadow.radius = 3;
+	light.shadow.bias = -0.002;
 	candle.add(light);
 
 	candle.userData.candleParts = { flame, light, flameMat };
@@ -80,6 +88,6 @@ export function toggleCandle(candle: Group): boolean {
 	};
 	flame.visible = lit;
 	light.intensity = lit ? CANDLE_ON_INTENSITY : 0;
-	flameMat.emissiveIntensity = lit ? 2.0 : 0;
+	flameMat.emissiveIntensity = lit ? FLAME_GLOW : 0;
 	return lit;
 }

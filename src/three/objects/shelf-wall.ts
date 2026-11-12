@@ -1,34 +1,17 @@
-import {
-	Box3,
-	BoxGeometry,
-	Color,
-	CylinderGeometry,
-	DoubleSide,
-	Group,
-	Mesh,
-	MeshStandardMaterial,
-	type Object3D,
-	PlaneGeometry,
-	SphereGeometry,
-	TorusGeometry,
-} from "three";
-import type { SectionId } from "../../config";
+import { Box3, BoxGeometry, Group, Mesh, type Object3D, PlaneGeometry, TorusGeometry } from "three";
+import { type SectionId, site } from "../../config";
 import type { ShelfBook, SpotlightInfo } from "../../content/types";
-import { animateClockSpin, animateFrameWobble, animateHeadphonePulse } from "../animations";
 import {
-	BOOK_COLORS,
-	CERAMIC,
-	DARK_METAL,
-	SCREEN_BLUE,
-	SHELL_RETURN,
-	SHELL_SHADOW,
-	SHELL_WALL,
-} from "../colors";
+	animateClockSpin,
+	animateFrameWobble,
+	animateHeadphonePulse,
+	animateSignWiggle,
+} from "../animations";
+import { BOOK_COLORS } from "../colors";
 import { addHitbox } from "../hitbox";
 import { applySectionInteraction } from "../interactive-section";
 import {
 	accentMaterial,
-	cameraBodyMaterial,
 	createBookMaterial,
 	darkMetalMaterial,
 	dictionaryGoldMaterial,
@@ -39,8 +22,11 @@ import {
 	shelfWoodMaterial,
 	spiralRingMaterial,
 } from "../materials";
+import { createRoomWall } from "../room-wall";
 import { SHELF_BOT_Y, SHELF_MID_Y, SHELF_TOP_Y, SHELF_WALL_X, SHELF_WALL_Z } from "../shelf-layout";
 import { createSpineTexture } from "../spine-texture";
+import { createGreetingSign } from "./greeting-sign";
+import { createShelfCamera } from "./shelf-camera";
 import { createShelfCandle, toggleCandle } from "./shelf-candle";
 import { createShelfClock, syncClockToTime } from "./shelf-clock";
 import { createShelfHeadphones } from "./shelf-headphones";
@@ -62,7 +48,7 @@ export interface ShelfWallResult {
 
 export interface ShelfSceneEntry {
 	sectionId: SectionId;
-	/** Override the section's default href (e.g. camera → /photos/camera). */
+	/** Override the section's default href (e.g. phone → /projects/phone). */
 	href?: string;
 	/** Source identifier passed to the modal (e.g. "camera"). */
 	source?: string;
@@ -74,13 +60,7 @@ export interface ShelfSceneEntry {
 	frontClearance: number;
 }
 
-const WALL_W = 4.8;
 const _clearanceBox = new Box3();
-const WALL_H = 5.2;
-const FLOOR_Y = -2;
-const BLEND_WALL_W = 7.4;
-const BLEND_WALL_H = WALL_H - FLOOR_Y + 0.7;
-const RETURN_W = 4.2;
 const SHELF_W = 3.8;
 const SHELF_DEPTH = 0.55;
 const SHELF_THICK = 0.06;
@@ -207,50 +187,6 @@ function createShelfNotebook(): Group {
 	return g;
 }
 
-function createShelfCamera(): Group {
-	const g = new Group();
-
-	const body = new Mesh(new BoxGeometry(0.45, 0.28, 0.22), cameraBodyMaterial);
-	body.position.y = 0.14;
-	g.add(body);
-
-	const lensMat = new MeshStandardMaterial({
-		color: new Color(DARK_METAL),
-		roughness: 0.3,
-		metalness: 0.7,
-	});
-	const lens = new Mesh(new CylinderGeometry(0.07, 0.08, 0.1, 16), lensMat);
-	lens.rotation.x = Math.PI / 2;
-	lens.position.set(0, 0.14, 0.16);
-	g.add(lens);
-
-	const glassMat = new MeshStandardMaterial({
-		color: new Color(SCREEN_BLUE),
-		roughness: 0.05,
-		metalness: 0.3,
-		transparent: true,
-		opacity: 0.7,
-	});
-	const glass = new Mesh(new CylinderGeometry(0.055, 0.055, 0.012, 16), glassMat);
-	glass.rotation.x = Math.PI / 2;
-	glass.position.set(0, 0.14, 0.22);
-	g.add(glass);
-
-	const flash = new Mesh(
-		new BoxGeometry(0.1, 0.05, 0.07),
-		new MeshStandardMaterial({ color: new Color(CERAMIC), roughness: 0.3, metalness: 0.2 }),
-	);
-	flash.position.set(0.09, 0.3, 0);
-	g.add(flash);
-
-	const viewfinder = new Mesh(new SphereGeometry(0.025, 8, 8), cameraBodyMaterial);
-	viewfinder.position.set(-0.1, 0.3, 0);
-	g.add(viewfinder);
-
-	g.rotation.y = 0.15;
-	return g;
-}
-
 function createShelfDictionary(): Group {
 	const g = new Group();
 
@@ -291,58 +227,15 @@ function createShelfDictionary(): Group {
 	return g;
 }
 
+/** The wall the shelves hang on: the same plain room wall as behind the
+ *  desk, with no backing panel or side wall to read as a cabinet. */
 function createShelfShell(): Group {
 	const shell = new Group();
-
-	const wallMaterial = new MeshStandardMaterial({
-		color: new Color(SHELL_WALL),
-		roughness: 1.0,
-		metalness: 0.0,
-		transparent: true,
-		opacity: 0.45,
-		depthWrite: false,
-		side: DoubleSide,
-	});
-	const returnMaterial = new MeshStandardMaterial({
-		color: new Color(SHELL_RETURN),
-		roughness: 1.0,
-		metalness: 0.0,
-		transparent: true,
-		opacity: 0.25,
-		depthWrite: false,
-		side: DoubleSide,
-	});
-	const wallPlane = new Mesh(new PlaneGeometry(BLEND_WALL_W, BLEND_WALL_H), wallMaterial);
-	wallPlane.position.set(WALL_X + 0.04, FLOOR_Y + BLEND_WALL_H / 2, WALL_Z);
-	wallPlane.rotation.y = -Math.PI / 2;
-	wallPlane.receiveShadow = true;
-	shell.add(wallPlane);
-
-	const returnWall = new Mesh(new PlaneGeometry(RETURN_W, BLEND_WALL_H), returnMaterial);
-	returnWall.position.set(
-		WALL_X - RETURN_W / 2 + 0.08,
-		FLOOR_Y + BLEND_WALL_H / 2,
-		WALL_Z - WALL_W / 2 - 1.4,
-	);
-	returnWall.receiveShadow = true;
-	shell.add(returnWall);
-
-	const wallShadow = new Mesh(
-		new PlaneGeometry(WALL_W + 1.8, WALL_H + 0.6),
-		new MeshStandardMaterial({
-			color: new Color(SHELL_SHADOW),
-			roughness: 1.0,
-			metalness: 0.0,
-			transparent: true,
-			opacity: 0.14,
-			depthWrite: false,
-			side: DoubleSide,
-		}),
-	);
-	wallShadow.position.set(WALL_X + 0.01, WALL_H / 2 + 0.15, WALL_Z);
-	wallShadow.rotation.y = -Math.PI / 2;
-	shell.add(wallShadow);
-
+	const wall = createRoomWall(40);
+	wall.rotation.y = -Math.PI / 2;
+	wall.position.x = WALL_X + 0.04;
+	wall.position.z = WALL_Z;
+	shell.add(wall);
 	return shell;
 }
 
@@ -419,7 +312,7 @@ export function createShelfWall(
 		},
 		{
 			sectionId: "photos" as const,
-			href: "/photos/camera",
+			// Opens the same corkboard as the desk, after a camera flash.
 			source: "camera",
 			item: createShelfCamera(),
 			position: [SHELF_CENTER_X - 0.02, BOT_Y + SHELF_THICK / 2, WALL_Z - 0.5] as const,
@@ -477,6 +370,25 @@ export function createShelfWall(
 				toggleCandle(candle);
 			},
 		),
+	);
+	// The jar is glass and the flame is the light source: neither should
+	// throw a shadow.
+	candle.traverse((child) => {
+		if (child instanceof Mesh) child.castShadow = false;
+	});
+
+	// Greeting plaque hung just under the top shelf, left of the clock.
+	const greeting = createGreetingSign({
+		title: `hi, I'm ${site.name.split(" ")[0]}.`,
+		line: "have a look around, ignore the dust.",
+		width: 1.05,
+		// No bloom on the shelf, so the sign draws its own glow.
+		halo: 1,
+	});
+	decor.push(
+		addDecorItem(wall, greeting, [WALL_X + 0.02, TOP_Y - 0.1, WALL_Z - 0.4], "Sign", () => {
+			void animateSignWiggle(greeting);
+		}),
 	);
 
 	// Clock — wall-mounted between top and mid shelves

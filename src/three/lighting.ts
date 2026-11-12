@@ -1,6 +1,7 @@
 import {
 	AmbientLight,
 	Color,
+	DirectionalLight,
 	type Group,
 	HemisphereLight,
 	PointLight,
@@ -77,6 +78,9 @@ export function setupRoomLighting(
 
 /** Desk-specific positional lights — added to the room group so they rotate with it.
  *  Returns a cleanup function that removes and disposes all lights added. */
+/** Flat fill on the desk scene; raise it to brighten the whole desk. */
+const DESK_FILL_INTENSITY = 0.9;
+
 export function setupDeskLighting(roomGroup: Group): () => void {
 	// Warm overhead fill
 	const roomFill = new PointLight(new Color(LIGHT_ROOM_FILL), 1.4, 30, 1.1);
@@ -88,21 +92,35 @@ export function setupDeskLighting(roomGroup: Group): () => void {
 	frontFill.position.set(-3, 4, 5);
 	roomGroup.add(frontFill);
 
+	// Broad, shadowless fill from the viewer's side, like the shelf's: lifts
+	// the whole desk and the wall behind it without flattening the lamp's pool.
+	const deskFill = new DirectionalLight(new Color(LIGHT_ROOM_FILL), DESK_FILL_INTENSITY);
+	deskFill.position.set(0, 4, 8);
+	deskFill.target.position.set(0, 0.5, -1);
+	roomGroup.add(deskFill);
+	roomGroup.add(deskFill.target);
+
 	// Safelight red accent
 	const safelight = new PointLight(new Color(ACCENT), 0.28, 12, 2);
-	safelight.position.set(3, 2.5, -1);
+	// Out in the room rather than near the back wall, where it would pool
+	// into a visible disc.
+	safelight.position.set(3, 2.5, 1.5);
 	roomGroup.add(safelight);
 
 	return () => {
-		roomGroup.remove(roomFill, frontFill, safelight);
+		roomGroup.remove(roomFill, frontFill, safelight, deskFill, deskFill.target);
 		roomFill.dispose();
 		frontFill.dispose();
 		safelight.dispose();
+		deskFill.dispose();
 	};
 }
 
 /** Shelf-specific lighting — tighter key/fill so the shelf reads with stronger shadows.
  *  Returns a cleanup function that removes and disposes all lights added. */
+/** Flat fill on the shelf wall; raise it to soften the shelves' shadows more. */
+const SHELF_FILL_INTENSITY = 0.6;
+
 export function setupShelfLighting(roomGroup: Group, mobile = false): () => void {
 	const shadowRes = mobile ? SHADOW_MAP_SIZE_LOW : SHADOW_MAP_SIZE_HIGH;
 
@@ -110,8 +128,20 @@ export function setupShelfLighting(roomGroup: Group, mobile = false): () => void
 	shelfKey.position.set(SHELF_WALL_X - 1.2, SHELF_TOP_Y + 1.35, SHELF_WALL_Z + 1.4);
 	shelfKey.target.position.set(SHELF_WALL_X - 0.15, SHELF_MID_Y + 0.25, SHELF_WALL_Z);
 	configureShadowLight(shelfKey, shadowRes);
+	// It grazes the wall behind the shelves at a shallow angle; without a
+	// normal offset its shadow map self-shadows the wall into dark bands.
+	shelfKey.shadow.normalBias = 0.04;
 	roomGroup.add(shelfKey);
 	roomGroup.add(shelfKey.target);
+
+	// Broad, even fill straight onto the wall (no shadows). It lifts the
+	// shadows the key light casts under each plank so they read as soft
+	// shading instead of dark bands, without removing them.
+	const shelfFill = new DirectionalLight(new Color(LIGHT_SHELF_KEY), SHELF_FILL_INTENSITY);
+	shelfFill.position.set(SHELF_WALL_X - 6, SHELF_MID_Y + 0.5, SHELF_WALL_Z);
+	shelfFill.target.position.set(SHELF_WALL_X, SHELF_MID_Y, SHELF_WALL_Z);
+	roomGroup.add(shelfFill);
+	roomGroup.add(shelfFill.target);
 
 	const notebookAccent = new PointLight(new Color(LIGHT_NOTEBOOK_ACCENT), 0.75, 7, 1.9);
 	notebookAccent.position.set(SHELF_WALL_X - 0.55, SHELF_MID_Y + 0.7, SHELF_WALL_Z - 1.1);
@@ -122,7 +152,15 @@ export function setupShelfLighting(roomGroup: Group, mobile = false): () => void
 	roomGroup.add(bottomFill);
 
 	return () => {
-		roomGroup.remove(shelfKey, shelfKey.target, notebookAccent, bottomFill);
+		roomGroup.remove(
+			shelfKey,
+			shelfKey.target,
+			shelfFill,
+			shelfFill.target,
+			notebookAccent,
+			bottomFill,
+		);
+		shelfFill.dispose();
 		shelfKey.dispose();
 		notebookAccent.dispose();
 		bottomFill.dispose();

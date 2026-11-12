@@ -150,12 +150,16 @@ const RESTING_DESK_VIEW: DeskCameraView = {
 const _cameraLocalPos = new Vector3();
 
 // ─── NOTEBOOK (Blog) ─────────────────────────────────────────────
+/** How far the notebook cover swings open (~120°): propped back like a
+ *  spiral notebook, not laid flat, so it clears the photo frame behind it. */
+const NOTEBOOK_OPEN_RX = 2.1;
+
 export function animateNotebookOpen(notebook: NotebookObject): Promise<void> {
 	const pivot = notebook.parts.coverPivot;
 	saveRest(pivot, "rx", pivot.rotation.x);
 	const rest = getRest(pivot, "rx");
 	return animate(`notebook-${notebook.root.uuid}`, 600, (p) => {
-		pivot.rotation.x = lerp(rest, rest - 2.8, p);
+		pivot.rotation.x = lerp(rest, rest - NOTEBOOK_OPEN_RX, p);
 	});
 }
 
@@ -169,6 +173,9 @@ export function animateNotebookClose(notebook: NotebookObject): Promise<void> {
 }
 
 // ─── LAPTOP (Projects) ──────────────────────────────────────────
+/** Lid angle when the laptop is clicked: upright, facing the camera. */
+const LAPTOP_FOCUS_RX = -0.13;
+
 export function animateLaptopOpen(laptop: LaptopObject): Promise<void> {
 	const { screenGroup, screenFace, screenLight } = laptop.parts;
 	saveRest(screenGroup, "rx", screenGroup.rotation.x);
@@ -184,7 +191,7 @@ export function animateLaptopOpen(laptop: LaptopObject): Promise<void> {
 	const restLightIntensity = screenLight.intensity;
 
 	return animate(`laptop-${laptop.root.uuid}`, 500, (p) => {
-		screenGroup.rotation.x = lerp(rest, rest - 0.91, p);
+		screenGroup.rotation.x = lerp(rest, LAPTOP_FOCUS_RX, p);
 		if (faceMat) faceMat.emissiveIntensity = lerp(restEmissive, 8.0, p);
 		screenLight.intensity = lerp(restLightIntensity, 8.0, p);
 	});
@@ -213,10 +220,20 @@ const READING_CLOSE_DURATION_MS = 1400;
 const READING_COVER_OPEN_RX = 1.22;
 const READING_PAGE_BLOCK_INSET_RX = 0.24;
 const READING_LOOSE_PAGE_MARGIN_RX = 0.18;
-const READING_CAMERA_YAW_BIAS = -0.2;
-const READING_CAMERA_PITCH_BIAS = -0.3;
+/** How far the hero book travels from its rest spot (stack space) when presented. */
+const READING_PRESENT_OFFSET = new Vector3(-0.095, 0.45, 0.22);
 const READING_LOOSE_PAGE_EDGE_RX =
 	READING_COVER_OPEN_RX - READING_PAGE_BLOCK_INSET_RX - READING_LOOSE_PAGE_MARGIN_RX;
+
+/** World position the hero book is presented at, so the camera can frame it. */
+export function bookPresentedPosition(stack: BookStackObject, out: Vector3): Vector3 {
+	const { hero } = stack.parts;
+	if (!hero?.parent) return out.setFromMatrixPosition(stack.root.matrixWorld);
+	saveRestPose(hero);
+	const { x, y, z } = getRestPose(hero);
+	hero.parent.updateWorldMatrix(true, false);
+	return hero.parent.localToWorld(out.set(x, y, z).add(READING_PRESENT_OFFSET));
+}
 
 export function animateBookLift(
 	stack: BookStackObject,
@@ -265,9 +282,9 @@ export function animateBookLift(
 
 		const { x: restX, y: restY, z: restZ, rx: restRX, ry: restRY, rz: restRZ } = getRestPose(hero);
 
-		hero.position.x = lerp(restX, restX - 0.095, present);
-		hero.position.y = lerp(restY, restY + 0.45, lift);
-		hero.position.z = lerp(restZ, restZ + 0.22, present);
+		hero.position.x = lerp(restX, restX + READING_PRESENT_OFFSET.x, present);
+		hero.position.y = lerp(restY, restY + READING_PRESENT_OFFSET.y, lift);
+		hero.position.z = lerp(restZ, restZ + READING_PRESENT_OFFSET.z, present);
 		let targetPitch = restRX + 0.14;
 		let targetYaw = restRY;
 		if (hero.parent) {
@@ -278,12 +295,14 @@ export function animateBookLift(
 			const cameraDirY = _cameraLocalPos.y - hero.position.y;
 			const cameraDirZ = _cameraLocalPos.z - hero.position.z;
 			const horizontalDistance = Math.hypot(cameraDirX, cameraDirZ);
+			// The open spread faces the hero's local -Z. With the hero's YXZ
+			// rotation order, pitching by +θ tips that face up by θ, and the yaw
+			// then swings it round toward the camera.
 			if (horizontalDistance > 0.0001) {
-				targetPitch =
-					-Math.atan2(cameraDirY, horizontalDistance) * 0.72 + READING_CAMERA_PITCH_BIAS;
+				targetPitch = Math.atan2(cameraDirY, horizontalDistance);
 			}
 			if (Math.abs(cameraDirX) + Math.abs(cameraDirZ) > 0.0001) {
-				targetYaw = Math.atan2(cameraDirX, cameraDirZ) + Math.PI + READING_CAMERA_YAW_BIAS;
+				targetYaw = Math.atan2(cameraDirX, cameraDirZ) + Math.PI;
 			}
 		}
 		hero.rotation.x = lerp(restRX, targetPitch, present);
@@ -817,6 +836,53 @@ export function animateFrameWobble(frame: Group): Promise<void> {
 		const decay = 1 - p;
 		frame.rotation.z = baseRot + Math.sin(p * Math.PI * 5) * 0.06 * decay;
 	});
+}
+
+/**
+ * Send a hanging sign all the way round its nail (the group's origin), like
+ * a playground swing pushed too hard: a small wind-back, one full loop over
+ * the top, then a few dying wobbles as it settles.
+ */
+export function animateSignSwing(sign: Object3D): Promise<void> {
+	saveRest(sign, "rz", sign.rotation.z);
+	const rest = getRest(sign, "rz");
+	const WIND = -0.35;
+	const OVERSHOOT = 0.32;
+	const LOOP = Math.PI * 2;
+	return animate(
+		`sign-swing-${sign.uuid}`,
+		1900,
+		(p) => {
+			let angle: number;
+			if (p < 0.12) {
+				angle = WIND * Math.sin((p / 0.12) * (Math.PI / 2));
+			} else if (p < 0.6) {
+				angle = lerp(WIND, LOOP + OVERSHOOT, easeInOutCubic((p - 0.12) / 0.48));
+			} else {
+				const t = (p - 0.6) / 0.4;
+				angle = LOOP + OVERSHOOT * Math.cos(t * Math.PI * 3) * (1 - t) ** 2;
+			}
+			// A full turn looks the same as none, so land exactly on rest.
+			sign.rotation.z = p >= 1 ? rest : rest + angle;
+		},
+		(t) => t,
+	);
+}
+
+/** Jiggle a hanging sign on its nail, for where a full loop has no room
+ *  (the shelf sign hangs right under a plank). */
+export function animateSignWiggle(sign: Object3D): Promise<void> {
+	saveRest(sign, "rz", sign.rotation.z);
+	const rest = getRest(sign, "rz");
+	return animate(
+		`sign-swing-${sign.uuid}`,
+		1100,
+		(p) => {
+			const decay = (1 - p) ** 2;
+			sign.rotation.z = p >= 1 ? rest : rest + Math.sin(p * Math.PI * 6) * 0.09 * decay;
+		},
+		(t) => t,
+	);
 }
 
 // ─── PHONE (Shelf) ─────────────────────────────────────────────

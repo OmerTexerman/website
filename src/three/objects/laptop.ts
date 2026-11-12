@@ -9,14 +9,14 @@ import {
 } from "three";
 import {
 	ALMOST_BLACK,
-	DARK_GRAY,
+	KEYCAP,
 	LAPTOP_SCREEN_GLOW,
 	MEDIUM_GRAY,
 	METAL,
 	VERY_DARK_GRAY,
 } from "../colors";
 import { applySectionInteraction } from "../interactive-section";
-import { darkMetalMaterial, screenMaterial } from "../materials";
+import { screenMaterial } from "../materials";
 
 export interface LaptopObject {
 	root: Group;
@@ -57,44 +57,58 @@ export function createLaptop(): LaptopObject {
 	hinge.castShadow = true;
 	laptop.add(hinge);
 
-	// Keyboard area (dark inset surface)
-	const kbSurface = new Mesh(new BoxGeometry(1.0, 0.005, 0.42), darkMetalMaterial);
+	// Matte throughout: keycaps and the well around them are dull plastic,
+	// and anything glossy here catches the screen's light and looks wet.
+	const wellMat = new MeshStandardMaterial({
+		color: new Color(ALMOST_BLACK),
+		roughness: 0.95,
+		metalness: 0,
+	});
+	const keyMat = new MeshStandardMaterial({
+		color: new Color(KEYCAP),
+		roughness: 0.9,
+		metalness: 0,
+	});
+
+	// Keyboard well
+	const kbSurface = new Mesh(new BoxGeometry(1.0, 0.005, 0.42), wellMat);
 	kbSurface.position.set(0, 0.053, -0.02);
 	laptop.add(kbSurface);
 
-	// Key rows — 5 rows of small keys
-	const keyMat = new MeshStandardMaterial({
-		color: new Color(DARK_GRAY),
-		roughness: 0.6,
-		metalness: 0.4,
-	});
-	const keyWidth = 0.065;
-	const keyDepth = 0.05;
-	const keyHeight = 0.01;
-	const keyGeo = new BoxGeometry(keyWidth, keyHeight, keyDepth);
-	const gapX = 0.075;
-	const gapZ = 0.065;
-	const cols = 12;
-	const rows = 5;
-	const startX = -((cols - 1) * gapX) / 2;
-	const startZ = -0.16;
-
-	for (let row = 0; row < rows; row++) {
-		for (let col = 0; col < cols; col++) {
-			const key = new Mesh(keyGeo, keyMat);
-			key.position.set(startX + col * gapX, 0.058, startZ + row * gapZ);
-			laptop.add(key);
-		}
+	// Keys: four full rows, then a bottom row with a wide spacebar so the
+	// layout reads as a keyboard rather than a grid.
+	const KEY = 0.062;
+	const PITCH = 0.074;
+	const KEY_H = 0.01;
+	const COLS = 13;
+	const rowWidth = COLS * PITCH - (PITCH - KEY);
+	const left = -rowWidth / 2;
+	const keyZ = (row: number) => -0.17 + row * 0.072;
+	const addKey = (x: number, width: number, row: number) => {
+		const key = new Mesh(new BoxGeometry(width, KEY_H, KEY * 0.85), keyMat);
+		key.position.set(x + width / 2, 0.058, keyZ(row));
+		laptop.add(key);
+	};
+	for (let row = 0; row < 4; row++) {
+		for (let col = 0; col < COLS; col++) addKey(left + col * PITCH, KEY, row);
 	}
+	// Bottom row: three keys, spacebar, three keys.
+	const sideKeys = 3;
+	for (let i = 0; i < sideKeys; i++) {
+		addKey(left + i * PITCH, KEY, 4);
+		addKey(left + rowWidth - KEY - i * PITCH, KEY, 4);
+	}
+	const spaceLeft = left + sideKeys * PITCH;
+	addKey(spaceLeft, rowWidth - 2 * sideKeys * PITCH - (PITCH - KEY), 4);
 
-	// Trackpad
+	// Trackpad: wide and flush, a shade darker than the aluminium
 	const trackpadMat = new MeshStandardMaterial({
 		color: new Color(MEDIUM_GRAY),
-		roughness: 0.8,
+		roughness: 0.85,
 		metalness: 0.1,
 	});
-	const trackpad = new Mesh(new BoxGeometry(0.3, 0.005, 0.2), trackpadMat);
-	trackpad.position.set(0, 0.054, 0.25);
+	const trackpad = new Mesh(new BoxGeometry(0.42, 0.003, 0.17), trackpadMat);
+	trackpad.position.set(0, 0.0515, 0.29);
 	laptop.add(trackpad);
 
 	// Screen (angled) — pivot at hinge (top-back edge of base)
@@ -117,19 +131,20 @@ export function createLaptop(): LaptopObject {
 	const bezelGeoBottom = new BoxGeometry(1.12, bottomBezelHeight, 0.006);
 	const bezelGeoVertical = new BoxGeometry(sideBezelWidth, 0.646, 0.006);
 	const bezelZ = 0.031;
-	const topBezel = new Mesh(bezelGeoTop, darkMetalMaterial);
+	const bezelMat = wellMat;
+	const topBezel = new Mesh(bezelGeoTop, bezelMat);
 	topBezel.position.set(0, 0.737, bezelZ);
 	screenGroup.add(topBezel);
 
-	const bottomBezel = new Mesh(bezelGeoBottom, darkMetalMaterial);
+	const bottomBezel = new Mesh(bezelGeoBottom, bezelMat);
 	bottomBezel.position.set(0, 0.025, bezelZ);
 	screenGroup.add(bottomBezel);
 
-	const leftBezel = new Mesh(bezelGeoVertical, darkMetalMaterial);
+	const leftBezel = new Mesh(bezelGeoVertical, bezelMat);
 	leftBezel.position.set(-0.545, 0.381, bezelZ);
 	screenGroup.add(leftBezel);
 
-	const rightBezel = new Mesh(bezelGeoVertical, darkMetalMaterial);
+	const rightBezel = new Mesh(bezelGeoVertical, bezelMat);
 	rightBezel.position.set(0.545, 0.381, bezelZ);
 	screenGroup.add(rightBezel);
 
@@ -140,7 +155,7 @@ export function createLaptop(): LaptopObject {
 	screenGroup.add(face);
 
 	screenGroup.position.set(0, 0.058, -0.38); // hinge point: top-back of base
-	screenGroup.rotation.x = 0.78; // more closed so the lid silhouette reads immediately
+	screenGroup.rotation.x = 0.4; // ~113° open: a natural working angle that still reads from above
 	laptop.add(screenGroup);
 
 	const screenLight = new SpotLight(new Color(LAPTOP_SCREEN_GLOW), 2.0, 12, Math.PI / 2, 1.0, 1.0);

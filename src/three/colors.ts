@@ -33,11 +33,14 @@ export const SHELF_WOOD = "#5c422a";
 export const CORK = "#c4a46c";
 export const CERAMIC = "#e8e0d4";
 export const PCB_GREEN = "#1a472a";
+/** Laptop keycaps: matte dark grey, a step up from the black well around them. */
+export const KEYCAP = "#3a3a3f";
 
 // ─── Shell / room colors ────────────────────────────────────────
-export const SHELL_WALL = "#3d3530";
-export const SHELL_RETURN = "#302a24";
-export const SHELL_SHADOW = "#1c1815";
+/** Room walls, behind the desk and the shelves. */
+export const ROOM_WALL = "#2a2420";
+/** Baseboard where the walls meet the floor. */
+export const BASEBOARD = "#1a120c";
 
 // ─── Photo frame colors ─────────────────────────────────────────
 export const PHOTO_WARM = "#d4c5a9";

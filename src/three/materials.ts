@@ -4,14 +4,12 @@ import {
 	CERAMIC,
 	CORK,
 	CREAM,
-	DARK_CHARCOAL,
 	DARK_METAL,
 	DARK_WOOD,
 	DICTIONARY_GOLD,
 	DICTIONARY_LEATHER,
 	DICTIONARY_PAGES,
 	DICTIONARY_SPINE,
-	METAL,
 	NOTEBOOK_RED,
 	PCB_GREEN,
 	SCREEN_BLUE,
@@ -37,12 +35,6 @@ export const paperMaterial = new MeshStandardMaterial({
 	color: new Color(CREAM),
 	roughness: 1.0,
 	metalness: 0.0,
-});
-
-export const metalMaterial = new MeshStandardMaterial({
-	color: new Color(METAL),
-	roughness: 0.3,
-	metalness: 0.8,
 });
 
 export const screenMaterial = new MeshStandardMaterial({
@@ -115,12 +107,6 @@ export const shelfNotebookCoverMaterial = new MeshStandardMaterial({
 	roughness: 0.6,
 });
 
-export const cameraBodyMaterial = new MeshStandardMaterial({
-	color: new Color(DARK_CHARCOAL),
-	roughness: 0.4,
-	metalness: 0.6,
-});
-
 export const dictionaryLeatherMaterial = new MeshStandardMaterial({
 	color: new Color(DICTIONARY_LEATHER),
 	roughness: 0.75,
@@ -169,7 +155,6 @@ for (const mat of [
 	woodMaterial,
 	darkWoodMaterial,
 	paperMaterial,
-	metalMaterial,
 	screenMaterial,
 	darkMetalMaterial,
 	accentMaterial,
@@ -180,7 +165,6 @@ for (const mat of [
 	spiralRingMaterial,
 	notebookCoverMaterial,
 	shelfNotebookCoverMaterial,
-	cameraBodyMaterial,
 	dictionaryLeatherMaterial,
 	dictionaryGoldMaterial,
 	dictionaryPagesMaterial,

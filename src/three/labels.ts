@@ -33,7 +33,10 @@ export function createLabelController(container: HTMLElement): LabelController {
 		}
 
 		interaction.object.getWorldPosition(projectedPosition);
-		projectedPosition.add(labelOffset);
+		// Tall objects (the window) set their own height so the label clears them.
+		const offsetY = interaction.object.userData.labelOffsetY;
+		if (typeof offsetY === "number") projectedPosition.y += offsetY;
+		else projectedPosition.add(labelOffset);
 		projectedPosition.project(camera);
 
 		if (projectedPosition.z > 1) {

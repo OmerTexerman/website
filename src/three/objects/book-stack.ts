@@ -94,6 +94,9 @@ function createHeroBook(
 	const totalThickness = coverThickness * 2 + pageBlockThickness * 2 + looseStackThickness + 0.003;
 	const hero = new Group();
 	hero.position.set(xOffset, index * (bookHeight + BOOK_GAP), 0);
+	// Yaw, then pitch, then roll: the lift animation aims yaw/pitch at the
+	// camera in the stack's frame, which only holds when yaw is applied last.
+	hero.rotation.order = "YXZ";
 	hero.rotation.y = yRot;
 
 	const coverMaterial = createBookMaterial(color);
