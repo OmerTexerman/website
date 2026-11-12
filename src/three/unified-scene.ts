@@ -741,7 +741,8 @@ export function initUnifiedScene(
 
 	function resetShelfSelection(): void {
 		if (!openSelection || openSelection.mode !== "mobile") return;
-		void animateShelfReset(openSelection.entry.item);
+		// The camera never leaves the shelf, so there is nothing to put back.
+		if (openSelection.entry.source !== "camera") void animateShelfReset(openSelection.entry.item);
 		if (openSelection.entry.source === "phone") void animatePhoneSleep(openSelection.entry.item);
 	}
 
@@ -1016,14 +1017,17 @@ export function initUnifiedScene(
 				const activeSelection = openSelection;
 				const section = getSectionById(entry.sectionId);
 
-				// If this is the phone, glow the screen before falling
-				if (entry.source === "camera") void animateCameraFlash(entry.item);
+				// The camera stays put and fires its flash; the phone glows its
+				// screen before falling; everything else just falls.
 				const isPhone = entry.source === "phone";
-				const presentChain = isPhone
-					? animatePhoneWake(entry.item).then(() =>
-							animateShelfPresent(entry.item, entry.frontClearance, camera.position),
-						)
-					: animateShelfPresent(entry.item, entry.frontClearance, camera.position);
+				const presentChain =
+					entry.source === "camera"
+						? animateCameraFlash(entry.item)
+						: isPhone
+							? animatePhoneWake(entry.item).then(() =>
+									animateShelfPresent(entry.item, entry.frontClearance, camera.position),
+								)
+							: animateShelfPresent(entry.item, entry.frontClearance, camera.position);
 
 				void presentChain
 					.then(() => {
