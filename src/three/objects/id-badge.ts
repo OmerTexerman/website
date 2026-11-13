@@ -185,7 +185,8 @@ export function createWallIdBadge({
 	// (where they come over the edge) and meet at the clip.
 	const strapMat = new MeshStandardMaterial({ color: new Color(ACCENT), roughness: 0.8 });
 	const topSpread = mount === "wall" ? 0 : DRAPE_SPREAD;
-	const bottomSpread = mount === "wall" ? 0.07 : 0.018;
+	// Both end inside the clip's top edge, so they read as attached to it.
+	const bottomSpread = 0.016;
 	const topY = mount === "wall" ? 0 : -DRAPE_EDGE;
 	for (const side of [-1, 1]) {
 		const x0 = side * topSpread;
@@ -201,9 +202,17 @@ export function createWallIdBadge({
 		swing.add(strap);
 	}
 
+	// Light brushed metal with a little self-light: a dark clip vanished
+	// against the dark wall and the lanyard looked detached from the card.
 	const clip = new Mesh(
-		new BoxGeometry(0.05, 0.05, 0.012),
-		new MeshStandardMaterial({ color: new Color("#9a9a96"), roughness: 0.35, metalness: 0.8 }),
+		new BoxGeometry(0.055, 0.05, 0.014),
+		new MeshStandardMaterial({
+			color: new Color("#d4d4d0"),
+			roughness: 0.3,
+			metalness: 0.6,
+			emissive: new Color("#d4d4d0"),
+			emissiveIntensity: 0.2,
+		}),
 	);
 	clip.position.y = -LANYARD_DROP - 0.02;
 	swing.add(clip);
