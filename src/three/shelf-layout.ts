@@ -6,18 +6,28 @@ export const SHELF_WALL_Z = 4.4;
 export const SHELF_TOP_Y = 3.6;
 export const SHELF_MID_Y = 2.2;
 export const SHELF_BOT_Y = 0.8;
+/** The floor under the shelves, where the slop guy sits. */
+export const SHELF_FLOOR_Y = -2;
 
+/** Camera stops, bottom to top: the floor, then each shelf. */
 export const MOBILE_SHELF_STOPS = [
+	{ cameraY: -0.7, lookY: -1.25 },
 	{ cameraY: 1.25, lookY: 0.95 },
 	{ cameraY: MOBILE_POS.y, lookY: MOBILE_LOOK.y },
 	{ cameraY: 4.02, lookY: 3.72 },
 ] as const;
 
+/** Rows matching the stops above, for keyboard and tap navigation. */
+export const MOBILE_SHELF_ROW_YS = [SHELF_FLOOR_Y, SHELF_BOT_Y, SHELF_MID_Y, SHELF_TOP_Y] as const;
+
 export const MOBILE_SHELF_SCROLL = {
-	verticalStops: [0, 0.5, 1] as const,
-	panSnapPoints: [[-0.65, 0.35], [-0.78, 0.3], [0]] as const,
+	verticalStops: [0, 1 / 3, 2 / 3, 1] as const,
+	panSnapPoints: [[0], [-0.65, 0.35], [-0.78, 0.3], [0]] as const,
 	panLimit: 1,
 } as const;
+
+/** Where the shelf view starts and rests: the middle shelf (MOBILE_POS). */
+export const MOBILE_SHELF_HOME_T = MOBILE_SHELF_SCROLL.verticalStops[2];
 
 export const MOBILE_TRANSITION_MID_POS = MOBILE_INTRO_START_POS.clone();
 export const MOBILE_TRANSITION_MID_LOOK = new Vector3(8.1, 2.2, 4.7);

@@ -115,13 +115,12 @@ import { createSpotlightFrame, disposeSpotlightTextures } from "./objects/spotli
 import { invalidateCanvasRect } from "./raycast-utils";
 import { createRoomWall } from "./room-wall";
 import {
+	MOBILE_SHELF_HOME_T,
+	MOBILE_SHELF_ROW_YS,
 	MOBILE_SHELF_SCROLL,
 	MOBILE_SHELF_STOPS,
 	MOBILE_TRANSITION_MID_LOOK,
 	MOBILE_TRANSITION_MID_POS,
-	SHELF_BOT_Y,
-	SHELF_MID_Y,
-	SHELF_TOP_Y,
 } from "./shelf-layout";
 
 const BLOOM_STRENGTH = 0.6;
@@ -174,6 +173,7 @@ interface ShelfSceneData {
 	cleanup?: () => void;
 	badgeSway: Object3D;
 	badgeSwing: Object3D;
+	slopGuy: SlopGuyObject;
 }
 
 type OpenSelection =
@@ -448,7 +448,7 @@ export function initUnifiedScene(
 
 	function syncMobileShelfCamera(t: number, pans?: readonly number[]): void {
 		const sample = sampleMobileShelfTrack(t, { allowOverflow: true });
-		const panSource = pans ?? scrollController?.panByRow ?? [0, 0, 0];
+		const panSource = pans ?? scrollController?.panByRow ?? [];
 		// Clamp t for pan so rubber-band overscroll doesn't extrapolate lateral pan
 		const panSample = sampleMobileShelfTrack(clamp(t, 0, 1));
 		const pan = interpolatePan(panSample, panSource);
@@ -466,7 +466,7 @@ export function initUnifiedScene(
 
 	function writeMobilePose(t: number, pos: Vector3, look: Vector3): void {
 		const sample = sampleMobileShelfTrack(t, { allowOverflow: true });
-		const panSource = scrollController?.panByRow ?? [0, 0, 0];
+		const panSource = scrollController?.panByRow ?? [];
 		const panSample = sampleMobileShelfTrack(clamp(t, 0, 1));
 		const pan = interpolatePan(panSample, panSource);
 		pos.set(
@@ -795,9 +795,11 @@ export function initUnifiedScene(
 
 	function resetShelfSelection(): void {
 		if (!openSelection || openSelection.mode !== "mobile") return;
-		// The camera and badge never leave their spots: nothing to put back.
+		// The camera, badge and slop guy never leave their spots: nothing to put back.
 		const { source } = openSelection.entry;
-		if (source !== "camera" && source !== "badge") void animateShelfReset(openSelection.entry.item);
+		if (source !== "camera" && source !== "badge" && source !== "slop") {
+			void animateShelfReset(openSelection.entry.item);
+		}
 		if (openSelection.entry.source === "phone") void animatePhoneSleep(openSelection.entry.item);
 	}
 
@@ -1006,14 +1008,14 @@ export function initUnifiedScene(
 				panLimit: MOBILE_SHELF_SCROLL.panLimit,
 				numRows: MOBILE_SHELF_STOPS.length,
 			});
-			if (scrollController.resetTo(0.5)) dirty = true;
+			if (scrollController.resetTo(MOBILE_SHELF_HOME_T)) dirty = true;
 
 			const sc = scrollController;
 			const shelf = shelfScene;
 			const interactionPicker = createInteractionPicker(canvas, camera, scene);
 			const shelfStopByTarget = new Map<Object3D, number>();
 			{
-				const shelfYs = [SHELF_BOT_Y, SHELF_MID_Y, SHELF_TOP_Y];
+				const shelfYs = MOBILE_SHELF_ROW_YS;
 				const byRow = new Map<number, { target: Object3D; z: number }[]>();
 				for (const entry of shelf.entries) {
 					const y = entry.target.position.y;
@@ -1089,11 +1091,13 @@ export function initUnifiedScene(
 						? animateCameraFlash(entry.item)
 						: entry.source === "badge"
 							? animateBadgeSwing(shelf.badgeSwing).then(() => undefined)
-							: isPhone
-								? animatePhoneWake(entry.item).then(() =>
-										animateShelfPresent(entry.item, entry.frontClearance, camera.position),
-									)
-								: animateShelfPresent(entry.item, entry.frontClearance, camera.position);
+							: entry.source === "slop"
+								? animateSlopFeed(shelf.slopGuy)
+								: isPhone
+									? animatePhoneWake(entry.item).then(() =>
+											animateShelfPresent(entry.item, entry.frontClearance, camera.position),
+										)
+									: animateShelfPresent(entry.item, entry.frontClearance, camera.position);
 
 				void presentChain
 					.then(() => {
@@ -1227,7 +1231,7 @@ export function initUnifiedScene(
 	} else {
 		createShelfContent();
 		room.rotation.y = 0;
-		syncMobileShelfCamera(0.5);
+		syncMobileShelfCamera(MOBILE_SHELF_HOME_T);
 	}
 
 	setupModeInteractions();
@@ -1331,7 +1335,7 @@ export function initUnifiedScene(
 			camera.position.copy(DESKTOP_POS);
 			camera.lookAt(DESKTOP_LOOK);
 		} else {
-			syncMobileShelfCamera(0.5);
+			syncMobileShelfCamera(MOBILE_SHELF_HOME_T);
 		}
 	}
 
@@ -1370,7 +1374,8 @@ export function initUnifiedScene(
 					_mobileIntroEndPos,
 					_mobileIntroEndLook,
 				);
-				if (introComplete) syncMobileShelfCamera(scrollController?.verticalT ?? 0.5);
+				if (introComplete)
+					syncMobileShelfCamera(scrollController?.verticalT ?? MOBILE_SHELF_HOME_T);
 			}
 			lastActiveAt = now;
 			if (introComplete) targetInterval = IDLE_INTERVAL;
@@ -1406,9 +1411,8 @@ export function initUnifiedScene(
 			dirty = true;
 		}
 		// A drip from the slop pipe, every few seconds.
-		if (currentMode === "desktop" && deskScene && !transitioning && !prefersReducedMotion()) {
-			updateSlopDrip(deskScene.slopGuy, now);
-		}
+		const slopGuy = currentMode === "desktop" ? deskScene?.slopGuy : shelfScene?.slopGuy;
+		if (slopGuy && !transitioning && !prefersReducedMotion()) updateSlopDrip(slopGuy, now);
 
 		let scrolling = false;
 		if (currentMode === "mobile" && !transitioning && scrollController) {
@@ -1510,7 +1514,7 @@ export function initUnifiedScene(
 		}
 		camera.updateProjectionMatrix();
 		if (currentMode === "mobile" && !transitioning) {
-			syncMobileShelfCamera(scrollController?.verticalT ?? 0.5);
+			syncMobileShelfCamera(scrollController?.verticalT ?? MOBILE_SHELF_HOME_T);
 		}
 
 		// Render immediately so the resized canvas doesn't flash black
@@ -1713,10 +1717,14 @@ export function initUnifiedScene(
 		// Determine rotation and camera poses
 		const fromRotY = room.rotation.y;
 		const toRotY = 0;
-		writeMobilePose(scrollController?.verticalT ?? 0.5, mobilePosePos, mobilePoseLook);
+		writeMobilePose(
+			scrollController?.verticalT ?? MOBILE_SHELF_HOME_T,
+			mobilePosePos,
+			mobilePoseLook,
+		);
 		const fromPos = currentMode === "desktop" ? camera.position.clone() : mobilePosePos.clone();
 		const fromLook = currentMode === "desktop" ? DESKTOP_LOOK.clone() : mobilePoseLook.clone();
-		writeMobilePose(0.5, mobilePosePos, mobilePoseLook);
+		writeMobilePose(MOBILE_SHELF_HOME_T, mobilePosePos, mobilePoseLook);
 		const toPos = target === "desktop" ? DESKTOP_POS.clone() : mobilePosePos.clone();
 		const toLook = target === "desktop" ? DESKTOP_LOOK.clone() : mobilePoseLook.clone();
 		const fromFov = camera.fov;
@@ -1859,7 +1867,7 @@ export function initUnifiedScene(
 			composer.render();
 			markSceneActive();
 		} else {
-			syncMobileShelfCamera(0.5, [0, 0, 0]);
+			syncMobileShelfCamera(MOBILE_SHELF_HOME_T, []);
 			applyRenderSettings("mobile");
 			// Keep the bloom buffers at the phone's lower pixel ratio for when
 			// the view goes back to the desk.

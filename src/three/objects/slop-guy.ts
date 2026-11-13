@@ -33,14 +33,14 @@ const SUIT = "#a8845a";
 const CHAIR = "#5e3a28";
 const SHOE = "#3e2618";
 const HAIR = "#2a1c14";
-/** Grey-beige, like something from a cafeteria tray. */
-const SLOP = "#c9bf9a";
+/** The stream: white, like the water in the cartoon. */
+const STREAM = "#f4f6f8";
 
 /** How far the head is thrown back (radians), mouth up under the pipe. */
 const HEAD_TILT = -0.65;
 const NECK = new Vector3(0, 0.86, -0.02);
 /** The lips, in the head's own frame. */
-const LIPS = new Vector3(0, 0.06, 0.15);
+const LIPS = new Vector3(0, 0.06, 0.168);
 /** How high above his mouth the pipe pours from. */
 const POUR_DROP = 0.42;
 
@@ -413,7 +413,8 @@ export function createSlopGuy({
 	const streamGeo = new CylinderGeometry(0.03, 0.022, streamLen, 12, 1, true);
 	// Pivot at the spout end, so scaling y grows it down toward the mouth.
 	streamGeo.translate(0, -streamLen / 2, 0);
-	const slop = mat(SLOP, 0.35, { emissive: new Color(SLOP), emissiveIntensity: 0.12 });
+	// Glossy, with a little self-light so it reads against the dark wall.
+	const slop = mat(STREAM, 0.15, { emissive: new Color(STREAM), emissiveIntensity: 0.25 });
 	const stream = new Mesh(streamGeo, slop);
 	stream.position.copy(spout);
 	stream.quaternion.setFromUnitVectors(new Vector3(0, -1, 0), streamDir.clone().normalize());

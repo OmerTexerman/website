@@ -32,7 +32,14 @@ import {
 	spiralRingMaterial,
 } from "../materials";
 import { createRoomWall } from "../room-wall";
-import { SHELF_BOT_Y, SHELF_MID_Y, SHELF_TOP_Y, SHELF_WALL_X, SHELF_WALL_Z } from "../shelf-layout";
+import {
+	SHELF_BOT_Y,
+	SHELF_FLOOR_Y,
+	SHELF_MID_Y,
+	SHELF_TOP_Y,
+	SHELF_WALL_X,
+	SHELF_WALL_Z,
+} from "../shelf-layout";
 import { createSpineTexture } from "../spine-texture";
 import { createGreetingSign } from "./greeting-sign";
 import { createWallIdBadge } from "./id-badge";
@@ -41,6 +48,7 @@ import { createShelfCandle, toggleCandle } from "./shelf-candle";
 import { createShelfClock, syncClockToTime } from "./shelf-clock";
 import { createShelfHeadphones } from "./shelf-headphones";
 import { createShelfPhone } from "./shelf-phone";
+import { createSlopGuy, type SlopGuyObject } from "./slop-guy";
 import { createShelfSpotlightFrame } from "./spotlight-frame";
 
 export interface ShelfDecorEntry {
@@ -54,6 +62,7 @@ export interface ShelfWallResult {
 	/** The hanging badge's idle-sway and click-swing pivots. */
 	badgeSway: Object3D;
 	badgeSwing: Object3D;
+	slopGuy: SlopGuyObject;
 	entries: ShelfSceneEntry[];
 	decor: ShelfDecorEntry[];
 	cleanup?: () => void;
@@ -549,6 +558,33 @@ export function createShelfWall(
 		frontClearance: 0,
 	});
 
+	// "Feed me slop": in his armchair on the floor under the bottom shelf,
+	// back to the wall, mouth open under a pipe out of it. The last stop of
+	// the scroll down.
+	const SLOP_SCALE = 0.9;
+	const SLOP_FROM_WALL = 0.42;
+	const slopGuy = createSlopGuy({
+		interactive: false,
+		scale: SLOP_SCALE,
+		wallZ: -SLOP_FROM_WALL / SLOP_SCALE,
+		turn: 0.35,
+	});
+	const slopTarget = new Group();
+	applySectionInteraction(slopTarget, "slop");
+	slopTarget.position.set(WALL_X - SLOP_FROM_WALL, SHELF_FLOOR_Y, WALL_Z + 0.25);
+	// Faces into the room (-x), with his back to the shelf wall.
+	slopGuy.root.rotation.y = -Math.PI / 2;
+	slopTarget.add(slopGuy.root);
+	addHitbox(slopTarget, 0.05);
+	wall.add(slopTarget);
+	entries.push({
+		sectionId: "slop",
+		source: "slop",
+		target: slopTarget,
+		item: slopGuy.root,
+		frontClearance: 0,
+	});
+
 	// Resync clock hands to actual time every 30 s
 	const clockSyncInterval = window.setInterval(() => syncClockToTime(clock), 30_000);
 
@@ -558,6 +594,7 @@ export function createShelfWall(
 		decor,
 		badgeSway: badge.parts.sway,
 		badgeSwing: badge.parts.swing,
+		slopGuy,
 		cleanup: () => {
 			window.clearInterval(clockSyncInterval);
 		},
