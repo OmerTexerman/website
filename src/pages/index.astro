@@ -35,13 +35,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         </div>
       </div>
     </div>
-    <!-- Accessibility: skip to nav + hidden text nav (before canvas so skip link is reachable) -->
-    <a
-      href="#text-nav"
-      class="skip-link"
-    >
-      Skip to navigation
-    </a>
+    <SceneCanvas />
+    <!-- Plain text links, after the scene in Tab order: Tab walks the scene's
+         objects first, Escape leaves it, and the next Tab lands here. -->
     <nav id="text-nav" tabindex="-1" class="sr-only focus-within:not-sr-only focus-within:absolute focus-within:bottom-8 focus-within:left-1/2 focus-within:-translate-x-1/2 focus-within:z-50 focus-within:bg-dark-surface/95 focus-within:backdrop-blur-sm focus-within:rounded-xl focus-within:border focus-within:border-white/10 focus-within:p-4" aria-label="Site navigation">
       <ul class="flex gap-6 font-mono text-sm">
         {orderedSections.map(({ href, label }) => (
@@ -49,7 +45,12 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         ))}
       </ul>
     </nav>
-    <SceneCanvas />
+    {/* One-time hint that the objects are clickable: a scrap of paper, like
+        the notes on the corkboard. Shown once per visit after the intro. */}
+    <p class="scene-hint" data-scene-hint aria-hidden="true">
+      <span class="scene-hint-desk">psst, click on stuff</span>
+      <span class="scene-hint-phone">psst, tap on stuff<br />swipe to look around</span>
+    </p>
     <ContentModal />
   </main>
 
@@ -65,6 +66,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
   <!-- Unified scene boot -->
   <script>
     import { mountSceneApp } from "../dom/scene-app";
+    import { mountSceneHint } from "../dom/scene-hint";
+    mountSceneHint();
     import { bootstrapContentModal } from "../modal/bootstrap";
 
     let cleanup = mountSceneApp();

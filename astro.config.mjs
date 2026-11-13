@@ -10,12 +10,17 @@ export default defineConfig({
 	trailingSlash: "never",
 	output: "static",
 	adapter: vercel(),
+	// The phone-only camera view of Photos was removed; send old links to
+	// the corkboard.
+	redirects: {
+		"/photos/camera": { status: 301, destination: "/photos" },
+	},
 	integrations: [
-		// `/projects/phone` and `/photos/camera` render the same content as
-		// `/projects` and `/photos` in a different metaphor. They canonicalise to
-		// the primary route, so keep them out of the sitemap as well.
+		// `/projects/phone` renders the same content as `/projects` in a
+		// different metaphor. It canonicalises to the primary route, so keep it
+		// out of the sitemap as well.
 		sitemap({
-			filter: (page) => !/\/(?:projects\/phone|photos\/camera)\/?$/.test(new URL(page).pathname),
+			filter: (page) => !/\/projects\/phone\/?$/.test(new URL(page).pathname),
 		}),
 		icon(),
 	],

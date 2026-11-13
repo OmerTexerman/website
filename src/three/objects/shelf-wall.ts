@@ -1,4 +1,14 @@
-import { Box3, BoxGeometry, Group, Mesh, type Object3D, PlaneGeometry, TorusGeometry } from "three";
+import {
+	Box3,
+	BoxGeometry,
+	CanvasTexture,
+	Group,
+	Mesh,
+	MeshBasicMaterial,
+	type Object3D,
+	PlaneGeometry,
+	TorusGeometry,
+} from "three";
 import { type SectionId, site } from "../../config";
 import type { ShelfBook, SpotlightInfo } from "../../content/types";
 import {
@@ -26,7 +36,7 @@ import { createRoomWall } from "../room-wall";
 import { SHELF_BOT_Y, SHELF_MID_Y, SHELF_TOP_Y, SHELF_WALL_X, SHELF_WALL_Z } from "../shelf-layout";
 import { createSpineTexture } from "../spine-texture";
 import { createGreetingSign } from "./greeting-sign";
-import { createShelfIdBadge } from "./id-badge";
+import { createWallIdBadge } from "./id-badge";
 import { createShelfCamera } from "./shelf-camera";
 import { createShelfCandle, toggleCandle } from "./shelf-candle";
 import { createShelfClock, syncClockToTime } from "./shelf-clock";
@@ -42,6 +52,9 @@ export interface ShelfDecorEntry {
 
 export interface ShelfWallResult {
 	wall: Group;
+	/** The hanging badge's idle-sway and click-swing pivots. */
+	badgeSway: Object3D;
+	badgeSwing: Object3D;
 	entries: ShelfSceneEntry[];
 	decor: ShelfDecorEntry[];
 	cleanup?: () => void;
@@ -72,6 +85,32 @@ const SHELF_CENTER_X = WALL_X - SHELF_DEPTH / 2;
 const TOP_Y = SHELF_TOP_Y;
 const MID_Y = SHELF_MID_Y;
 const BOT_Y = SHELF_BOT_Y;
+
+/** Top surface of the plank at or just below `y`. */
+function shelfTopBelow(y: number): number {
+	const tops = [BOT_Y, MID_Y, TOP_Y].map((plank) => plank + SHELF_THICK / 2);
+	return tops.filter((top) => top <= y + 0.001).pop() ?? tops[0];
+}
+
+/** A soft dark blob, darkest in the middle, for under things resting on a shelf. */
+function contactShadowMaterial(): MeshBasicMaterial {
+	const canvas = document.createElement("canvas");
+	canvas.width = 64;
+	canvas.height = 64;
+	const ctx = canvas.getContext("2d");
+	if (ctx) {
+		const fade = ctx.createRadialGradient(32, 32, 4, 32, 32, 32);
+		fade.addColorStop(0, "rgba(0,0,0,0.55)");
+		fade.addColorStop(1, "rgba(0,0,0,0)");
+		ctx.fillStyle = fade;
+		ctx.fillRect(0, 0, 64, 64);
+	}
+	return new MeshBasicMaterial({
+		map: new CanvasTexture(canvas),
+		transparent: true,
+		depthWrite: false,
+	});
+}
 
 function enableShadows(obj: Object3D): void {
 	obj.traverse((child) => {
@@ -301,6 +340,7 @@ export function createShelfWall(
 			position: [SHELF_CENTER_X + 0.08, MID_Y + SHELF_THICK / 2 + 0.28, WALL_Z - 0.54] as const,
 			rotationY: -Math.PI / 2,
 			hitboxPadding: 0.1,
+			leansOnWall: true,
 		},
 		{
 			sectionId: "projects" as const,
@@ -318,20 +358,12 @@ export function createShelfWall(
 			item: createShelfCamera(),
 			position: [SHELF_CENTER_X - 0.02, BOT_Y + SHELF_THICK / 2, WALL_Z - 0.5] as const,
 			rotationY: -Math.PI / 2,
-			hitboxPadding: 0.1,
+			hitboxPadding: 0.06,
 		},
 		{
 			sectionId: "wordOfTheDay" as const,
 			item: createShelfDictionary(),
 			position: [SHELF_CENTER_X - 0.04, BOT_Y + SHELF_THICK / 2, WALL_Z + 0.35] as const,
-			rotationY: -Math.PI / 2,
-			hitboxPadding: 0.1,
-		},
-		{
-			sectionId: "about" as const,
-			item: createShelfIdBadge(),
-			// Top shelf, left of the books.
-			position: [SHELF_CENTER_X - 0.02, TOP_Y + SHELF_THICK / 2, WALL_Z - 0.92] as const,
 			rotationY: -Math.PI / 2,
 			hitboxPadding: 0.1,
 		},
@@ -345,12 +377,37 @@ export function createShelfWall(
 		layout.item.rotation.y = layout.rotationY;
 		enableShadows(layout.item);
 		target.add(layout.item);
+		// Leaning items slide back until their top rests on the wall, rather
+		// than tilting back into the air mid-shelf.
+		if ("leansOnWall" in layout && layout.leansOnWall) {
+			_clearanceBox.setFromObject(layout.item);
+			target.position.x = WALL_X - 0.004 - _clearanceBox.max.x;
+			// Sit exactly on the plank below, with a soft contact shadow where
+			// it touches, so it reads as resting rather than hovering.
+			const shelfTop = shelfTopBelow(layout.position[1]);
+			target.position.y = shelfTop - _clearanceBox.min.y;
+			const footprint = new Mesh(
+				new PlaneGeometry(
+					_clearanceBox.max.x - _clearanceBox.min.x + 0.12,
+					_clearanceBox.max.z - _clearanceBox.min.z + 0.08,
+				),
+				contactShadowMaterial(),
+			);
+			footprint.rotation.x = -Math.PI / 2;
+			footprint.position.set(
+				(_clearanceBox.min.x + _clearanceBox.max.x) / 2,
+				_clearanceBox.min.y + 0.002,
+				(_clearanceBox.min.z + _clearanceBox.max.z) / 2,
+			);
+			footprint.renderOrder = 1;
+			target.add(footprint);
+		}
 		// Measure before the hitbox is added and before the target joins the
 		// scene (its world matrix is still identity), so the box is in target
 		// space. Compare the item's back edge against the shelf's front edge (the plank spans
 		// WALL_X - SHELF_DEPTH .. WALL_X along x).
 		_clearanceBox.setFromObject(layout.item);
-		const frontEdgeLocalX = WALL_X - SHELF_DEPTH - layout.position[0];
+		const frontEdgeLocalX = WALL_X - SHELF_DEPTH - target.position.x;
 		const frontClearance = Math.max(0, _clearanceBox.max.x - frontEdgeLocalX) + 0.04;
 		addHitbox(target, layout.hitboxPadding);
 		wall.add(target);
@@ -431,13 +488,32 @@ export function createShelfWall(
 		addDecorItem(
 			wall,
 			spotlightFrameGroup,
-			[WALL_X + 0.01, (MID_Y + BOT_Y) / 2, WALL_Z - 0.3],
+			[WALL_X + 0.01, (MID_Y + BOT_Y) / 2 + 0.08, WALL_Z - 0.3],
 			"Spotlight",
 			() => {
 				void animateFrameWobble(spotlightFrameGroup);
 			},
 		),
 	);
+
+	// ID badge with its lanyard draped over the bottom shelf's front edge,
+	// running back under the dictionary: away from the name sign, and easy
+	// to tap. Opens the about card.
+	const badge = createWallIdBadge({ interactive: false, scale: 1, mount: "draped" });
+	const badgeTarget = new Group();
+	applySectionInteraction(badgeTarget, "about");
+	badgeTarget.position.set(WALL_X - SHELF_DEPTH - 0.004, BOT_Y + SHELF_THICK / 2, WALL_Z + 0.3);
+	badge.root.rotation.y = -Math.PI / 2;
+	badgeTarget.add(badge.root);
+	addHitbox(badgeTarget, 0.08);
+	wall.add(badgeTarget);
+	entries.push({
+		sectionId: "about",
+		source: "badge",
+		target: badgeTarget,
+		item: badge.root,
+		frontClearance: 0,
+	});
 
 	// Resync clock hands to actual time every 30 s
 	const clockSyncInterval = window.setInterval(() => syncClockToTime(clock), 30_000);
@@ -446,6 +522,8 @@ export function createShelfWall(
 		wall,
 		entries,
 		decor,
+		badgeSway: badge.parts.sway,
+		badgeSwing: badge.parts.swing,
 		cleanup: () => {
 			window.clearInterval(clockSyncInterval);
 		},

@@ -113,7 +113,6 @@ const sections: Record<SectionId, SiteSection> = {
 		href: "/about",
 		description: "Who I am, and how to reach me",
 		backLabel: "Back to about",
-		hidden: true,
 	},
 };
 

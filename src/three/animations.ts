@@ -911,7 +911,10 @@ export function animateCameraFlash(camera: Object3D): Promise<void> {
 			material.opacity = fade;
 			burst.scale.setScalar(0.08 + 0.27 * Math.min(1, p * 3));
 			flashLight.intensity = 6 * fade;
-			if (p >= 1) burst.visible = false;
+			if (p >= 1) {
+				burst.visible = false;
+				burst.scale.setScalar(0.001);
+			}
 		},
 		(t) => t,
 	);

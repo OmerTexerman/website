@@ -110,6 +110,9 @@ export function createShelfCamera(): Group {
 	burst.renderOrder = 10;
 	burst.position.set(flashX, flashY, D / 2 + 0.06);
 	burst.visible = false;
+	// Collapsed until it fires: a full-size (1×1) sprite here would count
+	// toward the camera's tap area and swallow taps on the photo above it.
+	burst.scale.setScalar(0.001);
 	g.add(burst);
 
 	const flashLight = new PointLight(new Color(0xfff4e0), 0, 3, 1.5);

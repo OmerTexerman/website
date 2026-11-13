@@ -703,6 +703,60 @@ body:has(.content-page-main) {
 	z-index: 10;
 }
 
+/* "psst, click on stuff": a scrap of paper at the bottom of the scene
+   (index.astro, dom/scene-hint.ts). */
+.scene-hint {
+	position: absolute;
+	left: 50%;
+	bottom: max(1.25rem, calc(env(safe-area-inset-bottom) + 0.75rem));
+	z-index: 20;
+	padding: 0.55rem 0.9rem 0.6rem;
+	font-family: var(--font-mono);
+	font-size: 0.82rem;
+	line-height: 1.4;
+	text-align: center;
+	color: #2b2420;
+	background: #f1e6c9;
+	box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+	pointer-events: none;
+	opacity: 0;
+	transform: translate(-50%, 8px) rotate(-2deg);
+	transition:
+		opacity 0.4s ease,
+		transform 0.4s ease;
+}
+
+/* A strip of tape holding it up. */
+.scene-hint::before {
+	content: "";
+	position: absolute;
+	top: -0.45rem;
+	left: 50%;
+	width: 2.6rem;
+	height: 0.9rem;
+	background: rgba(255, 255, 255, 0.35);
+	transform: translateX(-50%) rotate(3deg);
+}
+
+.scene-hint.is-visible {
+	opacity: 1;
+	transform: translate(-50%, 0) rotate(-2deg);
+}
+
+.scene-hint-desk {
+	display: none;
+}
+
+@media (min-width: 48rem) {
+	.scene-hint-desk {
+		display: inline;
+	}
+
+	.scene-hint-phone {
+		display: none;
+	}
+}
+
 /* ── iOS safe area / notch support ──────────────────────────────────── */
 #scene-fallback {
 	padding-bottom: max(2rem, env(safe-area-inset-bottom));

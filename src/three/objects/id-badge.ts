@@ -107,20 +107,37 @@ export interface IdBadgeObject {
 
 const LANYARD_DROP = 0.42;
 const STRAP_W = 0.025;
+/** Draped mount: how far apart the two straps lie, how far back along the
+ *  shelf they run (under the item resting on them), and the plank's
+ *  thickness they bend down over. */
+const DRAPE_SPREAD = 0.035;
+const DRAPE_RUN = 0.2;
+const DRAPE_EDGE = 0.06;
+const DRAPE_FACE_Z = 0.012;
 
 /** Wall: an ID badge hanging by its lanyard from a peg. The peg sits at the
  *  root's origin; the badge faces +z. */
-export function createWallIdBadge(): IdBadgeObject {
+export function createWallIdBadge({
+	interactive = true,
+	scale = 1.6,
+	mount = "wall",
+}: {
+	/** Off when a wrapper handles clicks (the shelf's entry targets). */
+	interactive?: boolean;
+	scale?: number;
+	/** A hook on the wall, or draped over a shelf's front edge (the origin
+	 *  is then that edge; the lanyard lies back along the shelf, -z). */
+	mount?: "wall" | "draped";
+} = {}): IdBadgeObject {
 	const root = new Group();
-	applySectionInteraction(root, "about");
+	if (interactive) applySectionInteraction(root, "about");
 
 	// Everything sits in `body` so it can be scaled up: hover scaling resets
 	// the clicked root's own scale.
 	const body = new Group();
-	body.scale.setScalar(1.6);
+	body.scale.setScalar(scale);
 	root.add(body);
 
-	// A brass wall hook: a round plate with a peg sticking out, tipped up.
 	const brass = new MeshStandardMaterial({
 		color: new Color("#c9a14e"),
 		roughness: 0.35,
@@ -128,33 +145,59 @@ export function createWallIdBadge(): IdBadgeObject {
 		emissive: new Color("#c9a14e"),
 		emissiveIntensity: 0.15,
 	});
-	const plate = new Mesh(new CylinderGeometry(0.045, 0.045, 0.012, 16), brass);
-	plate.rotation.x = Math.PI / 2;
-	plate.position.z = 0.006;
-	body.add(plate);
-	const peg = new Mesh(new CylinderGeometry(0.014, 0.014, 0.1, 10), brass);
-	peg.rotation.x = Math.PI / 2 - 0.35;
-	peg.position.set(0, 0.012, 0.05);
-	body.add(peg);
-	const knob = new Mesh(new SphereGeometry(0.02, 10, 8), brass);
-	knob.position.set(0, 0.03, 0.098);
-	body.add(knob);
+	if (mount === "wall") {
+		// A brass wall hook: a round plate with a peg sticking out, tipped up.
+		const plate = new Mesh(new CylinderGeometry(0.045, 0.045, 0.012, 16), brass);
+		plate.rotation.x = Math.PI / 2;
+		plate.position.z = 0.006;
+		body.add(plate);
+		const peg = new Mesh(new CylinderGeometry(0.014, 0.014, 0.1, 10), brass);
+		peg.rotation.x = Math.PI / 2 - 0.35;
+		peg.position.set(0, 0.012, 0.05);
+		body.add(peg);
+		const knob = new Mesh(new SphereGeometry(0.02, 10, 8), brass);
+		knob.position.set(0, 0.03, 0.098);
+		body.add(knob);
+	} else {
+		// Two straps lying on the shelf, running out from under whatever sits
+		// on it to the front edge, then down over the plank's front face.
+		const strapMat = new MeshStandardMaterial({ color: new Color(ACCENT), roughness: 0.8 });
+		for (const side of [-1, 1]) {
+			const flat = new Mesh(new BoxGeometry(STRAP_W, 0.004, DRAPE_RUN), strapMat);
+			flat.position.set(side * DRAPE_SPREAD, 0.002, -DRAPE_RUN / 2);
+			body.add(flat);
+			const overEdge = new Mesh(new BoxGeometry(STRAP_W, DRAPE_EDGE, 0.004), strapMat);
+			// Same depth as the hanging straps (the sway pivot's z), so they join flush.
+			overEdge.position.set(side * DRAPE_SPREAD, -DRAPE_EDGE / 2 + 0.002, DRAPE_FACE_Z);
+			body.add(overEdge);
+		}
+	}
 
 	const sway = new Group();
-	sway.position.set(0, 0.01, 0.085);
+	if (mount === "wall") sway.position.set(0, 0.01, 0.085);
+	else sway.position.set(0, 0, DRAPE_FACE_Z);
 	body.add(sway);
 	const swing = new Group();
 	sway.add(swing);
 
-	// Lanyard: two straps from the peg down to the clip, forming a V.
+	// Lanyard: two straps down to the clip. From a hook they start together
+	// and spread to the clip's ends; draped over an edge they start apart
+	// (where they come over the edge) and meet at the clip.
 	const strapMat = new MeshStandardMaterial({ color: new Color(ACCENT), roughness: 0.8 });
-	const spread = 0.07;
+	const topSpread = mount === "wall" ? 0 : DRAPE_SPREAD;
+	const bottomSpread = mount === "wall" ? 0.07 : 0.018;
+	const topY = mount === "wall" ? 0 : -DRAPE_EDGE;
 	for (const side of [-1, 1]) {
-		const dx = side * spread;
-		const len = Math.hypot(dx, LANYARD_DROP);
+		const x0 = side * topSpread;
+		const x1 = side * bottomSpread;
+		const drop = LANYARD_DROP + topY;
+		// Draped straps run a little up into the piece coming over the edge,
+		// so no seam opens between them as the badge sways.
+		const overlap = mount === "wall" ? 0 : 0.025;
+		const len = Math.hypot(x1 - x0, drop) + overlap;
 		const strap = new Mesh(new BoxGeometry(STRAP_W, len, 0.004), strapMat);
-		strap.position.set(dx / 2, -LANYARD_DROP / 2, 0);
-		strap.rotation.z = Math.atan2(dx, LANYARD_DROP);
+		strap.position.set((x0 + x1) / 2, topY - drop / 2 + overlap / 2, 0);
+		strap.rotation.z = Math.atan2(x1 - x0, drop);
 		swing.add(strap);
 	}
 
@@ -178,16 +221,4 @@ export function createWallIdBadge(): IdBadgeObject {
 		if (child instanceof Mesh) child.castShadow = false;
 	});
 	return { root, parts: { sway, swing } };
-}
-
-/** Shelf: the badge leaning against the wall, face out (+z). Sits on y = 0. */
-export function createShelfIdBadge(): Group {
-	const g = new Group();
-	const card = createBadgeCard();
-	// Stand it up on its bottom edge, leaning back a little.
-	card.rotation.x = Math.PI / 2 - 0.2;
-	card.position.y = (BADGE_H / 2) * Math.cos(0.2);
-	card.position.z = -0.03;
-	g.add(card);
-	return g;
 }

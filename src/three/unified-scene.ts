@@ -166,6 +166,8 @@ interface ShelfSceneData {
 	decorByTarget: Map<Object3D, ShelfDecorEntry>;
 	hoverTargets: Object3D[];
 	cleanup?: () => void;
+	badgeSway: Object3D;
+	badgeSwing: Object3D;
 }
 
 type OpenSelection =
@@ -763,8 +765,9 @@ export function initUnifiedScene(
 
 	function resetShelfSelection(): void {
 		if (!openSelection || openSelection.mode !== "mobile") return;
-		// The camera never leaves the shelf, so there is nothing to put back.
-		if (openSelection.entry.source !== "camera") void animateShelfReset(openSelection.entry.item);
+		// The camera and badge never leave their spots: nothing to put back.
+		const { source } = openSelection.entry;
+		if (source !== "camera" && source !== "badge") void animateShelfReset(openSelection.entry.item);
 		if (openSelection.entry.source === "phone") void animatePhoneSleep(openSelection.entry.item);
 	}
 
@@ -999,15 +1002,24 @@ export function initUnifiedScene(
 				for (const items of byRow.values()) {
 					items.sort((a, b) => a.z - b.z);
 				}
+				// Each row's items map onto that row's snap points left to right.
+				// A row can hold more items than snap points (the bottom row has
+				// three), so spread them across the points rather than counting
+				// one per point, which spilled into the next row's stops.
 				let offset = 0;
 				for (let row = 0; row < MOBILE_SHELF_SCROLL.panSnapPoints.length; row++) {
 					const rowItems = byRow.get(row);
+					const points = MOBILE_SHELF_SCROLL.panSnapPoints[row].length;
 					if (rowItems) {
 						for (let i = 0; i < rowItems.length; i++) {
-							shelfStopByTarget.set(rowItems[i].target, offset + i);
+							const point =
+								rowItems.length <= 1 || points <= 1
+									? 0
+									: Math.round((i * (points - 1)) / (rowItems.length - 1));
+							shelfStopByTarget.set(rowItems[i].target, offset + point);
 						}
 					}
-					offset += MOBILE_SHELF_SCROLL.panSnapPoints[row].length;
+					offset += points;
 				}
 			}
 			const previousTouchAction = canvas.style.touchAction;
@@ -1045,11 +1057,13 @@ export function initUnifiedScene(
 				const presentChain =
 					entry.source === "camera"
 						? animateCameraFlash(entry.item)
-						: isPhone
-							? animatePhoneWake(entry.item).then(() =>
-									animateShelfPresent(entry.item, entry.frontClearance, camera.position),
-								)
-							: animateShelfPresent(entry.item, entry.frontClearance, camera.position);
+						: entry.source === "badge"
+							? animateBadgeSwing(shelf.badgeSwing).then(() => undefined)
+							: isPhone
+								? animatePhoneWake(entry.item).then(() =>
+										animateShelfPresent(entry.item, entry.frontClearance, camera.position),
+									)
+								: animateShelfPresent(entry.item, entry.frontClearance, camera.position);
 
 				void presentChain
 					.then(() => {
@@ -1356,8 +1370,9 @@ export function initUnifiedScene(
 			if (idleFloat(camera, now)) dirty = true;
 		}
 		// The ID badge drifts on its peg like a wind chime.
-		if (currentMode === "desktop" && deskScene?.badgeSway && !prefersReducedMotion()) {
-			deskScene.badgeSway.rotation.z = badgeSwayAngle(now);
+		const badgeSway = currentMode === "desktop" ? deskScene?.badgeSway : shelfScene?.badgeSway;
+		if (badgeSway && !transitioning && !prefersReducedMotion()) {
+			badgeSway.rotation.z = badgeSwayAngle(now);
 			dirty = true;
 		}
 
