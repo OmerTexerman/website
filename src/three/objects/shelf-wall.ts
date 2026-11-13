@@ -139,22 +139,19 @@ function createShelfPlank(y: number): Group {
 	plank.castShadow = true;
 	g.add(plank);
 
-	// L-brackets (2 per shelf)
+	// L-brackets (2 per shelf): an upright flat against the wall and an arm
+	// under the plank, both starting at the wall so they meet in a corner.
+	const thick = BRACKET_SIZE * 0.4;
+	const armLength = SHELF_DEPTH * 0.6;
+	const wallFace = -SHELF_DEPTH / 2;
+	const underside = y - SHELF_THICK / 2;
 	for (const xOff of [-SHELF_W * 0.35, SHELF_W * 0.35]) {
-		// Vertical part
-		const vert = new Mesh(
-			new BoxGeometry(BRACKET_SIZE * 0.4, BRACKET_SIZE * 2, BRACKET_SIZE * 0.4),
-			darkMetalMaterial,
-		);
-		vert.position.set(xOff, y - SHELF_THICK / 2 - BRACKET_SIZE, -SHELF_DEPTH / 2 + 0.05);
+		const vert = new Mesh(new BoxGeometry(thick, BRACKET_SIZE * 2, thick), darkMetalMaterial);
+		vert.position.set(xOff, underside - BRACKET_SIZE, wallFace + thick / 2);
 		g.add(vert);
 
-		// Horizontal part
-		const horiz = new Mesh(
-			new BoxGeometry(BRACKET_SIZE * 0.4, BRACKET_SIZE * 0.4, SHELF_DEPTH * 0.6),
-			darkMetalMaterial,
-		);
-		horiz.position.set(xOff, y - SHELF_THICK / 2 - BRACKET_SIZE * 0.2, 0);
+		const horiz = new Mesh(new BoxGeometry(thick, thick, armLength), darkMetalMaterial);
+		horiz.position.set(xOff, underside - thick / 2, wallFace + armLength / 2);
 		g.add(horiz);
 	}
 
