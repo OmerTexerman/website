@@ -20,9 +20,9 @@ function pointer(clientY: number): PointerEvent {
 	return { pointerId: 1, button: 0, clientX: 100, clientY } as unknown as PointerEvent;
 }
 
-function wheel(deltaY: number): WheelEvent {
+function wheel(deltaY: number, deltaX = 0): WheelEvent {
 	return {
-		deltaX: 0,
+		deltaX,
 		deltaY,
 		deltaMode: 0,
 		preventDefault: () => {},
@@ -129,6 +129,25 @@ describe("trackpad", () => {
 	it("springs back from a small nudge", () => {
 		swipe([3.5, 4.5, 4.5, 3.5]);
 		settle();
+		expect(scroll.verticalT).toBeCloseTo(HOME, 4);
+	});
+
+	it("flips sideways to the next item quickly, ignoring the momentum", () => {
+		// Home row's items sit at -0.78 and 0.3; it starts on 0.3.
+		const fingers = [6, 9, 12, 12];
+		const momentum = Array.from({ length: 40 }, (_, i) => 12 * 0.93 ** (i + 1));
+		for (const dx of [...fingers, ...momentum]) {
+			now += FRAME_MS;
+			vi.advanceTimersByTime(FRAME_MS);
+			scroll.onWheel(wheel(0, dx));
+			scroll.tick(FRAME_MS / 1000);
+			// Never sails past the item it's heading for.
+			expect(scroll.panByRow[2]).toBeGreaterThanOrEqual(-0.78 - 0.001);
+		}
+		// Arrived well before the momentum ran out.
+		expect(scroll.panByRow[2]).toBeCloseTo(-0.78, 2);
+		settle();
+		expect(scroll.panByRow[2]).toBeCloseTo(-0.78, 4);
 		expect(scroll.verticalT).toBeCloseTo(HOME, 4);
 	});
 });
