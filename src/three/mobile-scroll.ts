@@ -1,4 +1,4 @@
-import { clamp, lerp } from "./math-utils";
+import { clamp } from "./math-utils";
 
 export interface MobileScrollConfig {
 	/** Normalized vertical stop values, e.g. [0, 0.5, 1] */
@@ -70,7 +70,13 @@ const TAP_DISTANCE_THRESHOLD = 10;
 const DIRECTION_LOCK_THRESHOLD = 8;
 const FLICK_VELOCITY_THRESHOLD = 200;
 const POSITION_COMMIT_RATIO = 0.35;
-const ANIMATE_DURATION = 0.35;
+/** Stiffness of the settle spring (critically damped, so it never wobbles):
+ *  ~0.35 s to come to rest from a standstill. It starts at the speed the
+ *  finger or trackpad was moving, so letting go never jolts the shelf. */
+const SPRING_OMEGA = 18;
+/** Cap on the speed handed to the spring, in stops per second, so a hard
+ *  flick doesn't overshoot past the stop it lands on. */
+const SPRING_MAX_STOPS_PER_S = 4;
 const RUBBER_BAND_FACTOR = 0.35;
 const VELOCITY_WINDOW_MS = 100;
 const WHEEL_LINE_PIXELS = 16;
@@ -86,8 +92,8 @@ const WHEEL_SETTLE_DELAY_MS = 100;
 const TRACKPAD_GESTURE_GAP_MS = 180;
 /** Travel (px) before a gesture picks its axis from the accumulated motion. */
 const TRACKPAD_AXIS_LOCK_PX = 6;
-/** Vertical travel per px (one row is half the 0–1 range, ~400 px). */
-const TRACKPAD_VERTICAL_SPEED = 0.00125;
+/** Trackpad travel (px) that moves the shelf one row. */
+const TRACKPAD_ROW_PX = 400;
 /** Horizontal travel per px (pan units). */
 const TRACKPAD_PAN_SPEED = 0.0033;
 /** A gesture that ends this share of the way to the next stop goes there,
@@ -96,7 +102,13 @@ const TRACKPAD_COMMIT = 0.25;
 /** Once momentum starts, any travel at all in a direction commits to it. */
 const TRACKPAD_FLICK_COMMIT = 0.05;
 /** Consecutive shrinking deltas that mark the fingers as lifted. */
-const TRACKPAD_MOMENTUM_EVENTS = 3;
+const TRACKPAD_MOMENTUM_EVENTS = 5;
+/** ...and they must have fallen to this share of the gesture's peak delta:
+ *  fingers dragging slowly also produce a few shrinking deltas in a row,
+ *  which used to snap the shelf mid-swipe. */
+const TRACKPAD_MOMENTUM_PEAK_RATIO = 0.6;
+/** Smoothing for the trackpad's measured speed (share of each new sample). */
+const TRACKPAD_VELOCITY_SMOOTHING = 0.4;
 /** Each momentum delta is at most this share of the previous one. */
 const TRACKPAD_MOMENTUM_DECAY = 0.97;
 /** During an ignored momentum tail, a delta this many times the previous
@@ -105,7 +117,9 @@ const TRACKPAD_NEW_SWIPE_RATIO = 2.5;
 const TRACKPAD_NEW_SWIPE_MIN_PX = 15;
 /** Max overshoot (pan units) when swiping past the end of a row. */
 const TRACKPAD_PAN_EDGE = 0.08;
-const DRAG_VERTICAL_SPEED = 0.003;
+/** Finger travel (px) that moves the shelf one row. Set per row, not per
+ *  0–1 range, so adding stops doesn't make the drag more sensitive. */
+const DRAG_ROW_PX = 260;
 const DRAG_PAN_SPEED = 0.003;
 const DISCRETE_PIXEL_WHEEL_STEPS = new Set([100, 120]);
 
@@ -182,8 +196,19 @@ function nearestSnapPoint(value: number, points: readonly number[]): number {
 	return best;
 }
 
-function easeOut(t: number): number {
-	return 1 - (1 - t) * (1 - t);
+/** Advance a critically damped spring toward `target` by `dt` seconds. */
+function springStep(x: number, v: number, target: number, dt: number): { x: number; v: number } {
+	const c1 = x - target;
+	const c2 = v + SPRING_OMEGA * c1;
+	const decay = Math.exp(-SPRING_OMEGA * dt);
+	return {
+		x: target + (c1 + c2 * dt) * decay,
+		v: (c2 - SPRING_OMEGA * (c1 + c2 * dt)) * decay,
+	};
+}
+
+function springAtRest(x: number, v: number, target: number): boolean {
+	return Math.abs(x - target) < 0.0002 && Math.abs(v) < 0.005;
 }
 
 function normalizeWheelDelta(delta: number, deltaMode: number): number {
@@ -210,23 +235,23 @@ export function createMobileScrollController(
 	config: MobileScrollConfig,
 ): MobileScrollController {
 	const { verticalStops, panSnapPoints, panLimit, numRows } = config;
+	const rowGap = 1 / Math.max(1, verticalStops.length - 1);
+	const dragVerticalSpeed = rowGap / DRAG_ROW_PX;
+	const trackpadVerticalSpeed = rowGap / TRACKPAD_ROW_PX;
 	const linearSequence = buildLinearSequence(config);
 	let linearIndex = Math.floor(linearSequence.length / 2);
 
 	let state: State = State.IDLE;
 	let verticalT = 0.5;
 	let dragOriginStop = 1;
-	let animStartT = 0;
 	let animTargetT = 0;
-	let animElapsed = 0;
-	let animDuration = ANIMATE_DURATION;
+	let animVelocity = 0;
 
 	const panByRow: number[] = Array.from({ length: numRows }, () => 0);
 	const panOriginSnap: number[] = Array.from({ length: numRows }, () => 0);
 	const panAnimating: boolean[] = Array.from({ length: numRows }, () => false);
-	const panAnimStart: number[] = Array.from({ length: numRows }, () => 0);
 	const panAnimTarget: number[] = Array.from({ length: numRows }, () => 0);
-	const panAnimElapsed: number[] = Array.from({ length: numRows }, () => 0);
+	const panVelocity: number[] = Array.from({ length: numRows }, () => 0);
 
 	let activePointerId: number | null = null;
 	let pointerDownX = 0;
@@ -257,7 +282,10 @@ export function createMobileScrollController(
 	/** Fingers lifted and the gesture already snapped: swallow the momentum. */
 	let trackpadSettled = false;
 	let trackpadLastMagnitude = 0;
+	let trackpadPeakMagnitude = 0;
 	let trackpadDecayCount = 0;
+	/** Measured speed of the current trackpad gesture (units per second). */
+	let trackpadVelocity = 0;
 
 	function markChanged(): true {
 		inputDirty = true;
@@ -339,35 +367,31 @@ export function createMobileScrollController(
 		return nearestSnapPoint(current, points);
 	}
 
-	function beginVerticalAnimation(targetIndex: number): boolean {
+	/** Glide to a stop on a spring that starts at `velocity` (units/s), the
+	 *  speed the shelf was already moving, so the hand-off is seamless. */
+	function beginVerticalAnimation(targetIndex: number, velocity = 0): boolean {
 		const target = verticalStops[targetIndex];
 		if (state === State.ANIMATING && Math.abs(animTargetT - target) < 0.0001) return false;
-		if (state === State.IDLE && Math.abs(verticalT - target) < 0.0001) return false;
+		if (state === State.IDLE && Math.abs(verticalT - target) < 0.0001 && velocity === 0) {
+			return false;
+		}
 
-		animStartT = verticalT;
+		const maxSpeed = rowGap * SPRING_MAX_STOPS_PER_S;
 		animTargetT = target;
-		animElapsed = 0;
-		const maxGap = Math.max(
-			...verticalStops.map((stop, index) =>
-				index < verticalStops.length - 1 ? verticalStops[index + 1] - stop : 0,
-			),
-		);
-		const distance = Math.abs(animTargetT - animStartT);
-		animDuration = ANIMATE_DURATION * clamp(distance / (maxGap || 0.5), 0.3, 1);
+		animVelocity = clamp(velocity, -maxSpeed, maxSpeed);
 		state = State.ANIMATING;
 		return true;
 	}
 
-	function beginPanAnimation(row: number, target: number): boolean {
-		if (Math.abs(panByRow[row] - target) < 0.0001) {
+	function beginPanAnimation(row: number, target: number, velocity = 0): boolean {
+		if (Math.abs(panByRow[row] - target) < 0.0001 && velocity === 0) {
 			panAnimating[row] = false;
 			panByRow[row] = target;
 			return false;
 		}
 		panAnimating[row] = true;
-		panAnimStart[row] = panByRow[row];
 		panAnimTarget[row] = target;
-		panAnimElapsed[row] = 0;
+		panVelocity[row] = clamp(velocity, -SPRING_MAX_STOPS_PER_S, SPRING_MAX_STOPS_PER_S);
 		return true;
 	}
 
@@ -444,7 +468,9 @@ export function createMobileScrollController(
 		trackpadActive = false;
 		trackpadSettled = false;
 		trackpadLastMagnitude = 0;
+		trackpadPeakMagnitude = 0;
 		trackpadDecayCount = 0;
+		trackpadVelocity = 0;
 		if (wheelSettleTimer) {
 			clearTimeout(wheelSettleTimer);
 			wheelSettleTimer = 0;
@@ -515,7 +541,7 @@ export function createMobileScrollController(
 		let changed = false;
 		if (directionLocked === "v") {
 			const rawT = getRawVertical();
-			changed = setVerticalWithRubberBand(rawT - moveDy * DRAG_VERTICAL_SPEED);
+			changed = setVerticalWithRubberBand(rawT - moveDy * dragVerticalSpeed);
 		} else if (directionLocked === "h") {
 			changed = applyPanDelta(-moveDx * DRAG_PAN_SPEED);
 		}
@@ -564,7 +590,7 @@ export function createMobileScrollController(
 
 		let changed = false;
 		if (lockedDir === "v") {
-			changed = beginVerticalAnimation(chooseVerticalTarget(vel.vy));
+			changed = beginVerticalAnimation(chooseVerticalTarget(vel.vy), -vel.vy * dragVerticalSpeed);
 			for (let i = 0; i < numRows; i++) {
 				const points = panSnapPoints[i];
 				if (points && points.length > 0) {
@@ -584,7 +610,8 @@ export function createMobileScrollController(
 								return points && points.length > 0 ? nearestSnapPoint(panByRow[i], points) : null;
 							})();
 				if (target !== null) {
-					changed = beginPanAnimation(i, target) || changed;
+					const velocity = i === visibleRow ? -vel.vx * DRAG_PAN_SPEED : 0;
+					changed = beginPanAnimation(i, target, velocity) || changed;
 				}
 			}
 			changed = beginVerticalAnimation(nearestStopIndex(verticalT)) || changed;
@@ -619,6 +646,8 @@ export function createMobileScrollController(
 		wheelAccumY = 0;
 		// A slow trackpad gesture can end without any momentum: snap now.
 		if (trackpadActive && !trackpadIgnored && !trackpadSettled) {
+			// The fingers have been still for a beat, so the shelf was too.
+			trackpadVelocity = 0;
 			if (settleTrackpad(TRACKPAD_COMMIT)) inputDirty = true;
 		}
 		wheelAxisLock = null;
@@ -634,11 +663,13 @@ export function createMobileScrollController(
 	 *  a framing that cut the camera off), just as touch scrolling does. */
 	function settleTrackpad(commit: number): boolean {
 		const axis = wheelAxisLock;
-		if (axis === "v") return beginVerticalAnimation(settleVerticalTarget(commit));
+		if (axis === "v") {
+			return beginVerticalAnimation(settleVerticalTarget(commit), trackpadVelocity);
+		}
 		if (axis === "h") {
 			const points = panSnapPoints[trackpadRow];
 			if (!points || points.length === 0) return false;
-			return beginPanAnimation(trackpadRow, settlePanTarget(trackpadRow, commit));
+			return beginPanAnimation(trackpadRow, settlePanTarget(trackpadRow, commit), trackpadVelocity);
 		}
 		return false;
 	}
@@ -781,7 +812,8 @@ export function createMobileScrollController(
 	}
 
 	function onWheelContinuous(rawY: number, rawX: number, now: number): boolean {
-		const quiet = now - trackpadLastEventAt > TRACKPAD_GESTURE_GAP_MS;
+		const sinceLast = now - trackpadLastEventAt;
+		const quiet = sinceLast > TRACKPAD_GESTURE_GAP_MS;
 		trackpadLastEventAt = now;
 		const magnitude = Math.hypot(rawY, rawX);
 		const previousMagnitude = trackpadLastMagnitude;
@@ -798,6 +830,8 @@ export function createMobileScrollController(
 			trackpadIgnored = false;
 			trackpadSettled = false;
 			trackpadDecayCount = 0;
+			trackpadPeakMagnitude = 0;
+			trackpadVelocity = 0;
 			trackpadLockX = 0;
 			trackpadLockY = 0;
 			wheelAxisLock = null;
@@ -814,12 +848,17 @@ export function createMobileScrollController(
 
 		// Fingers lifted: the deltas start shrinking steadily. Snap now, in the
 		// direction of travel, rather than riding the momentum.
+		trackpadPeakMagnitude = Math.max(trackpadPeakMagnitude, magnitude);
 		const decaying =
 			magnitude > 0 &&
 			(magnitude <= previousMagnitude * TRACKPAD_MOMENTUM_DECAY ||
 				(magnitude <= 2 && magnitude <= previousMagnitude));
 		trackpadDecayCount = decaying ? trackpadDecayCount + 1 : 0;
-		if (wheelAxisLock && trackpadDecayCount >= TRACKPAD_MOMENTUM_EVENTS) {
+		if (
+			wheelAxisLock &&
+			trackpadDecayCount >= TRACKPAD_MOMENTUM_EVENTS &&
+			magnitude <= trackpadPeakMagnitude * TRACKPAD_MOMENTUM_PEAK_RATIO
+		) {
 			trackpadSettled = true;
 			return settleTrackpad(TRACKPAD_FLICK_COMMIT);
 		}
@@ -844,11 +883,18 @@ export function createMobileScrollController(
 		}
 
 		// Scrolling down/right moves verticalT/pan down, matching touch drags.
+		const delta =
+			wheelAxisLock === "v" ? -rawY * trackpadVerticalSpeed : -rawX * TRACKPAD_PAN_SPEED;
+		// Events arrive every ~16 ms; a long gap means the speed is unknown.
+		if (!quiet && sinceLast > 0) {
+			const sample = delta / (Math.max(sinceLast, 8) / 1000);
+			trackpadVelocity += (sample - trackpadVelocity) * TRACKPAD_VELOCITY_SMOOTHING;
+		}
 		if (wheelAxisLock === "v") {
-			trackpadRawV -= rawY * TRACKPAD_VERTICAL_SPEED;
+			trackpadRawV += delta;
 			return setVerticalWithRubberBand(trackpadRawV);
 		}
-		trackpadRawPan -= rawX * TRACKPAD_PAN_SPEED;
+		trackpadRawPan += delta;
 		return setPanWithRubberBand(trackpadRow, trackpadRawPan);
 	}
 
@@ -896,26 +942,26 @@ export function createMobileScrollController(
 		let changed = hadInput;
 
 		if (state === State.ANIMATING) {
-			animElapsed += dt;
-			const progress = clamp(animElapsed / animDuration, 0, 1);
-			const eased = easeOut(progress);
-			verticalT = lerp(animStartT, animTargetT, eased);
+			const next = springStep(verticalT, animVelocity, animTargetT, dt);
+			verticalT = next.x;
+			animVelocity = next.v;
 			changed = true;
-			if (progress >= 1) {
+			if (springAtRest(next.x, next.v, animTargetT)) {
 				verticalT = animTargetT;
+				animVelocity = 0;
 				state = State.IDLE;
 			}
 		}
 
 		for (let i = 0; i < numRows; i++) {
 			if (!panAnimating[i]) continue;
-			panAnimElapsed[i] += dt;
-			const progress = clamp(panAnimElapsed[i] / ANIMATE_DURATION, 0, 1);
-			const eased = easeOut(progress);
-			panByRow[i] = lerp(panAnimStart[i], panAnimTarget[i], eased);
+			const next = springStep(panByRow[i], panVelocity[i], panAnimTarget[i], dt);
+			panByRow[i] = next.x;
+			panVelocity[i] = next.v;
 			changed = true;
-			if (progress >= 1) {
+			if (springAtRest(next.x, next.v, panAnimTarget[i])) {
 				panByRow[i] = panAnimTarget[i];
+				panVelocity[i] = 0;
 				panAnimating[i] = false;
 			}
 		}
