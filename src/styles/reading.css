@@ -450,3 +450,41 @@
 	color: var(--color-cream-dark);
 	margin-top: 0.375rem;
 }
+
+/* ── Recommended by ───────────────────────────── */
+
+.book-recommender {
+	margin-top: 0.2rem;
+	font-family: var(--font-mono);
+	font-size: 0.625rem;
+	color: var(--color-accent);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* A note at the foot of the bookcase pointing to the slop page. */
+.reading-rec-link {
+	display: block;
+	width: fit-content;
+	margin: 1.5rem auto 1rem;
+	padding: 0.6rem 1.1rem;
+	border-radius: 2px;
+	font-family: var(--font-mono);
+	font-size: 0.8rem;
+	color: #211b17;
+	background: #f1e9da;
+	box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+	transform: rotate(-1deg);
+	transition: transform 0.15s ease;
+}
+
+.reading-rec-link:hover {
+	transform: rotate(0deg) translateY(-2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.reading-rec-link {
+		transition: none;
+	}
+}

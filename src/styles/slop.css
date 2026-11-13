@@ -1,0 +1,342 @@
+/* ── Feed me slop — a diner guest check ──────────────────────
+   Pale green pad paper printed in green: the diner's name across the
+   top, a red check number, boxes for date / table / name, tick boxes,
+   ruled order lines, and a stub to tear off along the perforation.
+   Whatever the visitor writes is in blue-black pen. */
+
+.guest-check {
+	--paper: #edf2e6;
+	--paper-edge: #e2e9d9;
+	--print: #2f6b4f;
+	--print-soft: rgba(47, 107, 79, 0.55);
+	--rule: rgba(47, 107, 79, 0.32);
+	--number: #b8322a;
+	--pen: #1f2a5c;
+	max-width: 32rem;
+	margin: clamp(0.5rem, 6vh, 4rem) auto 2rem;
+	filter: drop-shadow(0 18px 30px rgba(0, 0, 0, 0.45)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
+	transform: rotate(-0.8deg);
+}
+
+.rec-form {
+	display: grid;
+	gap: 1rem;
+	padding: 1.25rem 1.4rem 0;
+	border-radius: 2px 2px 0 0;
+	color: var(--print);
+	background: linear-gradient(180deg, var(--paper), var(--paper-edge));
+	/* Torn off the pad at the bottom. */
+	--tear: 0.45rem;
+	mask:
+		conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% /
+		calc(2 * var(--tear)) 100%;
+}
+
+/* Printed text: small green caps, like the pad's own type. */
+.rec-label,
+.rec-stub {
+	font-family: var(--font-mono);
+	font-size: 0.625rem;
+	font-weight: 600;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--print);
+}
+
+.rec-label i {
+	font-style: normal;
+	font-weight: 400;
+	letter-spacing: 0.04em;
+	text-transform: none;
+	color: var(--print-soft);
+}
+
+/* Header: the diner's name, and the check number in red. */
+.rec-head {
+	display: flex;
+	justify-content: space-between;
+	align-items: baseline;
+	gap: 1rem;
+}
+
+.rec-diner {
+	font-family: var(--font-display);
+	font-size: clamp(2rem, 8vw, 2.6rem);
+	font-weight: 700;
+	line-height: 1;
+	letter-spacing: -0.01em;
+	text-transform: uppercase;
+	color: var(--print);
+}
+
+.rec-number {
+	flex: none;
+	font-family: var(--font-mono);
+	font-size: 0.95rem;
+	font-weight: 600;
+	letter-spacing: 0.05em;
+	color: var(--number);
+}
+
+/* Boxes across the top: date, table, name. */
+.rec-boxes {
+	display: grid;
+	grid-template-columns: 4.5rem 4.5rem minmax(0, 1fr);
+	border: 1.5px solid var(--print);
+}
+
+.rec-box {
+	display: grid;
+	align-content: start;
+	gap: 0.15rem;
+	min-width: 0;
+	padding: 0.3rem 0.5rem 0.35rem;
+}
+
+.rec-box + .rec-box {
+	border-left: 1.5px solid var(--print);
+}
+
+/* The pen: what's written in. */
+.rec-ink {
+	min-height: 1.6rem;
+	font-family: var(--font-body);
+	font-size: 1rem;
+	line-height: 1.6rem;
+	color: var(--pen);
+}
+
+input.rec-ink,
+textarea.rec-ink {
+	width: 100%;
+	padding: 0;
+	border: 0;
+	border-radius: 0;
+	font: inherit;
+	font-family: var(--font-body);
+	font-size: 1rem;
+	color: var(--pen);
+	background: transparent;
+}
+
+.rec-ink::placeholder {
+	color: var(--print-soft);
+	opacity: 0.7;
+}
+
+input.rec-ink:focus,
+textarea.rec-ink:focus {
+	outline: none;
+}
+
+/* What it is: printed tick boxes; the picked one gets a pen tick. */
+.rec-kinds {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem 1.1rem;
+	min-width: 0;
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+.rec-kinds legend {
+	width: 100%;
+	margin-bottom: 0.45rem;
+}
+
+.rec-kind {
+	position: relative;
+	font-family: var(--font-mono);
+	font-size: 0.75rem;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--print);
+	cursor: pointer;
+}
+
+.rec-kind input {
+	position: absolute;
+	inset: 0;
+	margin: 0;
+	opacity: 0;
+	cursor: pointer;
+}
+
+.rec-kind span::before {
+	content: "";
+	display: inline-block;
+	width: 0.8rem;
+	height: 0.8rem;
+	margin-right: 0.4rem;
+	vertical-align: -0.12rem;
+	border: 1.5px solid var(--print);
+}
+
+.rec-kind input:checked + span {
+	color: var(--pen);
+}
+
+/* A quick pen tick, overshooting the box. */
+.rec-kind input:checked + span::after {
+	content: "";
+	position: absolute;
+	left: 0.22rem;
+	top: -0.2rem;
+	width: 0.4rem;
+	height: 0.85rem;
+	border: solid var(--pen);
+	border-width: 0 2.5px 2.5px 0;
+	transform: rotate(40deg);
+}
+
+.rec-kind input:focus-visible + span {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 3px;
+}
+
+/* Order lines: label column, a vertical rule, ruled lines to write on. */
+.rec-lines {
+	border-top: 1.5px solid var(--print);
+}
+
+.rec-line {
+	display: grid;
+	grid-template-columns: 5.25rem minmax(0, 1fr);
+	align-items: center;
+	border-bottom: 1px solid var(--rule);
+}
+
+.rec-line > .rec-label {
+	align-self: stretch;
+	display: flex;
+	align-items: center;
+	padding-right: 0.5rem;
+	border-right: 1.5px solid var(--print);
+}
+
+.rec-line > .rec-ink {
+	padding: 0.35rem 0.6rem;
+}
+
+.rec-line:focus-within > .rec-label {
+	color: var(--number);
+}
+
+/* Special instructions: ruled all the way down. */
+.rec-notes {
+	display: grid;
+	gap: 0.25rem;
+}
+
+.rec-notes textarea.rec-ink {
+	min-height: calc(3 * 1.75rem);
+	line-height: 1.75rem;
+	background: repeating-linear-gradient(
+		transparent 0 calc(1.75rem - 1px),
+		var(--rule) calc(1.75rem - 1px) 1.75rem
+	);
+	resize: vertical;
+}
+
+/* Off-screen rather than display:none, which some bots skip. */
+.rec-trap {
+	position: absolute;
+	left: -10000px;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+}
+
+.rec-captcha:empty {
+	display: none;
+}
+
+.rec-actions {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	padding-top: 0.25rem;
+}
+
+.rec-status {
+	font-family: var(--font-mono);
+	font-size: 0.72rem;
+	color: var(--print-soft);
+}
+
+.rec-status[data-tone="error"] {
+	color: var(--number);
+}
+
+.rec-status[data-tone="done"] {
+	color: var(--print);
+}
+
+.rec-submit {
+	flex: none;
+	padding: 0.5rem 1.1rem;
+	border-radius: 2px;
+	font-family: var(--font-mono);
+	font-size: 0.72rem;
+	font-weight: 600;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--paper);
+	background: var(--print);
+	cursor: pointer;
+	transition: background-color 0.15s ease;
+}
+
+.rec-submit:hover {
+	background: #245a41;
+}
+
+.rec-submit:disabled {
+	opacity: 0.6;
+	cursor: wait;
+}
+
+/* The tear-off stub below the perforation. */
+.rec-stub {
+	display: flex;
+	justify-content: space-between;
+	margin: 0.5rem -1.4rem 0;
+	padding: 0.7rem 1.4rem 1.2rem;
+	border-top: 2px dashed var(--print-soft);
+}
+
+.rec-stub > span:last-child {
+	color: var(--number);
+}
+
+@media (max-width: 30rem) {
+	.rec-form {
+		padding-inline: 1rem;
+	}
+
+	.rec-boxes {
+		grid-template-columns: 1fr 1fr;
+	}
+
+	.rec-box-name {
+		grid-column: 1 / -1;
+		border-top: 1.5px solid var(--print);
+	}
+
+	.rec-box.rec-box-name {
+		border-left: 0;
+	}
+
+	.rec-stub {
+		margin-inline: -1rem;
+		padding-inline: 1rem;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.rec-submit {
+		transition: none;
+	}
+}

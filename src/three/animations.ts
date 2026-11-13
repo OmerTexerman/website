@@ -15,6 +15,7 @@ import type { LaptopObject } from "./objects/laptop";
 import type { NotebookObject } from "./objects/notebook";
 import type { PhotoFrameObject } from "./objects/photo-frame";
 import { getClockAngles } from "./objects/shelf-clock";
+import type { SlopGuyObject } from "./objects/slop-guy";
 
 type AnimationCallback = (progress: number) => void;
 
@@ -930,15 +931,20 @@ export function badgeSwayAngle(now: number): number {
 }
 
 /** Give the hanging ID badge a swing on its peg; it settles back on its own. */
+/** How long a click swings the badge; its view opens once it settles. */
+export const BADGE_SWING_MS = 560;
+
 export function animateBadgeSwing(swing: Object3D): Promise<void> {
 	saveRest(swing, "rz", swing.rotation.z);
 	const rest = getRest(swing, "rz");
 	return animate(
 		`badge-${swing.uuid}`,
-		1600,
+		BADGE_SWING_MS,
 		(p) => {
+			// One quick tug out and back. The (1 - p)^2 envelope brings it in
+			// with no leftover speed, so it is at rest when the view opens.
 			const decay = (1 - p) ** 2;
-			swing.rotation.z = p >= 1 ? rest : rest + Math.sin(p * Math.PI * 5) * 0.32 * decay;
+			swing.rotation.z = p >= 1 ? rest : rest + Math.sin(p * Math.PI * 2) * 0.3 * decay;
 		},
 		(t) => t,
 	);
@@ -947,6 +953,40 @@ export function animateBadgeSwing(swing: Object3D): Promise<void> {
 // ─── PHONE (Shelf) ─────────────────────────────────────────────
 
 /** Fade the phone screen on before shelf fall. */
+export const SLOP_FEED_MS = 1100;
+
+/** Feeding time: the pipe pours into his mouth, he gulps, it stops. */
+export function animateSlopFeed(guy: SlopGuyObject): Promise<void> {
+	const { stream, head, lips } = guy.parts;
+	saveRest(head, "rx", head.rotation.x);
+	const restTilt = getRest(head, "rx");
+	return animate(
+		`slop-${guy.root.uuid}`,
+		SLOP_FEED_MS,
+		(p) => {
+			// Pour in over the first fifth, hold, cut off near the end.
+			const reach = clamp(p / 0.18, 0, 1);
+			const cut = clamp((p - 0.72) / 0.18, 0, 1);
+			stream.visible = p < 0.9 && reach > 0;
+			// Grows down from the spout, then the tail falls in after it.
+			stream.scale.y = Math.max(reach - cut, 0.0001);
+			stream.position.lerpVectors(guy.parts.spout, guy.parts.mouth, cut);
+			// Mouth stretches wider while it pours; three gulps bob the head.
+			const open = Math.sin(clamp(p / 0.9, 0, 1) * Math.PI);
+			lips.scale.set(1 + open * 0.2, 1 + open * 0.35, 1);
+			const gulp = p < 0.9 ? Math.max(0, Math.sin(p * Math.PI * 6)) * 0.07 * open : 0;
+			head.rotation.x = restTilt + gulp;
+			if (p >= 1) {
+				stream.visible = false;
+				stream.position.copy(guy.parts.spout);
+				lips.scale.setScalar(1);
+				head.rotation.x = restTilt;
+			}
+		},
+		(t) => t,
+	);
+}
+
 export function animatePhoneWake(phone: Object3D): Promise<void> {
 	const screenMat = phone.userData.screenMaterial as MeshStandardMaterial | undefined;
 	if (!screenMat) return Promise.resolve();

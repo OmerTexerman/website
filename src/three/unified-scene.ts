@@ -9,6 +9,7 @@ import {
 	type Object3D,
 	PlaneGeometry,
 	Scene,
+	Texture,
 	Vector2,
 	Vector3,
 	WebGLRenderer,
@@ -41,13 +42,16 @@ import {
 	animateShelfPresent,
 	animateShelfReset,
 	animateSignSwing,
+	animateSlopFeed,
 	animateSpin,
 	animateWobble,
+	BADGE_SWING_MS,
 	badgeSwayAngle,
 	bookPresentedPosition,
 	type DeskCameraView,
 	disposeAnimations,
 	easeInOutCubic,
+	SLOP_FEED_MS,
 	tickAnimations,
 } from "./animations";
 import {
@@ -106,6 +110,7 @@ import { createNotebook } from "./objects/notebook";
 import { createPen } from "./objects/pen";
 import { createPhotoFrame } from "./objects/photo-frame";
 import { createShelfWall, type ShelfDecorEntry, type ShelfSceneEntry } from "./objects/shelf-wall";
+import { createSlopGuy, type SlopGuyObject, updateSlopDrip } from "./objects/slop-guy";
 import { createSpotlightFrame, disposeSpotlightTextures } from "./objects/spotlight-frame";
 import { invalidateCanvasRect } from "./raycast-utils";
 import { createRoomWall } from "./room-wall";
@@ -155,6 +160,7 @@ interface DeskSceneData {
 	cleanup: () => void;
 	/** The hanging badge's idle-sway pivot. */
 	badgeSway: Object3D;
+	slopGuy: SlopGuyObject;
 	interactiveEntityByRoot: Map<Object3D, DeskInteractiveEntity>;
 	hoverTargets: Object3D[];
 }
@@ -278,8 +284,12 @@ export function initUnifiedScene(
 	canvas.dataset.sceneUsed = "true";
 	let roomLighting: ReturnType<typeof setupRoomLighting> | null = null;
 
+	function pixelRatioFor(mode: "desktop" | "mobile"): number {
+		return Math.min(window.devicePixelRatio, mode === "mobile" ? 1.25 : 2);
+	}
+
 	function applyRenderSettings(mode: "desktop" | "mobile"): void {
-		renderer.setPixelRatio(Math.min(window.devicePixelRatio, mode === "mobile" ? 1.25 : 2));
+		renderer.setPixelRatio(pixelRatioFor(mode));
 		renderer.shadowMap.enabled = true;
 		roomLighting?.updateForMode(mode === "mobile");
 		// Disable auto shadow updates — shadows only change when objects move
@@ -368,6 +378,10 @@ export function initUnifiedScene(
 	// ─── State ───────────────────────────────────────────────────
 	let currentMode: "desktop" | "mobile" = initialMode;
 	let transitioning = false;
+	/** True while shaders compile off the main thread before or after a mode
+	 *  switch. Nothing is drawn meanwhile: the last frame stays on screen,
+	 *  and a draw would compile them synchronously anyway. */
+	let preparing = false;
 	let dirty = true;
 	let isDragging = false;
 	let introComplete = options?.skipIntro ?? false;
@@ -585,6 +599,11 @@ export function initUnifiedScene(
 		deskWindow.root.userData = { interactive: true, labelOffsetY: deskWindow.labelOffsetY };
 		Object.defineProperty(deskWindow.root.userData, "label", { get: deskWindow.label });
 		greetingRoot.add(deskWindow.root);
+		// "Feed me slop": in his armchair against the wall left of the desk
+		// (the window balances the right), mouth open under a pipe out of the wall.
+		const slopGuy = createSlopGuy({ turn: 0.6 });
+		slopGuy.root.position.set(-4.4, -2, -1.7);
+		greetingRoot.add(slopGuy.root);
 		roots.push(greetingRoot);
 
 		for (const root of roots) {
@@ -663,8 +682,18 @@ export function initUnifiedScene(
 				root: idBadge.root,
 				hitboxPadding: 0.06,
 				hoverScale: true,
-				modalDelayMs: 350,
+				modalDelayMs: BADGE_SWING_MS,
 				open: () => animateBadgeSwing(idBadge.parts.swing),
+				close: () => Promise.resolve(),
+			},
+			{
+				kind: "section",
+				section: getSectionById("slop"),
+				root: slopGuy.root,
+				hitboxPadding: 0.05,
+				hoverScale: true,
+				modalDelayMs: SLOP_FEED_MS,
+				open: () => animateSlopFeed(slopGuy),
 				close: () => Promise.resolve(),
 			},
 			{
@@ -756,6 +785,7 @@ export function initUnifiedScene(
 			roots,
 			cleanup: () => deskWindow.dispose(),
 			badgeSway: idBadge.parts.sway,
+			slopGuy,
 			interactiveEntityByRoot: new Map(interactiveEntities.map((entity) => [entity.root, entity])),
 			hoverTargets: interactiveEntities
 				.filter((entity) => entity.hoverScale)
@@ -1375,6 +1405,10 @@ export function initUnifiedScene(
 			badgeSway.rotation.z = badgeSwayAngle(now);
 			dirty = true;
 		}
+		// A drip from the slop pipe, every few seconds.
+		if (currentMode === "desktop" && deskScene && !transitioning && !prefersReducedMotion()) {
+			updateSlopDrip(deskScene.slopGuy, now);
+		}
 
 		let scrolling = false;
 		if (currentMode === "mobile" && !transitioning && scrollController) {
@@ -1434,7 +1468,7 @@ export function initUnifiedScene(
 			targetInterval = IDLE_INTERVAL;
 		}
 
-		if (dirty || transitioning) {
+		if ((dirty || transitioning) && !preparing) {
 			// Skip the bloom pass when its strength is negligible.
 			if (bloomPass.strength > 0.01) {
 				composer.render();
@@ -1460,7 +1494,10 @@ export function initUnifiedScene(
 		updateResponsiveLayout();
 		if (!introComplete) updateMobileIntroEndPose();
 
-		applyRenderSettings(currentMode);
+		// Only the pixel ratio can change with size (moving to another screen).
+		// The full applyRenderSettings re-created the ceiling light's shadow
+		// map on every step of a window drag.
+		renderer.setPixelRatio(pixelRatioFor(currentMode));
 		renderer.setSize(width, height, false);
 		composer.setPixelRatio(renderer.getPixelRatio());
 		composer.setSize(width, height);
@@ -1546,6 +1583,57 @@ export function initUnifiedScene(
 		}
 	}
 	document.addEventListener("visibilitychange", onPageVisibilityChange);
+
+	/**
+	 * Get the scene ready to draw without blocking the page. Shaders are built
+	 * for one exact set of lights, so a mode switch (which adds one room's
+	 * lights and later removes the other's) needs every material recompiled.
+	 * Done synchronously on the first draw, that froze the page for most of a
+	 * second; compileAsync builds them in parallel instead. Textures are
+	 * uploaded too, so the first frame doesn't stall on those.
+	 */
+	async function prepareToDraw({
+		screen,
+		bloom,
+	}: {
+		screen: boolean;
+		bloom: boolean;
+	}): Promise<void> {
+		preparing = true;
+		try {
+			// Shaders also differ by where they draw: straight to the screen, or
+			// into the bloom composer's buffer. Compile each variant in use (the
+			// compile step reads the current target synchronously).
+			const pending: Promise<unknown>[] = [];
+			const previousTarget = renderer.getRenderTarget();
+			if (screen) {
+				renderer.setRenderTarget(null);
+				pending.push(renderer.compileAsync(scene, camera));
+			}
+			if (bloom) {
+				renderer.setRenderTarget(composer.readBuffer);
+				pending.push(renderer.compileAsync(scene, camera));
+			}
+			renderer.setRenderTarget(previousTarget);
+			await Promise.all(pending);
+			if (disposed) return;
+			const uploaded = new Set<Texture>();
+			scene.traverseVisible((object) => {
+				if (!(object instanceof Mesh)) return;
+				const materials = Array.isArray(object.material) ? object.material : [object.material];
+				for (const material of materials) {
+					for (const value of Object.values(material)) {
+						if (value instanceof Texture && !uploaded.has(value)) {
+							uploaded.add(value);
+							renderer.initTexture(value);
+						}
+					}
+				}
+			});
+		} finally {
+			preparing = false;
+		}
+	}
 
 	// ─── Transition ──────────────────────────────────────────────
 	let transitionPromise: Promise<void> | null = null;
@@ -1635,11 +1723,19 @@ export function initUnifiedScene(
 		const toFov =
 			target === "desktop" ? desktopFovForAspect(lastCanvasWidth / lastCanvasHeight) : BASE_FOV;
 
+		// Compile the shaders for both rooms' lights together, off the main
+		// thread, while the current view stays on screen.
+		await prepareToDraw({
+			screen: Math.min(bloomFrom, bloomTo) <= 0.01,
+			bloom: Math.max(bloomFrom, bloomTo) > 0.01,
+		});
+		if (disposed) return;
+
 		// Warm-up: render once at the destination pose, then again at the from
 		// pose, all within this task — only the last render is composited, so
-		// nothing flashes. This compiles the new scene's shaders, uploads its
-		// textures and rebuilds shadow maps before the animation clock starts,
-		// instead of hitching mid-transition.
+		// nothing flashes. This catches anything compileAsync can't (shadow
+		// depth shaders, the bloom passes) and rebuilds the shadow maps before
+		// the animation clock starts, instead of hitching mid-transition.
 		const warmUpRender = () => {
 			if (Math.max(bloomFrom, bloomTo) > 0.01) composer.render();
 			else renderer.render(scene, camera);
@@ -1742,9 +1838,18 @@ export function initUnifiedScene(
 		currentMode = target;
 		room.rotation.y = toRotY;
 
-		// Hide the wall we're not looking at, then dispose it to free GPU memory
+		// Dispose the wall we're no longer looking at, which removes its lights,
+		// so compile for the lights that remain before drawing again (the
+		// final frame of the animation stays on screen meanwhile).
+		if (target === "desktop") disposeShelfScene();
+		else {
+			disposeDeskScene();
+			disposeSpotlightTextures();
+		}
+		await prepareToDraw({ screen: target === "mobile", bloom: target === "desktop" });
+		if (disposed) return;
+
 		if (target === "desktop") {
-			disposeShelfScene();
 			applyRenderSettings("desktop");
 			// setPixelRatio clears the canvas buffer — re-sync composer and
 			// render immediately so the browser never paints a black frame
@@ -1755,8 +1860,6 @@ export function initUnifiedScene(
 			markSceneActive();
 		} else {
 			syncMobileShelfCamera(0.5, [0, 0, 0]);
-			disposeDeskScene();
-			disposeSpotlightTextures();
 			applyRenderSettings("mobile");
 			// Keep the bloom buffers at the phone's lower pixel ratio for when
 			// the view goes back to the desk.

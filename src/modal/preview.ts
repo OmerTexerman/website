@@ -128,6 +128,12 @@ function sanitizeNode(root: Element, baseUrl: string): void {
 			"script,style,iframe,object,embed,form,link,meta,noscript,video,audio,source,track,dialog,template,svg,math,base",
 		)
 		.forEach((el) => {
+			// The site's own recommendation form is kept; its script (mounted on
+			// content-modal:rendered) handles sending, so it never submits itself.
+			if (el instanceof HTMLFormElement && el.hasAttribute("data-rec-form")) {
+				for (const attr of ["action", "method", "target", "enctype"]) el.removeAttribute(attr);
+				return;
+			}
 			el.remove();
 		});
 

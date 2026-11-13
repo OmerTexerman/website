@@ -52,6 +52,7 @@
 <script>
   import { getBackLabel, MOBILE_BREAKPOINT, orderedSections } from "../config";
   import { mountAboutCard } from "../dom/about-card";
+  import { mountRecForm } from "../dom/rec-form";
   import { mountOsDesktop } from "../dom/os-desktop";
   import { bootstrapContentModal } from "../modal/bootstrap";
   import { getContentModal } from "../modal/api";
@@ -66,9 +67,11 @@
     const body = (event as CustomEvent<{ body: HTMLElement }>).detail.body;
     const unmountDesktop = mountOsDesktop(body);
     const unmountAbout = mountAboutCard(body);
+    const unmountRec = mountRecForm(body);
     unmountSection = () => {
       unmountDesktop();
       unmountAbout();
+      unmountRec();
     };
   });
 

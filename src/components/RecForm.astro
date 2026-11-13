@@ -1,0 +1,109 @@
+---
+import { REC_KINDS, REC_LIMITS, type RecKind } from "../recs";
+
+interface Props {
+	/** Which kind is ticked to start with (a `?kind=` in the URL overrides it). */
+	kind?: RecKind;
+}
+
+const { kind = "video" } = Astro.props;
+
+// Cloudflare's always-pass test key in dev; the real one comes from Vercel.
+const siteKey =
+	import.meta.env.PUBLIC_TURNSTILE_SITE_KEY ||
+	(import.meta.env.DEV ? "1x00000000000000000000AA" : "");
+// Printed on the pad; dom/rec-form.ts gives each visit its own.
+const checkNumber = "04817";
+---
+
+{/* A diner guest check, filled in by the visitor. The bot check loads once
+    someone starts writing (dom/rec-form.ts). */}
+<section class="guest-check section-object" data-rec data-site-key={siteKey} data-animate>
+  <form class="rec-form" data-rec-form novalidate>
+    <header class="rec-head">
+      <h1 class="rec-diner">Slop order</h1>
+      <p class="rec-number" aria-hidden="true">No <span data-rec-number>{checkNumber}</span></p>
+    </header>
+
+    <div class="rec-boxes">
+      <div class="rec-box">
+        <span class="rec-label">date</span>
+        <span class="rec-ink" data-rec-date></span>
+      </div>
+      <div class="rec-box">
+        <span class="rec-label">table</span>
+        <span class="rec-ink">me</span>
+      </div>
+      <label class="rec-box rec-box-name">
+        <span class="rec-label">name <i>optional, shown on the shelf</i></span>
+        <input
+          class="rec-ink"
+          name="name"
+          maxlength={REC_LIMITS.name}
+          autocomplete="nickname"
+          placeholder="your name"
+        />
+      </label>
+    </div>
+
+    <fieldset class="rec-kinds">
+      <legend class="rec-label">type</legend>
+      {Object.entries(REC_KINDS).map(([value, { label, by }]) => (
+        <label class="rec-kind">
+          <input type="radio" name="kind" value={value} checked={value === kind} data-by={by} />
+          <span>{label}</span>
+        </label>
+      ))}
+    </fieldset>
+
+    {/* The order lines: printed labels down the left, written in on the right. */}
+    <div class="rec-lines">
+      <label class="rec-line">
+        <span class="rec-label">title</span>
+        <input class="rec-ink" name="title" required maxlength={REC_LIMITS.title} autocomplete="off" />
+      </label>
+      <label class="rec-line">
+        <span class="rec-label" data-rec-by>{REC_KINDS[kind].by}</span>
+        <input class="rec-ink" name="author" maxlength={REC_LIMITS.author} autocomplete="off" placeholder="optional" />
+      </label>
+      <label class="rec-line">
+        <span class="rec-label">genre</span>
+        <input class="rec-ink" name="genre" maxlength={REC_LIMITS.genre} autocomplete="off" placeholder="optional" />
+      </label>
+      <label class="rec-line">
+        <span class="rec-label">link</span>
+        <input
+          class="rec-ink"
+          name="link"
+          type="url"
+          inputmode="url"
+          maxlength={REC_LIMITS.link}
+          autocomplete="off"
+          placeholder="https:// (optional)"
+        />
+      </label>
+    </div>
+
+    <label class="rec-notes">
+      <span class="rec-label">why should I check it out? <i>optional</i></span>
+      <textarea class="rec-ink" name="note" rows="3" maxlength={REC_LIMITS.note}></textarea>
+    </label>
+
+    {/* Hidden from people; bots that fill every field give themselves away. */}
+    <label class="rec-trap" aria-hidden="true">
+      website <input name="website" tabindex="-1" autocomplete="off" />
+    </label>
+
+    <div class="rec-captcha" data-rec-captcha></div>
+    <div class="rec-actions">
+      <p class="rec-status" data-rec-status role="status" aria-live="polite">we thank you for your slop.</p>
+      <button type="submit" class="rec-submit" data-rec-submit>send it</button>
+    </div>
+
+    {/* The stub, torn off along the perforation. */}
+    <footer class="rec-stub" aria-hidden="true">
+      <span>guest check</span>
+      <span>No <span data-rec-number>{checkNumber}</span></span>
+    </footer>
+  </form>
+</section>

@@ -84,6 +84,9 @@ collections:
       - { label: Status, name: status, widget: select, options: [reading, finished, want-to-read] }
       - { label: URL, name: url, widget: string, required: false, pattern: ['^(https:\/\/.+)?$', 'Must be a valid URL (https://...)'] }
       - { label: Related Post, name: post, widget: relation, collection: blog, value_field: "{{slug}}", search_fields: [title], display_fields: [title], required: false }
+      - { label: Recommended By, name: recommendedBy, widget: string, required: false, hint: "Shown on the book as \"rec'd by …\"" }
+      - { label: Recommendation Note, name: recommendationNote, widget: text, required: false }
+      - { label: Genre, name: genre, widget: string, required: false }
 
   - name: words
     label: Word of the Day

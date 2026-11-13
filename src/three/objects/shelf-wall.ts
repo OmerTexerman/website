@@ -21,7 +21,6 @@ import { BOOK_COLORS } from "../colors";
 import { addHitbox } from "../hitbox";
 import { applySectionInteraction } from "../interactive-section";
 import {
-	accentMaterial,
 	createBookMaterial,
 	darkMetalMaterial,
 	dictionaryGoldMaterial,
@@ -93,14 +92,15 @@ function shelfTopBelow(y: number): number {
 }
 
 /** A soft dark blob, darkest in the middle, for under things resting on a shelf. */
-function contactShadowMaterial(): MeshBasicMaterial {
+function contactShadowMaterial(strength = 0.55): MeshBasicMaterial {
 	const canvas = document.createElement("canvas");
 	canvas.width = 64;
 	canvas.height = 64;
 	const ctx = canvas.getContext("2d");
 	if (ctx) {
 		const fade = ctx.createRadialGradient(32, 32, 4, 32, 32, 32);
-		fade.addColorStop(0, "rgba(0,0,0,0.55)");
+		fade.addColorStop(0, `rgba(0,0,0,${strength})`);
+		fade.addColorStop(0.5, `rgba(0,0,0,${strength * 0.7})`);
 		fade.addColorStop(1, "rgba(0,0,0,0)");
 		ctx.fillStyle = fade;
 		ctx.fillRect(0, 0, 64, 64);
@@ -194,6 +194,10 @@ function createShelfBooks(books?: ShelfBook[]): Group {
 	return g;
 }
 
+const NOTEBOOK_LEAN = 0.28;
+/** Front of the cover to the back of the back cover. */
+const NOTEBOOK_THICKNESS = 0.065;
+
 function createShelfNotebook(): Group {
 	const g = new Group();
 	const body = new Group();
@@ -208,8 +212,10 @@ function createShelfNotebook(): Group {
 	pages.position.z = -0.02;
 	body.add(pages);
 
-	// Back cover
-	const backCover = new Mesh(new BoxGeometry(0.45, 0.6, 0.02), accentMaterial);
+	// Back cover, the same red as the front: in a lighter shade its bottom
+	// edge showed under the front cover like a separate slab, and the cover
+	// looked lifted off the shelf.
+	const backCover = new Mesh(new BoxGeometry(0.45, 0.6, 0.02), shelfNotebookCoverMaterial);
 	backCover.position.z = -0.04;
 	body.add(backCover);
 
@@ -222,8 +228,13 @@ function createShelfNotebook(): Group {
 	}
 
 	// Lean back into the wall so it feels like it is resting on the shelf.
-	body.rotation.x = -0.28;
+	body.rotation.x = -NOTEBOOK_LEAN;
 	g.position.set(0, 0.29, -0.01);
+	// Tipped back, it rests on its rear bottom edge and the front cover's
+	// edge lifts off the plank, which reads as hovering. The shelf sinks it
+	// by this much so the front edge sits on the plank (the rear edge dips
+	// in, out of sight).
+	g.userData.restSink = NOTEBOOK_THICKNESS * Math.sin(NOTEBOOK_LEAN);
 	return g;
 }
 
@@ -376,6 +387,13 @@ export function createShelfWall(
 		layout.item.position.set(0, 0, 0);
 		layout.item.rotation.y = layout.rotationY;
 		enableShadows(layout.item);
+		// Leaning items stand right under the shelf and sign above; the key
+		// light threw their shadow across the top of the cover as a dark band.
+		if ("leansOnWall" in layout && layout.leansOnWall) {
+			layout.item.traverse((child) => {
+				child.receiveShadow = false;
+			});
+		}
 		target.add(layout.item);
 		// Leaning items slide back until their top rests on the wall, rather
 		// than tilting back into the air mid-shelf.
@@ -385,22 +403,38 @@ export function createShelfWall(
 			// Sit exactly on the plank below, with a soft contact shadow where
 			// it touches, so it reads as resting rather than hovering.
 			const shelfTop = shelfTopBelow(layout.position[1]);
-			target.position.y = shelfTop - _clearanceBox.min.y;
+			const sink = (layout.item.userData.restSink as number | undefined) ?? 0;
+			target.position.y = shelfTop - _clearanceBox.min.y - sink;
 			const footprint = new Mesh(
-				new PlaneGeometry(
-					_clearanceBox.max.x - _clearanceBox.min.x + 0.12,
-					_clearanceBox.max.z - _clearanceBox.min.z + 0.08,
-				),
-				contactShadowMaterial(),
+				// A thin band along the base only. A wide blob reached out in front
+				// and made the item look like it hovered over its own shadow.
+				new PlaneGeometry(0.1, _clearanceBox.max.z - _clearanceBox.min.z + 0.06),
+				contactShadowMaterial(0.6),
 			);
 			footprint.rotation.x = -Math.PI / 2;
 			footprint.position.set(
-				(_clearanceBox.min.x + _clearanceBox.max.x) / 2,
-				_clearanceBox.min.y + 0.002,
+				_clearanceBox.min.x + 0.04,
+				_clearanceBox.min.y + sink + 0.002,
 				(_clearanceBox.min.z + _clearanceBox.max.z) / 2,
 			);
 			footprint.renderOrder = 1;
 			target.add(footprint);
+			// And a soft shade on the wall behind it, nudged away from the key
+			// light (which sits off to +z). Without it nothing ties the item to
+			// the wall and, seen nearly face on, it looks like it is hovering.
+			const height = _clearanceBox.max.y - _clearanceBox.min.y;
+			const wallShade = new Mesh(
+				new PlaneGeometry(_clearanceBox.max.z - _clearanceBox.min.z + 0.2, height + 0.12),
+				contactShadowMaterial(0.85),
+			);
+			wallShade.rotation.y = -Math.PI / 2;
+			wallShade.position.set(
+				WALL_X - 0.003 - target.position.x,
+				_clearanceBox.min.y + height / 2,
+				(_clearanceBox.min.z + _clearanceBox.max.z) / 2 - 0.07,
+			);
+			wallShade.renderOrder = 1;
+			target.add(wallShade);
 		}
 		// Measure before the hitbox is added and before the target joins the
 		// scene (its world matrix is still identity), so the box is in target

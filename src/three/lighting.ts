@@ -26,11 +26,13 @@ import { SHELF_BOT_Y, SHELF_MID_Y, SHELF_TOP_Y, SHELF_WALL_X, SHELF_WALL_Z } fro
 
 function configureShadowLight(light: SpotLight | PointLight, mapSize = SHADOW_MAP_SIZE_HIGH): void {
 	light.castShadow = true;
+	light.shadow.bias = SHADOW_BIAS;
+	light.shadow.needsUpdate = true;
+	// Re-create the map only when its size actually changes.
+	if (light.shadow.mapSize.width === mapSize && light.shadow.mapSize.height === mapSize) return;
 	light.shadow.mapSize.width = mapSize;
 	light.shadow.mapSize.height = mapSize;
-	light.shadow.bias = SHADOW_BIAS;
 	light.shadow.map?.dispose();
-	light.shadow.needsUpdate = true;
 }
 
 /** Scene-level direction-independent lighting (stays fixed during rotation) */

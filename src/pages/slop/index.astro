@@ -1,0 +1,17 @@
+---
+import "../../styles/slop.css";
+import RecForm from "../../components/RecForm.astro";
+import { getSectionById } from "../../config";
+import ContentPage from "../../layouts/ContentPage.astro";
+
+const section = getSectionById("slop");
+---
+
+<ContentPage section={section} surface={false} containerWidthClass="max-w-3xl">
+  <RecForm />
+
+  <script>
+    import { mountRecForm } from "../../dom/rec-form";
+    mountRecForm();
+  </script>
+</ContentPage>

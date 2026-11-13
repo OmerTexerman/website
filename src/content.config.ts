@@ -56,6 +56,10 @@ const books = defineCollection({
 		status: z.enum(["reading", "finished", "want-to-read"]),
 		url: optionalUrl,
 		post: z.string().optional(),
+		/** Set when someone recommended it through the reading page's form. */
+		recommendedBy: z.string().optional(),
+		recommendationNote: z.string().optional(),
+		genre: z.string().optional(),
 	}),
 });
 

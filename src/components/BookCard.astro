@@ -9,10 +9,12 @@ interface Props {
 	cover?: string;
 	url?: string;
 	post?: string;
+	/** Who recommended it, when it came from the reading page's form. */
+	recommendedBy?: string;
 	size?: "hero" | "shelf" | "compact";
 }
 
-const { title, author, spineColor, cover, url, post, size = "shelf" } = Astro.props;
+const { title, author, spineColor, cover, url, post, recommendedBy, size = "shelf" } = Astro.props;
 
 const wrapsWholeCard = !!url && (size === "hero" || !post);
 const Tag = wrapsWholeCard ? "a" : "div";
@@ -57,6 +59,7 @@ const linkProps = wrapsWholeCard ? { href: url, target: "_blank", rel: "noopener
     <div class="book-info">
       <p class="book-title">{title}</p>
       <p class="book-author">{author}</p>
+      {recommendedBy && <p class="book-recommender">rec'd by {recommendedBy}</p>}
       {url && !wrapsWholeCard && (
         <a
           href={url}

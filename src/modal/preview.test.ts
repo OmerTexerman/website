@@ -87,6 +87,16 @@ describe("sanitisation", () => {
 		}
 	});
 
+	it("keeps the recommendation form, without anywhere to submit to", async () => {
+		const html = await sanitize(
+			'<form data-rec-form action="https://evil.example" method="post"><input name="title"></form>',
+		);
+		expect(html).toContain("<form");
+		expect(html).toContain('name="title"');
+		expect(html).not.toContain("action");
+		expect(html).not.toContain("method");
+	});
+
 	it("removes inline event handlers and style attributes", async () => {
 		const html = await sanitize('<p onclick="evil()" style="color:red" id="p">text</p>');
 		expect(html).not.toContain("onclick");
