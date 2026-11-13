@@ -4,8 +4,11 @@ import { getSameOriginHref, getSameOriginUrl, isSafeHttpUrl } from "../url-utils
 import { isRecord } from "../utils";
 import { type ContentModalApi, registerContentModal, unregisterContentModal } from "./api";
 import { type ContentModalHistoryState, rememberContentModalReturnState } from "./history";
-import { loadContentPreview } from "./preview";
+import { type ContentPreviewResult, loadContentPreview, peekContentPreview } from "./preview";
 import { mountSwipeDismiss } from "./swipe-dismiss";
+
+/** A load quicker than this shows no spinner at all, just the content. */
+const SPINNER_DELAY_MS = 350;
 
 interface ContentModalElements {
 	rootEl: HTMLElement;
@@ -401,13 +404,43 @@ function createContentModalController(elements: ContentModalElements): {
 		syncUrlOnOpen(label, safeTargetHref);
 		const path = new URL(safeTargetHref, window.location.href).pathname;
 		rootEl.dataset.section = path.replace(/^\/|\/$/g, "").split("/")[0] || "";
+		// The whole path (e.g. "photos" vs "photos/paris"), for per-view styling.
+		rootEl.dataset.view = path.replace(/^\/|\/$/g, "");
 		if (source) {
 			rootEl.dataset.source = source;
 		} else {
 			delete rootEl.dataset.source;
 		}
 		activeView = { label, href: safeTargetHref };
-		renderLoading();
+
+		// Already loaded (the idle warm-up fetches every section): put it in
+		// place before the view fades in, so it arrives with its content.
+		// Otherwise start loading now, alongside the fade, and show a spinner
+		// only if it's still loading once the view is up.
+		const cached = peekContentPreview(safeTargetHref);
+		let timeoutId = 0;
+		let timedOut = false;
+		const pending = cached
+			? Promise.resolve(cached)
+			: loadContentPreview(safeTargetHref, request.signal);
+		// Handled below, after the fade; this stops an early failure being
+		// reported as unhandled in the meantime.
+		pending.catch(() => {});
+		if (cached) {
+			renderResult(cached, safeTargetHref);
+		} else {
+			bodyEl.replaceChildren();
+			timeoutId = window.setTimeout(() => {
+				timedOut = true;
+				request.abort();
+			}, 10_000);
+		}
+		let spinnerTimer = 0;
+		if (!cached) {
+			spinnerTimer = window.setTimeout(() => {
+				if (!isStalePreviewRequest(requestId) && bodyEl.childElementCount === 0) renderLoading();
+			}, SPINNER_DELAY_MS);
+		}
 
 		if (modalState === "closed") {
 			lockDocumentScroll();
@@ -430,27 +463,12 @@ function createContentModalController(elements: ContentModalElements): {
 			// focus on the button shows its focus ring after a mouse click.
 			panelEl.focus({ preventScroll: true });
 		}
+		if (cached) return;
 
-		let timeoutId = 0;
-		let timedOut = false;
 		try {
-			timeoutId = window.setTimeout(() => {
-				timedOut = true;
-				request.abort();
-			}, 10_000);
-			const result = await loadContentPreview(safeTargetHref, request.signal);
+			const result = await pending;
 			if (isStalePreviewRequest(requestId)) return;
-
-			if (result.kind === "message") {
-				renderMessage(result.message, safeTargetHref);
-				return;
-			}
-
-			bodyEl.innerHTML = result.html;
-			revealAnimatedChildren(bodyEl);
-			// Preview HTML arrives without its scripts; listeners can mount
-			// section behaviour (e.g. the laptop desktop) on the new content.
-			rootEl.dispatchEvent(new CustomEvent("content-modal:rendered", { detail: { body: bodyEl } }));
+			renderResult(result, safeTargetHref);
 		} catch {
 			if (isStalePreviewRequest(requestId) || (request.signal.aborted && !timedOut)) return;
 			renderMessage(
@@ -460,10 +478,23 @@ function createContentModalController(elements: ContentModalElements): {
 			);
 		} finally {
 			clearTimeout(timeoutId);
+			clearTimeout(spinnerTimer);
 			if (activeRequest === request) {
 				activeRequest = null;
 			}
 		}
+	}
+
+	function renderResult(result: ContentPreviewResult, href: string): void {
+		if (result.kind === "message") {
+			renderMessage(result.message, href);
+			return;
+		}
+		bodyEl.innerHTML = result.html;
+		revealAnimatedChildren(bodyEl);
+		// Preview HTML arrives without its scripts; listeners can mount
+		// section behaviour (e.g. the laptop desktop) on the new content.
+		rootEl.dispatchEvent(new CustomEvent("content-modal:rendered", { detail: { body: bodyEl } }));
 	}
 
 	async function requestClose(): Promise<void> {

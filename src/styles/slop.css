@@ -311,6 +311,14 @@ textarea.rec-ink:focus {
 	color: var(--number);
 }
 
+/* Between phone and desktop widths the slip widens with the window
+   instead of floating small in the middle of it. */
+@media (min-width: 36rem) and (max-width: 47.99rem) {
+	.guest-check {
+		max-width: min(40rem, 100%);
+	}
+}
+
 @media (max-width: 30rem) {
 	.rec-form {
 		padding-inline: 1rem;

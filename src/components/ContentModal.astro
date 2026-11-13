@@ -1,10 +1,11 @@
 ---
 /**
- * Full-screen section view for the homepage scene.
+ * Section view for the homepage scene.
  *
  * Clicking a desk object zooms the camera toward it, then this view fades
- * in over the whole screen with that section's object (notebook, laptop,
- * bookcase, corkboard) filling it. The URL changes to the section's real
+ * in. Whole places (notebook, laptop, bookcase, phone) fill the screen;
+ * things you pick up (about card, word of the day, slop order, photo board)
+ * float over the dimmed scene (see global.css). The URL changes to the section's real
  * address; Back to desk, Esc or the browser back button zoom back out.
  */
 ---
@@ -50,13 +51,12 @@
 </div>
 
 <script>
-  import { getBackLabel, MOBILE_BREAKPOINT, orderedSections } from "../config";
+  import { getBackLabel, MOBILE_BREAKPOINT } from "../config";
   import { mountAboutCard } from "../dom/about-card";
   import { mountRecForm } from "../dom/rec-form";
   import { mountOsDesktop } from "../dom/os-desktop";
   import { bootstrapContentModal } from "../modal/bootstrap";
   import { getContentModal } from "../modal/api";
-  import { loadContentPreview } from "../modal/preview";
 
   bootstrapContentModal();
 
@@ -75,22 +75,6 @@
     };
   });
 
-  // Warm the preview cache once the page is idle, so the full-screen view
-  // fades in with its content instead of a loading spinner. Phones open
-  // the phone variant of Projects.
-  const isPhone = window.innerWidth < MOBILE_BREAKPOINT;
-  const previewHrefs = orderedSections.map(({ href }) => {
-    if (isPhone && href === "/projects") return "/projects/phone";
-    return href;
-  });
-  const warm = () => {
-    const signal = new AbortController().signal;
-    for (const href of previewHrefs) void loadContentPreview(href, signal).catch(() => {});
-    // The laptop's wallpaper is a CSS background, so fetch it ahead too.
-    if (!isPhone) new Image().src = "/wallpaper.jpg";
-  };
-  if ("requestIdleCallback" in window) window.requestIdleCallback(warm, { timeout: 4000 });
-  else setTimeout(warm, 2000);
 
   // Projects has a phone version (lock screen) and a larger-screen version
   // (laptop). If the window crosses the

@@ -101,9 +101,22 @@ function respond(request: PendingRequest, text: string): void {
 	request.resolve(new Response(`<main><p>${text}</p></main>`, { status: 200 }));
 }
 
-it("announces preview loading", async () => {
+it("shows nothing for a quick load, then announces a slow one", async () => {
 	await open();
+	expect(body.querySelector('[role="status"]')).toBeNull();
+	await vi.advanceTimersByTimeAsync(400);
 	expect(body.querySelector('[role="status"]')?.textContent).toContain("Loading preview");
+});
+
+it("opens a preloaded section with its content already in place", async () => {
+	const { loadContentPreview } = await import("./preview");
+	const warm = loadContentPreview("/reading", new AbortController().signal);
+	respond(requests[0], "Warm reading preview");
+	await warm;
+	modal.open("Reading", "/reading");
+	// Synchronously, before any fade or fetch.
+	expect(body.textContent).toContain("Warm reading preview");
+	expect(requests).toHaveLength(1);
 });
 
 it("replaces a timed-out spinner with a retry and preserves the full-page link", async () => {

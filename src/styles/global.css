@@ -660,6 +660,59 @@ body:has(.content-page-main) {
 	max-width: 32rem;
 }
 
+@media (min-width: 36rem) and (max-width: 47.99rem) {
+	#content-modal-body > .guest-check {
+		max-width: min(40rem, 100%);
+	}
+}
+
+/* ── Things you pick up float over the room ──
+   The about card, the word of the day, the slop order and the photo board
+   are objects held up in front of the desk (or shelf), not places to go
+   into: the scene stays visible behind them, dimmed and softly blurred,
+   and the object sits centred. Clicking the room around it puts it down.
+   Whole places (the laptop, the notebook, the bookcase, the phone, a photo
+   album) keep the full-screen room. Keyed on the view's path (set by
+   modal/controller.ts) so it's right from the first frame, before the
+   content is in. */
+#content-modal:is(
+		[data-view="about"],
+		[data-view="word-of-the-day"],
+		[data-view="slop"],
+		[data-view="photos"]
+	)
+	.modal-backdrop {
+	background:
+		radial-gradient(ellipse 60% 50% at 50% 0%, rgba(255, 190, 120, 0.05), transparent 70%),
+		rgba(14, 12, 10, 0.5);
+	backdrop-filter: blur(3px);
+}
+
+#content-modal:is(
+		[data-view="about"],
+		[data-view="word-of-the-day"],
+		[data-view="slop"],
+		[data-view="photos"]
+	)
+	.modal-surface {
+	background: none;
+}
+
+#content-modal-body:has(> :is(.about-card, .wotd-page, .guest-check, .corkboard)) {
+	display: flex;
+	flex-direction: column;
+}
+
+/* The scene's hover label would show through behind the object. */
+body:has(#content-modal.pointer-events-auto) .desk-label {
+	visibility: hidden;
+}
+
+/* Auto margins centre a short object and still let a tall one scroll. */
+#content-modal-body > :is(.about-card, .wotd-page, .guest-check, .corkboard) {
+	margin-block: auto;
+}
+
 /* Outer container for content pages (add max-w-* inline) */
 .content-container {
 	@apply mx-auto px-4 sm:px-6 py-8 sm:py-16;

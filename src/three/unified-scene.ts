@@ -129,7 +129,8 @@ interface DeskSectionEntity {
 	kind: "section";
 	section: SiteSection;
 	root: Object3D;
-	hitboxPadding: number;
+	/** Omitted when the object adds its own, shaped hitbox. */
+	hitboxPadding?: number;
 	obstacleRadius?: number;
 	hoverScale?: boolean;
 	modalDelayMs: number;
@@ -259,6 +260,9 @@ export function initUnifiedScene(
 		spotlight?: SpotlightInfo;
 		onContextRestored?: () => void;
 		onSectionClick?: (label: string, href: string, source?: string) => void;
+		/** Fired the moment a section is clicked, before its animation: time
+		 *  to fetch what the view will show. */
+		onSectionIntent?: (href: string) => void;
 		onSectionClose?: (cb: () => void) => (() => void) | undefined;
 	},
 ): { cleanup: () => void; transition: (target: "desktop" | "mobile") => Promise<void> } {
@@ -603,6 +607,9 @@ export function initUnifiedScene(
 		// (the window balances the right), mouth open under a pipe out of the wall.
 		const slopGuy = createSlopGuy({ turn: 0.6 });
 		slopGuy.root.position.set(-4.4, -2, -1.7);
+		// Sized from him alone, not his pipe, which reaches toward the badge.
+		slopGuy.root.updateMatrixWorld(true);
+		addHitbox(slopGuy.root, 0.04, slopGuy.parts.seated);
 		greetingRoot.add(slopGuy.root);
 		roots.push(greetingRoot);
 
@@ -690,7 +697,6 @@ export function initUnifiedScene(
 				kind: "section",
 				section: getSectionById("slop"),
 				root: slopGuy.root,
-				hitboxPadding: 0.05,
 				hoverScale: true,
 				modalDelayMs: SLOP_FEED_MS,
 				open: () => animateSlopFeed(slopGuy),
@@ -793,12 +799,23 @@ export function initUnifiedScene(
 		};
 	}
 
+	/** The contact shadows of an item resting on a shelf (the leaning
+	 *  notebook's): hidden while it's out of its spot. */
+	function setRestShadows(target: Object3D, visible: boolean): void {
+		const shadows = target.userData.restShadows as Object3D[] | undefined;
+		for (const shadow of shadows ?? []) shadow.visible = visible;
+	}
+
 	function resetShelfSelection(): void {
 		if (!openSelection || openSelection.mode !== "mobile") return;
 		// The camera, badge and slop guy never leave their spots: nothing to put back.
 		const { source } = openSelection.entry;
 		if (source !== "camera" && source !== "badge" && source !== "slop") {
-			void animateShelfReset(openSelection.entry.item);
+			const { target } = openSelection.entry;
+			void animateShelfReset(openSelection.entry.item).then(() => {
+				setRestShadows(target, true);
+				dirty = true;
+			});
 		}
 		if (openSelection.entry.source === "phone") void animatePhoneSleep(openSelection.entry.item);
 	}
@@ -987,6 +1004,7 @@ export function initUnifiedScene(
 
 					if (pendingModalTimeout) window.clearTimeout(pendingModalTimeout);
 					const { label, href } = entity.section;
+					options?.onSectionIntent?.(href);
 					// Let the camera get most of the way there before the view fades in.
 					const revealDelay = prefersReducedMotion()
 						? entity.modalDelayMs
@@ -1086,6 +1104,8 @@ export function initUnifiedScene(
 				// The camera stays put and fires its flash; the phone glows its
 				// screen before falling; everything else just falls.
 				const isPhone = entry.source === "phone";
+				options?.onSectionIntent?.(entry.href ?? section.href);
+				setRestShadows(entry.target, false);
 				const presentChain =
 					entry.source === "camera"
 						? animateCameraFlash(entry.item)

@@ -434,7 +434,7 @@ export function createShelfWall(
 			const height = _clearanceBox.max.y - _clearanceBox.min.y;
 			const wallShade = new Mesh(
 				new PlaneGeometry(_clearanceBox.max.z - _clearanceBox.min.z + 0.2, height + 0.12),
-				contactShadowMaterial(0.85),
+				contactShadowMaterial(0.35),
 			);
 			wallShade.rotation.y = -Math.PI / 2;
 			wallShade.position.set(
@@ -444,6 +444,9 @@ export function createShelfWall(
 			);
 			wallShade.renderOrder = 1;
 			target.add(wallShade);
+			// Shadows of the item where it rests: hidden while it's off the
+			// shelf (see unified-scene's shelf selection).
+			target.userData.restShadows = [footprint, wallShade];
 		}
 		// Measure before the hitbox is added and before the target joins the
 		// scene (its world matrix is still identity), so the box is in target
@@ -575,7 +578,8 @@ export function createShelfWall(
 	// Faces into the room (-x), with his back to the shelf wall.
 	slopGuy.root.rotation.y = -Math.PI / 2;
 	slopTarget.add(slopGuy.root);
-	addHitbox(slopTarget, 0.05);
+	slopTarget.updateMatrixWorld(true);
+	addHitbox(slopTarget, 0.04, slopGuy.parts.seated);
 	wall.add(slopTarget);
 	entries.push({
 		sectionId: "slop",

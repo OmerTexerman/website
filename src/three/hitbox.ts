@@ -5,9 +5,11 @@ const _size = new Vector3();
 const _center = new Vector3();
 const _worldPos = new Vector3();
 
-/** Adds an invisible box mesh covering the group's bounding box + padding */
-export function addHitbox(group: Object3D, padding = 0.15): void {
-	_box.setFromObject(group);
+/** Adds an invisible box mesh covering the group's bounding box + padding.
+ *  `measure` sizes it from just part of the group (e.g. not a pipe that
+ *  reaches up toward a neighbour); the group must be unrotated. */
+export function addHitbox(group: Object3D, padding = 0.15, measure: Object3D = group): void {
+	_box.setFromObject(measure);
 
 	group.getWorldPosition(_worldPos);
 	_box.min.sub(_worldPos);

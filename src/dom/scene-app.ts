@@ -6,6 +6,7 @@ import {
 	type SpotlightInfo,
 } from "../content/types";
 import { getContentModal } from "../modal/api";
+import { loadContentPreview } from "../modal/preview";
 
 function onUnhandledRejection(event: PromiseRejectionEvent): void {
 	console.error("[scene] Unhandled promise rejection:", event.reason);
@@ -197,6 +198,13 @@ export function mountSceneApp(): () => void {
 							else if (gen === generation) window.location.href = href;
 						}, 50);
 					}
+				},
+				// Fetch the section while its object animates, so the view opens
+				// with its content in place. Nothing is fetched until clicked.
+				onSectionIntent: (href: string) => {
+					void loadContentPreview(href, new AbortController().signal).catch(() => {});
+					// The laptop's wallpaper is a CSS background the preview won't fetch.
+					if (href === "/projects") new Image().src = "/wallpaper.jpg";
 				},
 				onSectionClose: (cb: () => void) => {
 					const modal = getContentModal();

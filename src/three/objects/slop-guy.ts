@@ -47,6 +47,8 @@ const POUR_DROP = 0.42;
 export interface SlopGuyObject {
 	root: Group;
 	parts: {
+		/** Him, his chair and his sign: what his click box is sized from. */
+		seated: Group;
 		head: Group;
 		lips: Object3D;
 		/** The pour from the spout, scaled along y from 0 (off) to 1. */
@@ -405,7 +407,8 @@ export function createSlopGuy({
 	const mouth = parts.lips.getWorldPosition(new Vector3());
 	frame.worldToLocal(mouth);
 	const spout = mouth.clone().setY(mouth.y + POUR_DROP);
-	frame.add(createPipe(spout, wallZ));
+	const pipe = createPipe(spout, wallZ);
+	frame.add(pipe);
 
 	// The pour: a column from the spout to the mouth, shown when fed.
 	const streamDir = new Vector3().subVectors(mouth, spout);
@@ -448,11 +451,19 @@ export function createSlopGuy({
 	});
 	shadow.castShadow = false;
 	shadow.receiveShadow = false;
+	// Only he is clickable: the pipe reaches up toward whatever hangs on the
+	// wall above (the ID badge), and clicks there should go to that.
+	const ignoreClicks = () => {};
+	for (const part of [pipe, stream, drip, shadow]) {
+		part.traverse((child) => {
+			if (child instanceof Mesh) child.raycast = ignoreClicks;
+		});
+	}
 	// Moving bits: no stale shadows.
 	stream.castShadow = false;
 	drip.castShadow = false;
 
-	return { root, parts: { head, lips: parts.lips, stream, drip, spout, mouth } };
+	return { root, parts: { seated: body, head, lips: parts.lips, stream, drip, spout, mouth } };
 }
 
 const DRIP_PERIOD_S = 2.6;

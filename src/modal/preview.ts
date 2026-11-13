@@ -5,6 +5,11 @@ export type ContentPreviewResult =
 	| { kind: "message"; message: string };
 
 const previewCache = new Map<string, ContentPreviewResult>();
+/** A preview already loaded, if any: lets the modal open with its content
+ *  in place instead of a spinner. */
+export function peekContentPreview(href: string): ContentPreviewResult | undefined {
+	return previewCache.get(href);
+}
 
 export async function loadContentPreview(
 	href: string,
@@ -14,7 +19,6 @@ export async function loadContentPreview(
 	if (cached !== undefined) {
 		return cached;
 	}
-
 	const url = getSameOriginUrl(href);
 	if (!url) {
 		return { kind: "message", message: "External preview is blocked." };
