@@ -120,15 +120,11 @@ function createArmchair(): Group {
 
 function createHead(skin: MeshStandardMaterial): { head: Group; lips: Group } {
 	const head = new Group();
-	// A tall bald dome over heavy jowls.
-	const skull = new Mesh(new SphereGeometry(0.16, 28, 20), skin);
-	skull.scale.set(0.9, 1.15, 0.95);
-	skull.position.set(0, 0.18, 0);
+	// One big bald oval, from the crown down past the mouth.
+	const skull = new Mesh(new SphereGeometry(0.16, 32, 24), skin);
+	skull.scale.set(0.95, 1.4, 0.98);
+	skull.position.set(0, 0.13, 0);
 	head.add(skull);
-	const jowls = new Mesh(new SphereGeometry(0.13, 24, 16), skin);
-	jowls.scale.set(1.05, 0.85, 1);
-	jowls.position.set(0, 0.06, 0.02);
-	head.add(jowls);
 
 	// A fringe of dark hair round the back, below the bald dome.
 	const hair = new Mesh(new TorusGeometry(0.135, 0.03, 8, 20, Math.PI * 1.1), mat(HAIR, 0.95));
@@ -165,7 +161,7 @@ function createHead(skin: MeshStandardMaterial): { head: Group; lips: Group } {
 	nose.rotation.x = 0.35;
 	head.add(nose);
 
-	// The mouth, wide open: a dark oval ringed by lip, over a jutting chin.
+	// The mouth, wide open: a dark oval ringed by lip.
 	const lips = new Group();
 	lips.position.copy(LIPS);
 	const lipMat = mat("#c87a66", 0.5);
@@ -185,10 +181,6 @@ function createHead(skin: MeshStandardMaterial): { head: Group; lips: Group } {
 	ring.scale.set(1, 0.75, 1);
 	lips.add(ring);
 	head.add(lips);
-	const chin = new Mesh(new SphereGeometry(0.08, 18, 12), skin);
-	chin.scale.set(1.05, 0.75, 1);
-	chin.position.set(0, -0.06, 0.095);
-	head.add(chin);
 
 	return { head, lips };
 }
