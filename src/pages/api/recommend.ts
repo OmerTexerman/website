@@ -6,9 +6,8 @@ import { parseRecommendation, recommendationIssue } from "../../recs";
 
 /**
  * Takes a recommendation from the /slop form and files it as an issue in a
- * private inbox repo, where it waits to be accepted (see
- * ops/recs-inbox/README.md). Nothing a visitor sends reaches the site
- * until then.
+ * private inbox repo (OmerTexerman/recs-inbox, labelled `rec`). Nothing a
+ * visitor sends reaches the site; anything worth keeping is added by hand.
  *
  * Bots are kept out by Cloudflare Turnstile (verified here), a hidden field
  * people never fill in, and an Origin check.

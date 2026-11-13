@@ -3,10 +3,10 @@
  * the /slop page.
  *
  * The server route (pages/api/recommend.ts) validates a submission with
- * `parseRecommendation`, then files it as an issue in a private inbox repo
- * with `recommendationIssue`. Labelling that issue `accepted` runs the inbox
- * repo's workflow (ops/recs-inbox): a book is committed into
- * src/content/books, anything else is just closed.
+ * `parseRecommendation`, then files it as an issue in the private
+ * OmerTexerman/recs-inbox repo with `recommendationIssue`. Nothing reaches
+ * the site from there: books worth keeping are added by hand (Sveltia has a
+ * Recommended By field).
  */
 
 /** What kind of thing it is, and what to call its maker on the form. */
@@ -96,24 +96,17 @@ export function parseRecommendation(input: unknown): ParseResult {
 	return { ok: true, rec };
 }
 
-export const REC_JSON_START = "<!-- rec -->";
-
-/** The inbox issue: a readable title, and the submission as a JSON block the
- *  accept workflow parses. Everything the visitor typed stays inside the code
- *  block, so it can't @-mention anyone or inject markdown. */
+/** The inbox issue: a readable title, and the submission in a code block.
+ *  Everything the visitor typed stays inside it, so it can't @-mention anyone
+ *  or inject markdown. */
 export function recommendationIssue(rec: Recommendation): { title: string; body: string } {
 	const byline = rec.author ? ` by ${rec.author}` : "";
 	const title = `[${rec.kind}] ${rec.title}${byline}`.slice(0, 240);
 	// A backtick can't close the fence once it is a JSON escape.
 	const json = JSON.stringify(rec, null, 2).replace(/`/g, "\\u0060");
 	const body = [
-		`Someone fed you some slop (a ${REC_KINDS[rec.kind].label}) on the website.`,
+		`Someone fed you some slop (a ${REC_KINDS[rec.kind].label}) on the website. Close it once you've had a look.`,
 		"",
-		rec.kind === "book"
-			? "Add the `accepted` label to put it on the Want to Read shelf (edit the JSON first to fix anything). Close it to pass."
-			: "Close it once you've had a look.",
-		"",
-		REC_JSON_START,
 		"```json",
 		json,
 		"```",
