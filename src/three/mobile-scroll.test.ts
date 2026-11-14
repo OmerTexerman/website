@@ -150,4 +150,24 @@ describe("trackpad", () => {
 		expect(scroll.panByRow[2]).toBeCloseTo(-0.78, 4);
 		expect(scroll.verticalT).toBeCloseTo(HOME, 4);
 	});
+
+	it("turns straight round when the swipe reverses mid-momentum", () => {
+		const send = (dx: number): void => {
+			now += FRAME_MS;
+			vi.advanceTimersByTime(FRAME_MS);
+			scroll.onWheel(wheel(0, dx));
+			scroll.tick(FRAME_MS / 1000);
+		};
+		// Flick toward -0.78, then while its momentum is still arriving, push
+		// back the other way with no pause in between.
+		for (const dx of [6, 9, 12, 12, 11, 10, 9]) send(dx);
+		const back = [-5, -9, -12, -12, -11, -10, -9];
+		for (const dx of back) send(dx);
+		// Heading home again right away, not waiting for a quiet moment.
+		const turnedAt = scroll.panByRow[2];
+		send(-8);
+		expect(scroll.panByRow[2]).toBeGreaterThan(turnedAt);
+		for (let i = 0; i < 20; i++) send(-8 * 0.9 ** i);
+		expect(scroll.panByRow[2]).toBeCloseTo(0.3, 2);
+	});
 });

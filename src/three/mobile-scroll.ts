@@ -287,6 +287,11 @@ export function createMobileScrollController(
 	let trackpadRawPan = 0;
 	/** Sideways travel (px) of the current gesture, signed. */
 	let trackpadPanTravel = 0;
+	/** Where the row sat when the gesture began (possibly mid-glide). */
+	let trackpadPanStart = 0;
+	/** Axis and direction (sign of the raw delta) of the settled gesture. */
+	let trackpadSettledAxis: "v" | "h" | null = null;
+	let trackpadSettledSign = 0;
 	/** Fingers lifted and the gesture already snapped: swallow the momentum. */
 	let trackpadSettled = false;
 	let trackpadLastMagnitude = 0;
@@ -826,10 +831,19 @@ export function createMobileScrollController(
 		const magnitude = Math.hypot(rawY, rawX);
 		const previousMagnitude = trackpadLastMagnitude;
 		trackpadLastMagnitude = magnitude;
-		const newSwipe =
+		// Momentum never changes direction, so any push the other way after a
+		// settle is a new swipe: sliding back and forth must respond at once.
+		const settledDelta = trackpadSettledAxis === "h" ? rawX : rawY;
+		const reversed =
 			trackpadSettled &&
-			magnitude > TRACKPAD_NEW_SWIPE_MIN_PX &&
-			magnitude > previousMagnitude * TRACKPAD_NEW_SWIPE_RATIO;
+			trackpadSettledSign !== 0 &&
+			Math.abs(settledDelta) >= 1 &&
+			Math.sign(settledDelta) === -trackpadSettledSign;
+		const newSwipe =
+			reversed ||
+			(trackpadSettled &&
+				magnitude > TRACKPAD_NEW_SWIPE_MIN_PX &&
+				magnitude > previousMagnitude * TRACKPAD_NEW_SWIPE_RATIO);
 
 		if (quiet || newSwipe || !trackpadActive) {
 			// A new gesture takes over from wherever the shelf is right now,
@@ -849,7 +863,10 @@ export function createMobileScrollController(
 			trackpadRow = dragOriginStop;
 			trackpadRawV = getRawVertical();
 			trackpadRawPan = panByRow[trackpadRow];
+			trackpadPanStart = panByRow[trackpadRow];
 			trackpadPanTravel = 0;
+			trackpadSettledAxis = null;
+			trackpadSettledSign = 0;
 		}
 
 		armWheelSettle();
@@ -869,6 +886,8 @@ export function createMobileScrollController(
 			magnitude <= trackpadPeakMagnitude * TRACKPAD_MOMENTUM_PEAK_RATIO
 		) {
 			trackpadSettled = true;
+			trackpadSettledAxis = wheelAxisLock;
+			trackpadSettledSign = Math.sign(wheelAxisLock === "h" ? rawX : rawY);
 			return settleTrackpad(TRACKPAD_FLICK_COMMIT);
 		}
 
@@ -907,9 +926,15 @@ export function createMobileScrollController(
 		trackpadPanTravel += rawX;
 		if (Math.abs(trackpadPanTravel) >= TRACKPAD_PAN_COMMIT_PX) {
 			const dir = trackpadPanTravel > 0 ? -1 : 1;
-			const next = panSnapInDirection(trackpadRow, panOriginSnap[trackpadRow], dir);
+			// Measured from where the row was when this swipe began, so a
+			// reversal mid-glide heads back to the item it just left.
+			const next = panSnapInDirection(trackpadRow, trackpadPanStart, dir);
 			if (next !== null) {
 				trackpadSettled = true;
+				trackpadSettledAxis = "h";
+				trackpadSettledSign = Math.sign(trackpadPanTravel);
+				// A swipe that interrupted a row change finishes it too.
+				beginVerticalAnimation(nearestStopIndex(verticalT));
 				return beginPanAnimation(trackpadRow, next, trackpadVelocity);
 			}
 		}
