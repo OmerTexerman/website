@@ -90,8 +90,13 @@ const WHEEL_SETTLE_DELAY_MS = 100;
 // felt laggy: the shelf drifted, then locked in late.
 /** Quiet time (ms) that separates one gesture from the next. */
 const TRACKPAD_GESTURE_GAP_MS = 180;
-/** Travel (px) before a gesture picks its axis from the accumulated motion. */
-const TRACKPAD_AXIS_LOCK_PX = 6;
+/** Travel (px) before a gesture picks its axis from the accumulated motion,
+ *  and how much the main axis must outweigh the other. Swipes often start a
+ *  little crooked; deciding on the first few px read some as sideways. */
+const TRACKPAD_AXIS_LOCK_PX = 10;
+const TRACKPAD_AXIS_DOMINANCE = 1.5;
+/** Past this much travel (px), go with the larger axis regardless. */
+const TRACKPAD_AXIS_FORCE_PX = 30;
 /** Trackpad travel (px) that moves the shelf one row. */
 const TRACKPAD_ROW_PX = 400;
 /** Horizontal travel per px (pan units). */
@@ -295,6 +300,9 @@ export function createMobileScrollController(
 	/** Axis and direction (sign of the raw delta) of the settled gesture. */
 	let trackpadSettledAxis: "v" | "h" | null = null;
 	let trackpadSettledSign = 0;
+	/** The gesture's axis was mid-glide when it locked: let the glide run and
+	 *  only flip onward (or back) from where it's heading; don't follow. */
+	let trackpadChaining = false;
 	/** Fingers lifted and the gesture already snapped: swallow the momentum. */
 	let trackpadSettled = false;
 	let trackpadLastMagnitude = 0;
@@ -483,6 +491,7 @@ export function createMobileScrollController(
 		trackpadIgnored = false;
 		trackpadActive = false;
 		trackpadSettled = false;
+		trackpadChaining = false;
 		trackpadLastMagnitude = 0;
 		trackpadPeakMagnitude = 0;
 		trackpadDecayCount = 0;
@@ -661,7 +670,7 @@ export function createMobileScrollController(
 	function wheelGestureEnd(): void {
 		wheelAccumY = 0;
 		// A slow trackpad gesture can end without any momentum: snap now.
-		if (trackpadActive && !trackpadIgnored && !trackpadSettled) {
+		if (trackpadActive && !trackpadIgnored && !trackpadSettled && !trackpadChaining) {
 			// The fingers have been still for a beat, so the shelf was too.
 			trackpadVelocity = 0;
 			if (settleTrackpad(TRACKPAD_COMMIT)) inputDirty = true;
@@ -670,6 +679,7 @@ export function createMobileScrollController(
 		trackpadIgnored = false;
 		trackpadActive = false;
 		trackpadSettled = false;
+		trackpadChaining = false;
 	}
 
 	/** Glide to the nearest stop on the gesture's axis; a gesture that got
@@ -790,12 +800,6 @@ export function createMobileScrollController(
 		return navigateToLinearStop(nextIdx);
 	}
 
-	function hasHorizontalContent(): boolean {
-		const stopIdx = nearestStopIndex(verticalT);
-		const points = panSnapPoints[stopIdx];
-		return !!points && points.length > 1;
-	}
-
 	/** Index of the nearest vertical stop from `fromIndex` moving verticalT in `dir`. */
 	function verticalStopInDirection(fromIndex: number, dir: -1 | 1): number | null {
 		const from = verticalStops[fromIndex];
@@ -863,25 +867,20 @@ export function createMobileScrollController(
 				magnitude > previousMagnitude * TRACKPAD_NEW_SWIPE_RATIO);
 
 		if (quiet || newSwipe || !trackpadActive) {
-			// A new gesture takes over from wherever the shelf is right now,
-			// including mid-glide, so quick repeated swipes all register.
+			// A new gesture. Glides already under way keep going: the gesture
+			// only takes over an axis once it has picked one (below). Stopping
+			// everything here froze half-finished row changes, which then
+			// snapped back to the row just left.
 			trackpadActive = true;
 			trackpadIgnored = false;
 			trackpadSettled = false;
+			trackpadChaining = false;
 			trackpadDecayCount = 0;
 			trackpadPeakMagnitude = 0;
 			trackpadVelocity = 0;
 			trackpadLockX = 0;
 			trackpadLockY = 0;
 			wheelAxisLock = null;
-			state = State.IDLE;
-			stopAllAnimations();
-			captureOrigins();
-			trackpadRow = dragOriginStop;
-			trackpadRawV = getRawVertical();
-			trackpadRawPan = panByRow[trackpadRow];
-			trackpadPanStart = panByRow[trackpadRow];
-			trackpadVStart = verticalT;
 			trackpadVTravel = 0;
 			trackpadPanTravel = 0;
 			trackpadSettledAxis = null;
@@ -901,6 +900,7 @@ export function createMobileScrollController(
 		trackpadDecayCount = decaying ? trackpadDecayCount + 1 : 0;
 		if (
 			wheelAxisLock &&
+			!trackpadChaining &&
 			trackpadDecayCount >= TRACKPAD_MOMENTUM_EVENTS &&
 			magnitude <= trackpadPeakMagnitude * TRACKPAD_MOMENTUM_PEAK_RATIO
 		) {
@@ -915,15 +915,36 @@ export function createMobileScrollController(
 		if (!wheelAxisLock) {
 			trackpadLockX += rawX;
 			trackpadLockY += rawY;
-			if (Math.hypot(trackpadLockX, trackpadLockY) < TRACKPAD_AXIS_LOCK_PX) return false;
-			const horizontal = Math.abs(trackpadLockX) > Math.abs(trackpadLockY);
+			const travel = Math.hypot(trackpadLockX, trackpadLockY);
+			if (travel < TRACKPAD_AXIS_LOCK_PX) return false;
+			const ax = Math.abs(trackpadLockX);
+			const ay = Math.abs(trackpadLockY);
+			const clear =
+				Math.max(ax, ay) >= Math.min(ax, ay) * TRACKPAD_AXIS_DOMINANCE ||
+				travel >= TRACKPAD_AXIS_FORCE_PX;
+			if (!clear) return false;
+			const horizontal = ax > ay;
+			// Where the shelf is heading if it's mid-glide, else where it is.
+			const baseV = state === State.ANIMATING ? animTargetT : verticalT;
+			trackpadRow = nearestStopIndex(baseV);
+			const rowPoints = panSnapPoints[trackpadRow];
 			// A sideways swipe on a row with nothing to pan to is ignored rather
 			// than reinterpreted as vertical.
-			if (horizontal && !hasHorizontalContent()) {
+			if (horizontal && !(rowPoints && rowPoints.length > 1)) {
 				trackpadIgnored = true;
 				return false;
 			}
 			wheelAxisLock = horizontal ? "h" : "v";
+			if (horizontal) {
+				trackpadChaining = panAnimating[trackpadRow];
+				trackpadPanStart = trackpadChaining ? panAnimTarget[trackpadRow] : panByRow[trackpadRow];
+				trackpadRawPan = panByRow[trackpadRow];
+			} else {
+				trackpadChaining = state === State.ANIMATING;
+				trackpadVStart = baseV;
+				trackpadRawV = getRawVertical();
+			}
+			if (!trackpadChaining) captureOrigins();
 			// Count the travel that went into deciding.
 			rawX = trackpadLockX;
 			rawY = trackpadLockY;
@@ -946,15 +967,15 @@ export function createMobileScrollController(
 					trackpadSettled = true;
 					trackpadSettledAxis = "v";
 					trackpadSettledSign = Math.sign(trackpadVTravel);
-					// A swipe that interrupted a sideways glide finishes it too.
-					const points = panSnapPoints[trackpadRow];
-					if (points && points.length > 0) {
-						beginPanAnimation(trackpadRow, nearestSnapPoint(panByRow[trackpadRow], points));
+					if (trackpadChaining && state === State.ANIMATING) {
+						// Redirect the glide, keeping its current speed.
+						animTargetT = verticalStops[next];
+						return true;
 					}
 					return beginVerticalAnimation(next, trackpadVelocity);
 				}
 			}
-			return setVerticalWithRubberBand(trackpadRawV);
+			return trackpadChaining ? false : setVerticalWithRubberBand(trackpadRawV);
 		}
 		trackpadRawPan += delta;
 		trackpadPanTravel += rawX;
@@ -967,12 +988,14 @@ export function createMobileScrollController(
 				trackpadSettled = true;
 				trackpadSettledAxis = "h";
 				trackpadSettledSign = Math.sign(trackpadPanTravel);
-				// A swipe that interrupted a row change finishes it too.
-				beginVerticalAnimation(nearestStopIndex(verticalT));
+				if (trackpadChaining && panAnimating[trackpadRow]) {
+					panAnimTarget[trackpadRow] = next;
+					return true;
+				}
 				return beginPanAnimation(trackpadRow, next, trackpadVelocity);
 			}
 		}
-		return setPanWithRubberBand(trackpadRow, trackpadRawPan);
+		return trackpadChaining ? false : setPanWithRubberBand(trackpadRow, trackpadRawPan);
 	}
 
 	/** Follow a sideways swipe, easing into a short pull past the row's ends. */

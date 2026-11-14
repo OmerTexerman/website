@@ -172,4 +172,45 @@ describe("trackpad", () => {
 		for (let i = 0; i < 20; i++) send(-8 * 0.9 ** i);
 		expect(scroll.panByRow[2]).toBeCloseTo(0.3, 2);
 	});
+
+	describe("gestures that start while the shelf is moving or crooked", () => {
+		const send = (dy: number, dx = 0): void => {
+			now += FRAME_MS;
+			vi.advanceTimersByTime(FRAME_MS);
+			scroll.onWheel(wheel(dy, dx));
+			scroll.tick(FRAME_MS / 1000);
+		};
+		const pause = (ms: number): void => {
+			for (let t = 0; t < ms; t += FRAME_MS) frame();
+			vi.advanceTimersByTime(ms);
+		};
+
+		it("reads a crooked vertical swipe as vertical", () => {
+			// Starts drifting sideways before the real upward motion.
+			send(1, 4);
+			send(3, 3);
+			for (let i = 0; i < 6; i++) send(12, 1);
+			settle();
+			expect(scroll.verticalT).toBeCloseTo(STOPS[1], 4);
+			expect(scroll.panByRow[2]).toBe(0);
+		});
+
+		it("finishes a row change when a sideways swipe interrupts it", () => {
+			for (const dy of [8, 12, 12]) send(dy);
+			// Right away, early in the glide: a fresh, much stronger push.
+			for (let i = 0; i < 6; i++) send(0, 40);
+			settle();
+			// Used to freeze the glide and snap back to the row it left.
+			expect(scroll.verticalT).toBeCloseTo(STOPS[1], 4);
+			expect(scroll.panByRow[1]).toBeCloseTo(-0.65, 4);
+		});
+
+		it("chains a second swipe on from where the first is heading", () => {
+			for (const dy of [8, 12, 12]) send(dy);
+			pause(200);
+			for (const dy of [8, 12, 12]) send(dy);
+			settle();
+			expect(scroll.verticalT).toBeCloseTo(STOPS[0], 4);
+		});
+	});
 });
