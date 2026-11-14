@@ -115,12 +115,13 @@ const TRACKPAD_MOMENTUM_DECAY = 0.97;
  *  one (and at least TRACKPAD_NEW_SWIPE_MIN_PX) is a fresh swipe. */
 const TRACKPAD_NEW_SWIPE_RATIO = 2.5;
 const TRACKPAD_NEW_SWIPE_MIN_PX = 15;
-/** Sideways swipes flip between items like pages: once a swipe has
- *  travelled this far (px) toward a neighbouring item, it glides there
- *  straight away and the rest of the swipe, momentum included, is ignored.
- *  Following the momentum and settling afterwards overshot, hung, then
- *  crept back. */
-const TRACKPAD_PAN_COMMIT_PX = 24;
+/** Swipes flip between items and rows like pages: once a swipe has
+ *  travelled this far (px) toward a neighbour, it glides there straight
+ *  away and the rest of the swipe, momentum included, is ignored. One swipe
+ *  is one step however fast it is. Following the fingers instead let quick
+ *  swipes fly past several rows, and settling after the momentum overshot,
+ *  hung, then crept back. */
+const TRACKPAD_FLIP_PX = 24;
 /** Max overshoot (pan units) when swiping past the end of a row. */
 const TRACKPAD_PAN_EDGE = 0.08;
 /** Finger travel (px) that moves the shelf one row. Set per row, not per
@@ -289,6 +290,8 @@ export function createMobileScrollController(
 	let trackpadPanTravel = 0;
 	/** Where the row sat when the gesture began (possibly mid-glide). */
 	let trackpadPanStart = 0;
+	let trackpadVTravel = 0;
+	let trackpadVStart = 0;
 	/** Axis and direction (sign of the raw delta) of the settled gesture. */
 	let trackpadSettledAxis: "v" | "h" | null = null;
 	let trackpadSettledSign = 0;
@@ -808,6 +811,20 @@ export function createMobileScrollController(
 		return best;
 	}
 
+	/** Index of the nearest stop beyond the position `from` in `dir`. */
+	function verticalStopFrom(from: number, dir: -1 | 1): number | null {
+		let best: number | null = null;
+		let bestDist = Number.POSITIVE_INFINITY;
+		for (let i = 0; i < verticalStops.length; i++) {
+			const dist = (verticalStops[i] - from) * dir;
+			if (dist > 0.0001 && dist < bestDist) {
+				best = i;
+				bestDist = dist;
+			}
+		}
+		return best;
+	}
+
 	/** Nearest pan snap point from `from` in `dir` on `row`, if any. */
 	function panSnapInDirection(row: number, from: number, dir: -1 | 1): number | null {
 		const points = panSnapPoints[row];
@@ -864,6 +881,8 @@ export function createMobileScrollController(
 			trackpadRawV = getRawVertical();
 			trackpadRawPan = panByRow[trackpadRow];
 			trackpadPanStart = panByRow[trackpadRow];
+			trackpadVStart = verticalT;
+			trackpadVTravel = 0;
 			trackpadPanTravel = 0;
 			trackpadSettledAxis = null;
 			trackpadSettledSign = 0;
@@ -920,11 +939,26 @@ export function createMobileScrollController(
 		}
 		if (wheelAxisLock === "v") {
 			trackpadRawV += delta;
+			trackpadVTravel += rawY;
+			if (Math.abs(trackpadVTravel) >= TRACKPAD_FLIP_PX) {
+				const next = verticalStopFrom(trackpadVStart, trackpadVTravel > 0 ? -1 : 1);
+				if (next !== null) {
+					trackpadSettled = true;
+					trackpadSettledAxis = "v";
+					trackpadSettledSign = Math.sign(trackpadVTravel);
+					// A swipe that interrupted a sideways glide finishes it too.
+					const points = panSnapPoints[trackpadRow];
+					if (points && points.length > 0) {
+						beginPanAnimation(trackpadRow, nearestSnapPoint(panByRow[trackpadRow], points));
+					}
+					return beginVerticalAnimation(next, trackpadVelocity);
+				}
+			}
 			return setVerticalWithRubberBand(trackpadRawV);
 		}
 		trackpadRawPan += delta;
 		trackpadPanTravel += rawX;
-		if (Math.abs(trackpadPanTravel) >= TRACKPAD_PAN_COMMIT_PX) {
+		if (Math.abs(trackpadPanTravel) >= TRACKPAD_FLIP_PX) {
 			const dir = trackpadPanTravel > 0 ? -1 : 1;
 			// Measured from where the row was when this swipe began, so a
 			// reversal mid-glide heads back to the item it just left.

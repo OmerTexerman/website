@@ -106,12 +106,14 @@ describe("trackpad", () => {
 		}
 	}
 
-	it("keeps following a slow swipe whose deltas wobble", () => {
-		// Fingers moving unevenly: several shrinking deltas in a row, but
-		// nowhere near momentum. This used to snap the shelf mid-swipe.
-		swipe([-6, -8, -7.5, -7, -6.5, -6, -7.5, -8, -7, -6.5, -6]);
-		const total = 6 + 8 + 7.5 + 7 + 6.5 + 6 + 7.5 + 8 + 7 + 6.5 + 6;
-		expect(scroll.verticalT).toBeCloseTo(HOME + total / 400 / 3, 4);
+	it("moves one row per swipe, however fast", () => {
+		// A hard swipe: big deltas, then a long momentum tail. Followed 1:1
+		// this would travel ~1300px, over three rows.
+		const fingers = Array.from({ length: 8 }, () => 60);
+		const momentum = Array.from({ length: 40 }, (_, i) => 60 * 0.93 ** (i + 1));
+		swipe([...fingers, ...momentum]);
+		settle();
+		expect(scroll.verticalT).toBeCloseTo(STOPS[1], 4);
 	});
 
 	it("snaps to the next row once momentum starts, without reversing", () => {
