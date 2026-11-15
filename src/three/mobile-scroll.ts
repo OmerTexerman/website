@@ -59,8 +59,8 @@ export interface MobileScrollController {
 
 /** Finger or trackpad travel (px) per step: one shelf, or one item. */
 const PX_PER_STEP = {
-	touch: { v: 260, h: 330 },
-	trackpad: { v: 400, h: 300 },
+	touch: { v: 340, h: 400 },
+	trackpad: { v: 550, h: 300 },
 } as const;
 /** Travel (px) before a gesture picks its axis, how much the main axis must
  *  outweigh the other, and the travel past which the larger axis wins. */
@@ -70,16 +70,33 @@ const LOCK_FORCE_PX = 30;
 /** How far ahead (s at release speed) a release projects its resting
  *  point. Apple's projection v·λ/(1−λ) gives 0.1 s for UIScrollView's
  *  "fast" deceleration and 0.5 s for "normal"; paging wants the former's
- *  crispness with a little more reach. */
-const PROJECTION_S = 0.2;
+ *  crispness with a little more reach. Trackpads report brisker speeds
+ *  than fingers, so they project less. */
+const PROJECTION_S = { touch: 0.2, trackpad: 0.15 } as const;
 /** Speed (steps/s) at which a gesture may travel two steps, not one. */
 const LONG_SWIPE_SPEED = { touch: 6, trackpad: 8 } as const;
 /** Window (ms) for measuring gesture speed. */
 const VELOCITY_WINDOW_MS = 100;
 /** Max overscroll past the first or last point, as a share of a step. */
 const EDGE_STRETCH = 0.15;
-/** Settle spring: critically damped (never wobbles), ~0.3 s to rest. */
-const SPRING_OMEGA = 22;
+/** Settle spring, in SwiftUI's terms: a 0.4 s response with a little
+ *  bounce (damping ratio 0.7), so it overshoots a few percent and settles
+ *  back, which reads as fluid rather than mechanical. */
+const SPRING_OMEGA = (2 * Math.PI) / 0.4;
+const SPRING_DAMPING = 0.7;
+const SPRING_DAMPED_OMEGA = SPRING_OMEGA * Math.sqrt(1 - SPRING_DAMPING ** 2);
+/** A spring launched from its target at speed v peaks this × v/ω away. */
+const SPRING_PEAK = (() => {
+	const t = Math.atan2(SPRING_DAMPED_OMEGA, SPRING_DAMPING * SPRING_OMEGA) / SPRING_DAMPED_OMEGA;
+	return (
+		(SPRING_OMEGA / SPRING_DAMPED_OMEGA) *
+		Math.exp(-SPRING_DAMPING * SPRING_OMEGA * t) *
+		Math.sin(SPRING_DAMPED_OMEGA * t)
+	);
+})();
+/** Furthest (share of a step) a spring may carry on outward before coming
+ *  back, as when a swipe hits the end of a row and bounces off it. */
+const BOUNCE = 0.08;
 
 const TAP_PX = 10;
 
@@ -124,8 +141,9 @@ function prefersReducedMotion(): boolean {
 	);
 }
 
-/** Spring to `target`, starting at `velocity`. Speed is capped so a
- *  critically damped spring can't overshoot the target. */
+/** Spring to `target`, starting at `velocity`. Speed is capped so the
+ *  spring only ever overshoots a little: toward the target, to what it can
+ *  absorb; away from it (a swipe into the end of a row), to a short bounce. */
 function springTo(track: Track, target: number, velocity = 0): boolean {
 	const distance = Math.abs(target - track.pos);
 	if (prefersReducedMotion() || (distance < 1e-4 && Math.abs(velocity) < 1e-3)) {
@@ -134,20 +152,27 @@ function springTo(track: Track, target: number, velocity = 0): boolean {
 		track.velocity = 0;
 		return distance >= 1e-4;
 	}
-	const cap = SPRING_OMEGA * distance;
+	const toward = SPRING_OMEGA * distance;
+	const away = (BOUNCE * track.step * SPRING_OMEGA) / SPRING_PEAK;
+	const [min, max] = target >= track.pos ? [-away, toward] : [-toward, away];
 	track.target = target;
-	track.velocity = clamp(velocity, -cap, cap);
+	track.velocity = clamp(velocity, min, max);
 	return true;
 }
 
-/** Advance a track's spring by `dt` seconds (exact critically damped step). */
+/** Advance a track's spring by `dt` seconds (exact underdamped step). */
 function stepTrack(track: Track, dt: number): boolean {
 	if (track.target === null) return false;
-	const offset = track.pos - track.target;
-	const c = track.velocity + SPRING_OMEGA * offset;
-	const decay = Math.exp(-SPRING_OMEGA * dt);
-	track.pos = track.target + (offset + c * dt) * decay;
-	track.velocity = (c - SPRING_OMEGA * (offset + c * dt)) * decay;
+	const a = track.pos - track.target;
+	const b = (track.velocity + SPRING_DAMPING * SPRING_OMEGA * a) / SPRING_DAMPED_OMEGA;
+	const decay = Math.exp(-SPRING_DAMPING * SPRING_OMEGA * dt);
+	const cos = Math.cos(SPRING_DAMPED_OMEGA * dt);
+	const sin = Math.sin(SPRING_DAMPED_OMEGA * dt);
+	track.pos = track.target + decay * (a * cos + b * sin);
+	track.velocity =
+		decay *
+		((SPRING_DAMPED_OMEGA * b - SPRING_DAMPING * SPRING_OMEGA * a) * cos -
+			(SPRING_DAMPED_OMEGA * a + SPRING_DAMPING * SPRING_OMEGA * b) * sin);
 	if (Math.abs(track.pos - track.target) < 2e-4 && Math.abs(track.velocity) < 5e-3) {
 		track.pos = track.target;
 		track.target = null;
@@ -165,6 +190,8 @@ interface Gesture {
 	axis: "v" | "h" | null;
 	/** Sideways on a shelf with nothing to pan to: sit it out. */
 	ignored: boolean;
+	/** Pushed past the first or last point. */
+	overscrolled: boolean;
 	/** Travel (px) gathered before picking an axis. */
 	lockX: number;
 	lockY: number;
@@ -186,6 +213,7 @@ function newGesture(source: Source): Gesture {
 		source,
 		axis: null,
 		ignored: false,
+		overscrolled: false,
 		lockX: 0,
 		lockY: 0,
 		track: null,
@@ -322,7 +350,10 @@ export function createMobileScrollController(
 					? last + ease(g.raw - last)
 					: g.raw;
 
-		g.samples.push({ t: now, pos: g.raw });
+		g.overscrolled = g.raw < first || g.raw > last;
+		// Speed is measured from where the view is, not how far the input has
+		// pushed: past an end the view barely moves however hard it's pushed.
+		g.samples.push({ t: now, pos });
 		while (g.samples.length > 2 && g.samples[0].t < now - VELOCITY_WINDOW_MS) g.samples.shift();
 		if (Math.abs(gestureVelocity(g)) / track.step > LONG_SWIPE_SPEED[g.source]) setRange(g, 2);
 
@@ -364,7 +395,7 @@ export function createMobileScrollController(
 		const track = g.track;
 		if (!track || !g.axis) return false;
 		const velocity = gestureVelocity(g);
-		const index = nearestIndex(track.points, track.pos + velocity * PROJECTION_S);
+		const index = nearestIndex(track.points, track.pos + velocity * PROJECTION_S[g.source]);
 		return springTo(track, clamp(track.points[index], g.min, g.max), velocity);
 	}
 
@@ -451,6 +482,12 @@ export function createMobileScrollController(
 			return;
 		}
 		if (feed(g, dx, dy, performance.now())) wheelChanged = markChanged();
+		// Past the end of a row there's nothing to hold on a trackpad: bounce
+		// straight back rather than sit stretched while momentum pushes.
+		if (g.overscrolled && g.axis) {
+			coasting = { axis: g.axis, sign: Math.sign(g.axis === "v" ? dy : dx) };
+			if (endGesture()) wheelChanged = markChanged();
+		}
 	}
 
 	function onTrackpad(e: WheelEvent): boolean {

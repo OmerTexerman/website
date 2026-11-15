@@ -94,8 +94,8 @@ beforeEach(() => {
 });
 
 describe("touch", () => {
-	it("follows the finger 1:1, a shelf per 260px", () => {
-		drag(130, 1000, false); // finger down: the view moves down the shelves
+	it("follows the finger 1:1, a shelf per 340px", () => {
+		drag(170, 1000, false); // finger down: the view moves down the shelves
 		expect(scroll.verticalT).toBeCloseTo(HOME - ROW / 2, 4);
 	});
 
@@ -136,15 +136,15 @@ describe("touch", () => {
 });
 
 describe("trackpad", () => {
-	it("follows the fingers 1:1, a shelf per 400px", () => {
-		swipe(Array.from({ length: 10 }, () => 10));
+	it("follows the fingers 1:1, a shelf per 550px", () => {
+		swipe(Array.from({ length: 11 }, () => 12.5));
 		expect(scroll.verticalT).toBeCloseTo(HOME - ROW / 4, 4);
 	});
 
-	it("moves one shelf per ordinary swipe, never past it", () => {
+	it("moves one shelf per ordinary swipe, bouncing only slightly past it", () => {
 		for (const d of flick(25, 10)) {
 			swipe([d]);
-			expect(scroll.verticalT).toBeGreaterThanOrEqual(STOPS[1] - 1e-6);
+			expect(scroll.verticalT).toBeGreaterThanOrEqual(STOPS[1] - ROW * 0.1);
 		}
 		settle();
 		expect(scroll.verticalT).toBeCloseTo(STOPS[1], 4);
@@ -164,9 +164,9 @@ describe("trackpad", () => {
 	});
 
 	it("treats Chrome's finger-up event as the fingers lifting", () => {
-		swipe([10, 12, 14, 14, 14, 14]);
+		swipe([14, 18, 22, 22, 22, 22]);
 		// Chrome on Windows sends a zero delta with deltaX = -0 on lift.
-		swipe([[0, -0], 13, 12, 11, 10, 9, 8]);
+		swipe([[0, -0], 20, 18, 16, 14, 12, 10]);
 		settle();
 		expect(scroll.verticalT).toBeCloseTo(STOPS[1], 4);
 	});
@@ -184,23 +184,23 @@ describe("trackpad", () => {
 	});
 
 	it("moves on from a quick, short swipe", () => {
-		swipe(flick(20, 4, 0.8));
+		swipe(flick(25, 5, 0.8));
 		settle();
 		expect(scroll.verticalT).toBeCloseTo(STOPS[1], 4);
 	});
 
 	it("reads a crooked vertical swipe as vertical", () => {
-		swipe([[1, 4], [3, 3], ...flick(15, 6).map((d): Delta => [d, 1])]);
+		swipe([[1, 4], [3, 3], ...flick(20, 8).map((d): Delta => [d, 1])]);
 		settle();
 		expect(scroll.verticalT).toBeCloseTo(STOPS[1], 4);
 		expect(scroll.panByRow[2]).toBe(0);
 	});
 
-	it("flips sideways to the next item without overshooting", () => {
+	it("flips sideways to the next item, bouncing only slightly past it", () => {
 		// The home shelf's items sit at -0.78 and 0.3.
 		for (const d of sideways(flick(15, 8))) {
 			swipe([d]);
-			expect(scroll.panByRow[2]).toBeGreaterThanOrEqual(-0.78 - 1e-6);
+			expect(scroll.panByRow[2]).toBeGreaterThanOrEqual(-0.78 - 0.1);
 		}
 		settle();
 		expect(scroll.panByRow[2]).toBeCloseTo(-0.78, 4);
@@ -233,6 +233,39 @@ describe("trackpad", () => {
 		settle();
 		expect(scroll.verticalT).toBeCloseTo(STOPS[1], 4);
 		expect(scroll.panByRow[1]).toBeCloseTo(-0.65, 4);
+	});
+
+	it("bounces off the end of a row instead of holding there", () => {
+		swipe(sideways(flick(15, 8)));
+		settle();
+		expect(scroll.panByRow[2]).toBeCloseTo(-0.78, 4);
+		// Swipe on past the leftmost item, momentum and all.
+		let furthest = 0;
+		let backAt = -1;
+		const deltas = sideways(flick(15, 8));
+		for (let i = 0; i < deltas.length + 40; i++) {
+			if (i < deltas.length) swipe([deltas[i]]);
+			else frame();
+			const over = -0.78 - scroll.panByRow[2];
+			furthest = Math.max(furthest, over);
+			if (backAt < 0 && i > 3 && Math.abs(over) < 0.005) backAt = i;
+		}
+		expect(furthest).toBeGreaterThan(0); // it does give a little
+		expect(furthest).toBeLessThan(0.16);
+		// Back on the item within ~0.35 s, mid-momentum, not after it.
+		expect(backAt).toBeGreaterThan(0);
+		expect(backAt * FRAME_MS).toBeLessThan(350);
+	});
+
+	it("springs back promptly from a touch pulled past the end", () => {
+		scroll.resetTo(STOPS[3]);
+		drag(-200, 300); // pull past the top shelf, then let go
+		let frames = 0;
+		while (Math.abs(scroll.verticalT - STOPS[3]) > 0.002 && frames < 100) {
+			frame();
+			frames++;
+		}
+		expect(frames * FRAME_MS).toBeLessThan(350);
 	});
 
 	it("ignores sideways swipes on a shelf with nothing beside it", () => {
