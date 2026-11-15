@@ -9,15 +9,17 @@
  *  - It then follows the fingers 1:1, but only as far as the snap points
  *    next to where it began, so it "locks on" instead of flying past several
  *    shelves. A fast swipe widens that to two snap points either way.
- *  - On release it springs to a snap point picked from where it is and how
- *    fast it was flicked, starting at the gesture's own speed so the
- *    hand-off is seamless.
+ *  - On release it springs to the snap point nearest where the motion would
+ *    have come to rest (Apple's "projection", from Designing Fluid
+ *    Interfaces), starting at the gesture's own speed so the hand-off is
+ *    seamless.
  *
  * Touch and trackpad drive the same gesture model; they differ only in how
- * a gesture begins and ends. Browsers don't say when fingers leave a
- * trackpad, so a trackpad gesture ends when its momentum tail has faded or
- * the events stop. Mouse wheels step one item per notch.
+ * a gesture ends. Browsers don't say when fingers leave a trackpad, so the
+ * wheel-gestures library (behind Embla carousel's trackpad support) spots
+ * it from the momentum that follows. Mouse wheels step one item per notch.
  */
+import { type WheelEventState, WheelGestures } from "wheel-gestures";
 import { clamp } from "./math-utils";
 
 export interface MobileScrollConfig {
@@ -65,12 +67,13 @@ const PX_PER_STEP = {
 const LOCK_PX = 10;
 const LOCK_DOMINANCE = 1.5;
 const LOCK_FORCE_PX = 30;
-/** Release speed (steps/s) that counts as a flick toward the next point. */
-const FLICK_SPEED = { touch: 1.2, trackpad: 2.5 } as const;
-/** Peak speed (steps/s) at which a gesture may travel two steps, not one. */
+/** How far ahead (s at release speed) a release projects its resting
+ *  point. Apple's projection v·λ/(1−λ) gives 0.1 s for UIScrollView's
+ *  "fast" deceleration and 0.5 s for "normal"; paging wants the former's
+ *  crispness with a little more reach. */
+const PROJECTION_S = 0.2;
+/** Speed (steps/s) at which a gesture may travel two steps, not one. */
 const LONG_SWIPE_SPEED = { touch: 6, trackpad: 8 } as const;
-/** A trackpad flick moves on only if it got this share of a step. */
-const TRACKPAD_FLICK_MIN_TRAVEL = 0.2;
 /** Window (ms) for measuring gesture speed. */
 const VELOCITY_WINDOW_MS = 100;
 /** Max overscroll past the first or last point, as a share of a step. */
@@ -79,18 +82,6 @@ const EDGE_STRETCH = 0.15;
 const SPRING_OMEGA = 22;
 
 const TAP_PX = 10;
-
-/** A trackpad gesture ends after this long without events... */
-const TRACKPAD_QUIET_MS = 150;
-/** ...or once its momentum tail has faded below this delta (px), having
- *  peaked above TRACKPAD_TAIL_MIN_PEAK and dropped under a quarter of it. */
-const TRACKPAD_TAIL_PX = 1.5;
-const TRACKPAD_TAIL_MIN_PEAK = 6;
-/** After a gesture ends, the rest of its momentum is ignored unless a delta
- *  reverses direction or jumps this much (and at least _MIN px): that's a new
- *  swipe. Momentum only ever fades, in one direction. */
-const TRACKPAD_NEW_SWIPE_RATIO = 2.5;
-const TRACKPAD_NEW_SWIPE_MIN_PX = 3;
 
 const WHEEL_LINE_PX = 16;
 const WHEEL_STEP_PX = 40;
@@ -125,18 +116,6 @@ function nearestIndex(points: readonly number[], value: number): number {
 /** The point a track is headed for: its spring target, else its position. */
 function restingIndex(track: Track): number {
 	return nearestIndex(track.points, track.target ?? track.pos);
-}
-
-/** Index of the first point strictly beyond `value` in `dir`, if any. */
-function indexBeyond(points: readonly number[], value: number, dir: number): number | null {
-	if (dir > 0) {
-		const i = points.findIndex((p) => p > value + 1e-4);
-		return i === -1 ? null : i;
-	}
-	for (let i = points.length - 1; i >= 0; i--) {
-		if (points[i] < value - 1e-4) return i;
-	}
-	return null;
 }
 
 function prefersReducedMotion(): boolean {
@@ -200,8 +179,6 @@ interface Gesture {
 	scale: number;
 	/** Recent (time, position) samples for measuring speed. */
 	samples: { t: number; pos: number }[];
-	/** Fastest the gesture has moved, in steps/s. */
-	peakSpeed: number;
 }
 
 function newGesture(source: Source): Gesture {
@@ -218,7 +195,6 @@ function newGesture(source: Source): Gesture {
 		raw: 0,
 		scale: 0,
 		samples: [],
-		peakSpeed: 0,
 	};
 }
 
@@ -286,12 +262,11 @@ export function createMobileScrollController(
 	let pendingTap: { clientX: number; clientY: number } | null = null;
 
 	// Trackpad
-	let lastWheelAt = Number.NEGATIVE_INFINITY;
-	let lastMagnitude = 0;
-	let peakMagnitude = 0;
-	let wheelEndTimer = 0;
-	/** The gesture ended but its momentum is still arriving. */
-	let swallowing: { axis: "v" | "h"; sign: number } | null = null;
+	let wheelGestures = createWheelGestures();
+	/** Momentum still arriving from a released gesture: ignored, unless it
+	 *  turns round, which momentum never does, so that's a new swipe. */
+	let coasting: { axis: "v" | "h"; sign: number } | null = null;
+	let wheelChanged = false;
 
 	// Mouse wheel
 	let wheelAccum = 0;
@@ -349,9 +324,7 @@ export function createMobileScrollController(
 
 		g.samples.push({ t: now, pos: g.raw });
 		while (g.samples.length > 2 && g.samples[0].t < now - VELOCITY_WINDOW_MS) g.samples.shift();
-		const speed = Math.abs(gestureVelocity(g)) / track.step;
-		g.peakSpeed = Math.max(g.peakSpeed, speed);
-		if (speed > LONG_SWIPE_SPEED[g.source]) setRange(g, 2);
+		if (Math.abs(gestureVelocity(g)) / track.step > LONG_SWIPE_SPEED[g.source]) setRange(g, 2);
 
 		const moved = Math.abs(pos - track.pos) > 1e-5;
 		track.pos = pos;
@@ -385,30 +358,13 @@ export function createMobileScrollController(
 		g.max = points[Math.min(points.length - 1, g.baseIndex + steps)];
 	}
 
-	/** Spring the gesture's track to a snap point: the nearest one, or the
-	 *  next one along if the gesture was flicked. A touch flick is judged by
-	 *  release speed; a trackpad's "release" is the end of its momentum, so
-	 *  it's judged by peak speed and how far it got. */
+	/** Spring to the snap point nearest where the motion would come to
+	 *  rest, within the gesture's range, starting at its speed. */
 	function release(g: Gesture): boolean {
 		const track = g.track;
 		if (!track || !g.axis) return false;
 		const velocity = gestureVelocity(g);
-		const nearest = nearestIndex(track.points, track.pos);
-		let index = nearest;
-		if (g.source === "touch") {
-			if (Math.abs(velocity) / track.step > FLICK_SPEED.touch) {
-				index = indexBeyond(track.points, track.pos, Math.sign(velocity)) ?? nearest;
-			}
-		} else {
-			const travel = (track.pos - track.points[g.baseIndex]) / track.step;
-			if (
-				nearest === g.baseIndex &&
-				g.peakSpeed > FLICK_SPEED.trackpad &&
-				Math.abs(travel) >= TRACKPAD_FLICK_MIN_TRAVEL
-			) {
-				index = indexBeyond(track.points, track.pos, Math.sign(travel)) ?? nearest;
-			}
-		}
+		const index = nearestIndex(track.points, track.pos + velocity * PROJECTION_S);
 		return springTo(track, clamp(track.points[index], g.min, g.max), velocity);
 	}
 
@@ -466,60 +422,53 @@ export function createMobileScrollController(
 
 	// ── Trackpad ──
 
-	function onTrackpad(dx: number, dy: number, now: number): boolean {
-		const quiet = now - lastWheelAt > TRACKPAD_QUIET_MS;
-		lastWheelAt = now;
-		const magnitude = Math.hypot(dx, dy);
-		const previous = lastMagnitude;
-		lastMagnitude = magnitude;
-		armWheelEnd();
-
-		if (swallowing && !quiet) {
-			const along = swallowing.axis === "v" ? dy : dx;
-			const reversed = Math.abs(along) >= 1 && Math.sign(along) === -swallowing.sign;
-			const jumped =
-				magnitude >= TRACKPAD_NEW_SWIPE_MIN_PX && magnitude > previous * TRACKPAD_NEW_SWIPE_RATIO;
-			if (!reversed && !jumped) return false;
-		}
-		swallowing = null;
-
-		let changed = false;
-		if (!gesture || quiet) {
-			changed = endGesture();
-			gesture = newGesture("trackpad");
-			peakMagnitude = 0;
-		}
-		const g = gesture;
-		peakMagnitude = Math.max(peakMagnitude, magnitude);
-		changed = feed(g, dx, dy, now) || changed;
-
-		// The momentum has all but faded: settle now, not after the last few
-		// barely-moving events.
-		if (
-			g.axis &&
-			peakMagnitude >= TRACKPAD_TAIL_MIN_PEAK &&
-			magnitude < TRACKPAD_TAIL_PX &&
-			magnitude < peakMagnitude / 4
-		) {
-			swallowing = { axis: g.axis, sign: Math.sign(g.axis === "v" ? dy : dx) || 1 };
-			changed = endGesture() || changed;
-		}
-		return changed;
+	function createWheelGestures(): ReturnType<typeof WheelGestures> {
+		const wg = WheelGestures({ preventWheelAction: false, reverseSign: false });
+		// A replaced instance may still fire its end timer: ignore it.
+		wg.on("wheel", (state) => {
+			if (wg === wheelGestures) onWheelGesture(state);
+		});
+		return wg;
 	}
 
-	function armWheelEnd(): void {
-		if (wheelEndTimer) clearTimeout(wheelEndTimer);
-		wheelEndTimer = window.setTimeout(() => {
-			wheelEndTimer = 0;
-			swallowing = null;
-			if (gesture?.source === "trackpad" && endGesture()) dirty = true;
-		}, TRACKPAD_QUIET_MS);
+	/** Also runs from the library's end-of-stream timer, outside any event,
+	 *  so changes mark the scene dirty themselves. */
+	function onWheelGesture(state: WheelEventState): void {
+		if (state.isStart) {
+			coasting = null;
+			if (endGesture()) wheelChanged = markChanged();
+			gesture = newGesture("trackpad");
+		}
+		const g = gesture;
+		if (g?.source !== "trackpad") return;
+		const [dx, dy] = state.axisDelta;
+		if (state.isMomentum || state.isEnding) {
+			// The fingers have lifted (or stopped): release, as a touch would.
+			if (g.axis && !state.isEnding) {
+				coasting = { axis: g.axis, sign: Math.sign(g.axis === "v" ? dy : dx) };
+			}
+			if (endGesture()) wheelChanged = markChanged();
+			return;
+		}
+		if (feed(g, dx, dy, performance.now())) wheelChanged = markChanged();
+	}
+
+	function onTrackpad(e: WheelEvent): boolean {
+		if (coasting) {
+			const along = coasting.axis === "v" ? e.deltaY : e.deltaX;
+			if (Math.abs(along) >= 1 && Math.sign(along) === -coasting.sign) {
+				coasting = null;
+				wheelGestures = createWheelGestures();
+			}
+		}
+		wheelChanged = false;
+		wheelGestures.feedWheel(e);
+		return wheelChanged;
 	}
 
 	function cancelWheel(): boolean {
-		if (wheelEndTimer) clearTimeout(wheelEndTimer);
-		wheelEndTimer = 0;
-		swallowing = null;
+		wheelGestures = createWheelGestures();
+		coasting = null;
 		wheelAccum = 0;
 		return gesture?.source === "trackpad" ? endGesture() : false;
 	}
@@ -544,10 +493,9 @@ export function createMobileScrollController(
 	function onWheel(e: WheelEvent): boolean {
 		e.preventDefault();
 		if (pointerId !== null) return false;
-		const now = performance.now();
-		const dx = normalizeWheelDelta(e.deltaX, e.deltaMode);
-		const dy = normalizeWheelDelta(e.deltaY, e.deltaMode);
-		const changed = isDiscreteWheel(e) ? onWheelStep(dy, now) : onTrackpad(dx, dy, now);
+		const changed = isDiscreteWheel(e)
+			? onWheelStep(normalizeWheelDelta(e.deltaY, e.deltaMode), performance.now())
+			: onTrackpad(e);
 		return changed ? markChanged() : false;
 	}
 

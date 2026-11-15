@@ -22,7 +22,13 @@ function pointer(clientY: number, clientX = 100): PointerEvent {
 }
 
 function wheel(deltaY: number, deltaX = 0): WheelEvent {
-	return { deltaX, deltaY, deltaMode: 0, preventDefault: () => {} } as unknown as WheelEvent;
+	return {
+		deltaX,
+		deltaY,
+		deltaMode: 0,
+		timeStamp: now,
+		preventDefault: () => {},
+	} as unknown as WheelEvent;
 }
 
 /** One frame: time passes, then the controller ticks. */
@@ -144,10 +150,25 @@ describe("trackpad", () => {
 		expect(scroll.verticalT).toBeCloseTo(STOPS[1], 4);
 	});
 
-	it("settles as the momentum fades, without waiting out the tail", () => {
-		swipe(faded(flick(25, 10)));
+	it("lets go as soon as the momentum starts, ignoring the rest", () => {
+		// A short, quick swipe: 100px of fingers, so 1:1 alone wouldn't reach
+		// the next shelf; the projection from its speed does.
+		const deltas = flick(25, 4);
+		swipe(deltas.slice(0, 4 + 12)); // fingers, then the start of the momentum
 		for (let i = 0; i < 25; i++) frame();
 		expect(scroll.verticalT).toBeCloseTo(STOPS[1], 3);
+		// The rest of the momentum changes nothing.
+		swipe(deltas.slice(4 + 12));
+		settle();
+		expect(scroll.verticalT).toBeCloseTo(STOPS[1], 4);
+	});
+
+	it("treats Chrome's finger-up event as the fingers lifting", () => {
+		swipe([10, 12, 14, 14, 14, 14]);
+		// Chrome on Windows sends a zero delta with deltaX = -0 on lift.
+		swipe([[0, -0], 13, 12, 11, 10, 9, 8]);
+		settle();
+		expect(scroll.verticalT).toBeCloseTo(STOPS[1], 4);
 	});
 
 	it("can cover two shelves with a hard, long flick", () => {
