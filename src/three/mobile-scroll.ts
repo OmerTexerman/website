@@ -1,3 +1,23 @@
+/**
+ * Shelf navigation on phones and narrow windows.
+ *
+ * Modelled on GNOME's swipe tracker (libadwaita's AdwSwipeTracker, used for
+ * workspace and carousel swipes):
+ *
+ *  - A gesture first locks onto one axis: vertical (between shelves) or
+ *    sideways (between the items on a shelf).
+ *  - It then follows the fingers 1:1, but only as far as the snap points
+ *    next to where it began, so it "locks on" instead of flying past several
+ *    shelves. A fast swipe widens that to two snap points either way.
+ *  - On release it springs to a snap point picked from where it is and how
+ *    fast it was flicked, starting at the gesture's own speed so the
+ *    hand-off is seamless.
+ *
+ * Touch and trackpad drive the same gesture model; they differ only in how
+ * a gesture begins and ends. Browsers don't say when fingers leave a
+ * trackpad, so a trackpad gesture ends when its momentum tail has faded or
+ * the events stop. Mouse wheels step one item per notch.
+ */
 import { clamp } from "./math-utils";
 
 export interface MobileScrollConfig {
@@ -9,32 +29,6 @@ export interface MobileScrollConfig {
 	panLimit: number;
 	/** Number of shelf rows (matches MOBILE_SHELF_STOPS.length) */
 	numRows: number;
-}
-
-interface LinearStop {
-	stopIndex: number;
-	panTarget: number;
-	row: number;
-}
-
-function buildLinearSequence(config: MobileScrollConfig): LinearStop[] {
-	const { verticalStops, panSnapPoints } = config;
-	const sequence: LinearStop[] = [];
-	for (let i = 0; i < verticalStops.length; i++) {
-		const points = panSnapPoints[i];
-		if (!points || points.length <= 1) {
-			sequence.push({
-				stopIndex: i,
-				panTarget: points?.[0] ?? 0,
-				row: i,
-			});
-		} else {
-			for (const p of points) {
-				sequence.push({ stopIndex: i, panTarget: p, row: i });
-			}
-		}
-	}
-	return sequence;
 }
 
 export interface MobileScrollController {
@@ -59,91 +53,90 @@ export interface MobileScrollController {
 	dispose(): void;
 }
 
-enum State {
-	IDLE = 0,
-	TRACKING = 1,
-	DRAGGING = 2,
-	ANIMATING = 3,
-}
+// ─── Tuning ──────────────────────────────────────────────────────
 
-const TAP_DISTANCE_THRESHOLD = 10;
-const DIRECTION_LOCK_THRESHOLD = 8;
-const FLICK_VELOCITY_THRESHOLD = 200;
-const POSITION_COMMIT_RATIO = 0.35;
-/** Stiffness of the settle spring (critically damped, so it never wobbles):
- *  ~0.35 s to come to rest from a standstill. It starts at the speed the
- *  finger or trackpad was moving, so letting go never jolts the shelf. */
-const SPRING_OMEGA = 18;
-/** Cap on the speed handed to the spring, in stops per second, so a hard
- *  flick doesn't overshoot past the stop it lands on. */
-const SPRING_MAX_STOPS_PER_S = 4;
-const RUBBER_BAND_FACTOR = 0.35;
+/** Finger or trackpad travel (px) per step: one shelf, or one item. */
+const PX_PER_STEP = {
+	touch: { v: 260, h: 330 },
+	trackpad: { v: 400, h: 300 },
+} as const;
+/** Travel (px) before a gesture picks its axis, how much the main axis must
+ *  outweigh the other, and the travel past which the larger axis wins. */
+const LOCK_PX = 10;
+const LOCK_DOMINANCE = 1.5;
+const LOCK_FORCE_PX = 30;
+/** Release speed (steps/s) that counts as a flick toward the next point. */
+const FLICK_SPEED = { touch: 1.2, trackpad: 2.5 } as const;
+/** Peak speed (steps/s) at which a gesture may travel two steps, not one. */
+const LONG_SWIPE_SPEED = { touch: 6, trackpad: 8 } as const;
+/** A trackpad flick moves on only if it got this share of a step. */
+const TRACKPAD_FLICK_MIN_TRAVEL = 0.2;
+/** Window (ms) for measuring gesture speed. */
 const VELOCITY_WINDOW_MS = 100;
-const WHEEL_LINE_PIXELS = 16;
-const WHEEL_PAGE_THRESHOLD = 40;
-const WHEEL_COOLDOWN_MS = 200;
-const WHEEL_SETTLE_DELAY_MS = 100;
-// Trackpads: the shelf follows the fingers 1:1, and the moment they lift
-// (macOS starts sending its "momentum" tail of steadily shrinking deltas) it
-// snaps to the next row or item in the direction of travel and ignores the
-// rest of the tail. Riding the momentum and snapping only once it died out
-// felt laggy: the shelf drifted, then locked in late.
-/** Quiet time (ms) that separates one gesture from the next. */
-const TRACKPAD_GESTURE_GAP_MS = 180;
-/** Travel (px) before a gesture picks its axis from the accumulated motion,
- *  and how much the main axis must outweigh the other. Swipes often start a
- *  little crooked; deciding on the first few px read some as sideways. */
-const TRACKPAD_AXIS_LOCK_PX = 10;
-const TRACKPAD_AXIS_DOMINANCE = 1.5;
-/** Past this much travel (px), go with the larger axis regardless. */
-const TRACKPAD_AXIS_FORCE_PX = 30;
-/** Trackpad travel (px) that moves the shelf one row. */
-const TRACKPAD_ROW_PX = 400;
-/** Horizontal travel per px (pan units). */
-const TRACKPAD_PAN_SPEED = 0.0033;
-/** A gesture that ends this share of the way to the next stop goes there,
- *  rather than springing back, so short deliberate swipes still count. */
-const TRACKPAD_COMMIT = 0.25;
-/** Once momentum starts, any travel at all in a direction commits to it. */
-const TRACKPAD_FLICK_COMMIT = 0.05;
-/** Consecutive shrinking deltas that mark the fingers as lifted. */
-const TRACKPAD_MOMENTUM_EVENTS = 5;
-/** ...and they must have fallen to this share of the gesture's peak delta:
- *  fingers dragging slowly also produce a few shrinking deltas in a row,
- *  which used to snap the shelf mid-swipe. */
-const TRACKPAD_MOMENTUM_PEAK_RATIO = 0.6;
-/** Smoothing for the trackpad's measured speed (share of each new sample). */
-const TRACKPAD_VELOCITY_SMOOTHING = 0.4;
-/** Each momentum delta is at most this share of the previous one. */
-const TRACKPAD_MOMENTUM_DECAY = 0.97;
-/** During an ignored momentum tail, a delta this many times the previous
- *  one (and at least TRACKPAD_NEW_SWIPE_MIN_PX) is a fresh swipe. */
-const TRACKPAD_NEW_SWIPE_RATIO = 2.5;
-const TRACKPAD_NEW_SWIPE_MIN_PX = 15;
-/** Swipes flip between items and rows like pages: once a swipe has
- *  travelled this far (px) toward a neighbour, it glides there straight
- *  away and the rest of the swipe, momentum included, is ignored. One swipe
- *  is one step however fast it is. Following the fingers instead let quick
- *  swipes fly past several rows, and settling after the momentum overshot,
- *  hung, then crept back. */
-const TRACKPAD_FLIP_PX = 24;
-/** Max overshoot (pan units) when swiping past the end of a row. */
-const TRACKPAD_PAN_EDGE = 0.08;
-/** Finger travel (px) that moves the shelf one row. Set per row, not per
- *  0–1 range, so adding stops doesn't make the drag more sensitive. */
-const DRAG_ROW_PX = 260;
-const DRAG_PAN_SPEED = 0.003;
-const DISCRETE_PIXEL_WHEEL_STEPS = new Set([100, 120]);
+/** Max overscroll past the first or last point, as a share of a step. */
+const EDGE_STRETCH = 0.15;
+/** Settle spring: critically damped (never wobbles), ~0.3 s to rest. */
+const SPRING_OMEGA = 22;
 
-interface PointerSample {
-	x: number;
-	y: number;
-	t: number;
+const TAP_PX = 10;
+
+/** A trackpad gesture ends after this long without events... */
+const TRACKPAD_QUIET_MS = 150;
+/** ...or once its momentum tail has faded below this delta (px), having
+ *  peaked above TRACKPAD_TAIL_MIN_PEAK and dropped under a quarter of it. */
+const TRACKPAD_TAIL_PX = 1.5;
+const TRACKPAD_TAIL_MIN_PEAK = 6;
+/** After a gesture ends, the rest of its momentum is ignored unless a delta
+ *  reverses direction or jumps this much (and at least _MIN px): that's a new
+ *  swipe. Momentum only ever fades, in one direction. */
+const TRACKPAD_NEW_SWIPE_RATIO = 2.5;
+const TRACKPAD_NEW_SWIPE_MIN_PX = 3;
+
+const WHEEL_LINE_PX = 16;
+const WHEEL_STEP_PX = 40;
+const WHEEL_COOLDOWN_MS = 200;
+const DISCRETE_WHEEL_STEPS = new Set([100, 120]);
+
+// ─── Tracks: one axis that springs between snap points ───────────
+
+interface Track {
+	pos: number;
+	points: readonly number[];
+	/** Spring target, or null when at rest or under a gesture's control. */
+	target: number | null;
+	velocity: number;
+	/** Distance between neighbouring points, so tuning is scale-free. */
+	step: number;
 }
 
-interface TapPoint {
-	clientX: number;
-	clientY: number;
+function createTrack(points: readonly number[], pos: number): Track {
+	const span = points.length > 1 ? points[points.length - 1] - points[0] : 1;
+	return { pos, points, target: null, velocity: 0, step: span / Math.max(1, points.length - 1) };
+}
+
+function nearestIndex(points: readonly number[], value: number): number {
+	let best = 0;
+	for (let i = 1; i < points.length; i++) {
+		if (Math.abs(points[i] - value) < Math.abs(points[best] - value)) best = i;
+	}
+	return best;
+}
+
+/** The point a track is headed for: its spring target, else its position. */
+function restingIndex(track: Track): number {
+	return nearestIndex(track.points, track.target ?? track.pos);
+}
+
+/** Index of the first point strictly beyond `value` in `dir`, if any. */
+function indexBeyond(points: readonly number[], value: number, dir: number): number | null {
+	if (dir > 0) {
+		const i = points.findIndex((p) => p > value + 1e-4);
+		return i === -1 ? null : i;
+	}
+	for (let i = points.length - 1; i >= 0; i--) {
+		if (points[i] < value - 1e-4) return i;
+	}
+	return null;
 }
 
 function prefersReducedMotion(): boolean {
@@ -152,953 +145,463 @@ function prefersReducedMotion(): boolean {
 	);
 }
 
-function rubberBand(overscroll: number, limit: number): number {
-	const sign = Math.sign(overscroll);
-	const abs = Math.abs(overscroll);
-	return sign * RUBBER_BAND_FACTOR * limit * (1 - Math.exp(-abs / (limit * 0.5)));
-}
-
-function estimateVelocity(samples: PointerSample[]): { vx: number; vy: number } {
-	if (samples.length < 2) return { vx: 0, vy: 0 };
-
-	const last = samples[samples.length - 1];
-	const cutoff = last.t - VELOCITY_WINDOW_MS;
-
-	let sumT = 0;
-	let sumX = 0;
-	let sumY = 0;
-	let sumTT = 0;
-	let sumTX = 0;
-	let sumTY = 0;
-	let n = 0;
-
-	for (let i = samples.length - 1; i >= 0; i--) {
-		const s = samples[i];
-		if (s.t < cutoff) break;
-		const t = (s.t - last.t) / 1000;
-		sumT += t;
-		sumX += s.x;
-		sumY += s.y;
-		sumTT += t * t;
-		sumTX += t * s.x;
-		sumTY += t * s.y;
-		n++;
+/** Spring to `target`, starting at `velocity`. Speed is capped so a
+ *  critically damped spring can't overshoot the target. */
+function springTo(track: Track, target: number, velocity = 0): boolean {
+	const distance = Math.abs(target - track.pos);
+	if (prefersReducedMotion() || (distance < 1e-4 && Math.abs(velocity) < 1e-3)) {
+		track.pos = target;
+		track.target = null;
+		track.velocity = 0;
+		return distance >= 1e-4;
 	}
-
-	if (n < 2) return { vx: 0, vy: 0 };
-	const denom = n * sumTT - sumT * sumT;
-	if (Math.abs(denom) < 1e-10) return { vx: 0, vy: 0 };
-
-	return {
-		vx: (n * sumTX - sumT * sumX) / denom,
-		vy: (n * sumTY - sumT * sumY) / denom,
-	};
+	const cap = SPRING_OMEGA * distance;
+	track.target = target;
+	track.velocity = clamp(velocity, -cap, cap);
+	return true;
 }
 
-function nearestSnapPoint(value: number, points: readonly number[]): number {
-	let best = points[0] ?? 0;
-	let bestDist = Math.abs(value - best);
-	for (let i = 1; i < points.length; i++) {
-		const d = Math.abs(value - points[i]);
-		if (d < bestDist) {
-			best = points[i];
-			bestDist = d;
-		}
-	}
-	return best;
-}
-
-/** Advance a critically damped spring toward `target` by `dt` seconds. */
-function springStep(x: number, v: number, target: number, dt: number): { x: number; v: number } {
-	const c1 = x - target;
-	const c2 = v + SPRING_OMEGA * c1;
+/** Advance a track's spring by `dt` seconds (exact critically damped step). */
+function stepTrack(track: Track, dt: number): boolean {
+	if (track.target === null) return false;
+	const offset = track.pos - track.target;
+	const c = track.velocity + SPRING_OMEGA * offset;
 	const decay = Math.exp(-SPRING_OMEGA * dt);
+	track.pos = track.target + (offset + c * dt) * decay;
+	track.velocity = (c - SPRING_OMEGA * (offset + c * dt)) * decay;
+	if (Math.abs(track.pos - track.target) < 2e-4 && Math.abs(track.velocity) < 5e-3) {
+		track.pos = track.target;
+		track.target = null;
+		track.velocity = 0;
+	}
+	return true;
+}
+
+// ─── Gestures ────────────────────────────────────────────────────
+
+type Source = "touch" | "trackpad";
+
+interface Gesture {
+	source: Source;
+	axis: "v" | "h" | null;
+	/** Sideways on a shelf with nothing to pan to: sit it out. */
+	ignored: boolean;
+	/** Travel (px) gathered before picking an axis. */
+	lockX: number;
+	lockY: number;
+	track: Track | null;
+	/** Snap point the gesture started from, and how far it may go. */
+	baseIndex: number;
+	min: number;
+	max: number;
+	/** Position before the edge stretch is applied. */
+	raw: number;
+	/** Units per px for this gesture's axis and source. */
+	scale: number;
+	/** Recent (time, position) samples for measuring speed. */
+	samples: { t: number; pos: number }[];
+	/** Fastest the gesture has moved, in steps/s. */
+	peakSpeed: number;
+}
+
+function newGesture(source: Source): Gesture {
 	return {
-		x: target + (c1 + c2 * dt) * decay,
-		v: (c2 - SPRING_OMEGA * (c1 + c2 * dt)) * decay,
+		source,
+		axis: null,
+		ignored: false,
+		lockX: 0,
+		lockY: 0,
+		track: null,
+		baseIndex: 0,
+		min: 0,
+		max: 0,
+		raw: 0,
+		scale: 0,
+		samples: [],
+		peakSpeed: 0,
 	};
 }
 
-function springAtRest(x: number, v: number, target: number): boolean {
-	return Math.abs(x - target) < 0.0002 && Math.abs(v) < 0.005;
+/** Speed (units/s), by least squares over the recent samples. */
+function gestureVelocity(g: Gesture): number {
+	const n = g.samples.length;
+	if (n < 2) return 0;
+	const t0 = g.samples[n - 1].t;
+	let st = 0;
+	let sp = 0;
+	let stt = 0;
+	let stp = 0;
+	for (const s of g.samples) {
+		const t = (s.t - t0) / 1000;
+		st += t;
+		sp += s.pos;
+		stt += t * t;
+		stp += t * s.pos;
+	}
+	const denom = n * stt - st * st;
+	return Math.abs(denom) < 1e-10 ? 0 : (n * stp - st * sp) / denom;
 }
 
 function normalizeWheelDelta(delta: number, deltaMode: number): number {
-	if (deltaMode === 1) return delta * WHEEL_LINE_PIXELS;
-	if (deltaMode === 2) {
-		return delta * (typeof window !== "undefined" ? window.innerHeight : 800);
-	}
+	if (deltaMode === 1) return delta * WHEEL_LINE_PX;
+	if (deltaMode === 2) return delta * (typeof window !== "undefined" ? window.innerHeight : 800);
 	return delta;
 }
 
-function isLikelyDiscretePixelWheelEvent(e: WheelEvent): boolean {
+/** Chrome/Edge mouse wheels send isolated 100/120px vertical steps;
+ *  trackpads send small, irregular deltas. */
+function isDiscreteWheel(e: WheelEvent): boolean {
 	if (e.deltaMode !== 0) return true;
-
-	const absX = Math.abs(e.deltaX);
 	const absY = Math.abs(e.deltaY);
-	if (absX > 0 || absY < 80) return false;
-	if (!Number.isInteger(e.deltaX) || !Number.isInteger(e.deltaY)) return false;
-
-	return DISCRETE_PIXEL_WHEEL_STEPS.has(absY);
+	if (e.deltaX !== 0 || absY < 80 || !Number.isInteger(e.deltaY)) return false;
+	return DISCRETE_WHEEL_STEPS.has(absY);
 }
+
+// ─── Controller ──────────────────────────────────────────────────
 
 export function createMobileScrollController(
 	canvas: HTMLCanvasElement,
 	config: MobileScrollConfig,
 ): MobileScrollController {
-	const { verticalStops, panSnapPoints, panLimit, numRows } = config;
-	const rowGap = 1 / Math.max(1, verticalStops.length - 1);
-	const dragVerticalSpeed = rowGap / DRAG_ROW_PX;
-	const trackpadVerticalSpeed = rowGap / TRACKPAD_ROW_PX;
-	const linearSequence = buildLinearSequence(config);
-	let linearIndex = Math.floor(linearSequence.length / 2);
+	const { verticalStops, panSnapPoints, numRows } = config;
+	const vertical = createTrack(verticalStops, verticalStops[0] ?? 0);
+	const pans = Array.from({ length: numRows }, (_, row) =>
+		createTrack(panSnapPoints[row]?.length ? panSnapPoints[row] : [0], 0),
+	);
+	const panByRow = pans.map((track) => track.pos);
+	/** Every item in order, bottom shelf first, for keyboard and mouse wheel. */
+	const linearStops = verticalStops.flatMap((_, row) =>
+		pans[row].points.map((pan) => ({ row, pan })),
+	);
 
-	let state: State = State.IDLE;
-	let verticalT = 0.5;
-	let dragOriginStop = 1;
-	let animTargetT = 0;
-	let animVelocity = 0;
+	let gesture: Gesture | null = null;
+	let dirty = false;
 
-	const panByRow: number[] = Array.from({ length: numRows }, () => 0);
-	const panOriginSnap: number[] = Array.from({ length: numRows }, () => 0);
-	const panAnimating: boolean[] = Array.from({ length: numRows }, () => false);
-	const panAnimTarget: number[] = Array.from({ length: numRows }, () => 0);
-	const panVelocity: number[] = Array.from({ length: numRows }, () => 0);
+	// Touch
+	let pointerId: number | null = null;
+	let downX = 0;
+	let downY = 0;
+	let lastX = 0;
+	let lastY = 0;
+	let pendingTap: { clientX: number; clientY: number } | null = null;
 
-	let activePointerId: number | null = null;
-	let pointerDownX = 0;
-	let pointerDownY = 0;
-	let pointerLastX = 0;
-	let pointerLastY = 0;
-	let directionLocked: "v" | "h" | null = null;
-	const pointerSamples: PointerSample[] = [];
-	let pendingTap: TapPoint | null = null;
-	let inputDirty = false;
+	// Trackpad
+	let lastWheelAt = Number.NEGATIVE_INFINITY;
+	let lastMagnitude = 0;
+	let peakMagnitude = 0;
+	let wheelEndTimer = 0;
+	/** The gesture ended but its momentum is still arriving. */
+	let swallowing: { axis: "v" | "h"; sign: number } | null = null;
 
-	let wheelAccumY = 0;
-	let lastWheelPageTimeY = 0;
-	let wheelAxisLock: "v" | "h" | null = null;
-	let wheelSettleTimer = 0;
-	// Trackpad gesture state (see TRACKPAD_* above)
-	let trackpadLockX = 0;
-	let trackpadLockY = 0;
-	/** Sideways swipe on a row with nothing to pan to: sit the gesture out. */
-	let trackpadIgnored = false;
-	let trackpadActive = false;
-	let trackpadLastEventAt = 0;
-	/** Row a sideways gesture pans, fixed for the gesture. */
-	let trackpadRow = 0;
-	/** Positions before rubber-banding, so overscroll eases in and back. */
-	let trackpadRawV = 0;
-	let trackpadRawPan = 0;
-	/** Sideways travel (px) of the current gesture, signed. */
-	let trackpadPanTravel = 0;
-	/** Where the row sat when the gesture began (possibly mid-glide). */
-	let trackpadPanStart = 0;
-	let trackpadVTravel = 0;
-	let trackpadVStart = 0;
-	/** Axis and direction (sign of the raw delta) of the settled gesture. */
-	let trackpadSettledAxis: "v" | "h" | null = null;
-	let trackpadSettledSign = 0;
-	/** The gesture's axis was mid-glide when it locked: let the glide run and
-	 *  only flip onward (or back) from where it's heading; don't follow. */
-	let trackpadChaining = false;
-	/** Fingers lifted and the gesture already snapped: swallow the momentum. */
-	let trackpadSettled = false;
-	let trackpadLastMagnitude = 0;
-	let trackpadPeakMagnitude = 0;
-	let trackpadDecayCount = 0;
-	/** Measured speed of the current trackpad gesture (units per second). */
-	let trackpadVelocity = 0;
+	// Mouse wheel
+	let wheelAccum = 0;
+	let lastWheelStepAt = Number.NEGATIVE_INFINITY;
 
-	function markChanged(): true {
-		inputDirty = true;
-		return true;
+	function syncPans(): void {
+		for (let i = 0; i < numRows; i++) panByRow[i] = pans[i].pos;
 	}
 
-	function nearestStopIndex(t: number): number {
-		const clamped = clamp(t, 0, 1);
-		let bestIdx = 0;
-		let bestDist = Math.abs(clamped - verticalStops[0]);
-		for (let i = 1; i < verticalStops.length; i++) {
-			const d = Math.abs(clamped - verticalStops[i]);
-			if (d < bestDist) {
-				bestIdx = i;
-				bestDist = d;
+	// ── Shared gesture model ──
+
+	/** Feed movement in px, in wheel-delta terms: positive moves the view
+	 *  down or left. A finger dragging down reports the same sign. */
+	function feed(g: Gesture, dx: number, dy: number, now: number): boolean {
+		if (g.ignored) return false;
+		if (!g.axis) {
+			g.lockX += dx;
+			g.lockY += dy;
+			const ax = Math.abs(g.lockX);
+			const ay = Math.abs(g.lockY);
+			const travel = Math.hypot(ax, ay);
+			if (travel < LOCK_PX) return false;
+			if (Math.max(ax, ay) < Math.min(ax, ay) * LOCK_DOMINANCE && travel < LOCK_FORCE_PX) {
+				return false;
 			}
+			if (!lockAxis(g, ax > ay ? "h" : "v", now)) return false;
+			// The travel that went into deciding counts.
+			dx = g.lockX;
+			dy = g.lockY;
 		}
-		return bestIdx;
+		const track = g.track;
+		if (!track) return false;
+
+		g.raw -= (g.axis === "v" ? dy : dx) * g.scale;
+		const first = track.points[0];
+		const last = track.points[track.points.length - 1];
+		// Hard stops at the gesture's range. Only pushing at an end the view
+		// is already on stretches a little past it ("nothing more this way");
+		// arriving at an end stops dead, so momentum can't overshoot it.
+		const atStart = g.baseIndex === 0;
+		const atEnd = g.baseIndex === track.points.length - 1;
+		g.raw = clamp(
+			g.raw,
+			atStart ? Number.NEGATIVE_INFINITY : g.min,
+			atEnd ? Number.POSITIVE_INFINITY : g.max,
+		);
+		const stretch = EDGE_STRETCH * track.step;
+		const ease = (over: number) => stretch * (1 - Math.exp(-over / stretch));
+		const pos =
+			g.raw < first
+				? first - ease(first - g.raw)
+				: g.raw > last
+					? last + ease(g.raw - last)
+					: g.raw;
+
+		g.samples.push({ t: now, pos: g.raw });
+		while (g.samples.length > 2 && g.samples[0].t < now - VELOCITY_WINDOW_MS) g.samples.shift();
+		const speed = Math.abs(gestureVelocity(g)) / track.step;
+		g.peakSpeed = Math.max(g.peakSpeed, speed);
+		if (speed > LONG_SWIPE_SPEED[g.source]) setRange(g, 2);
+
+		const moved = Math.abs(pos - track.pos) > 1e-5;
+		track.pos = pos;
+		return moved;
 	}
 
-	function adjacentStopIndex(fromIndex: number, direction: -1 | 1): number {
-		return clamp(fromIndex + direction, 0, verticalStops.length - 1);
-	}
-
-	function chooseVerticalTarget(
-		velocityPx: number,
-		flickThreshold = FLICK_VELOCITY_THRESHOLD,
-	): number {
-		const clamped = clamp(verticalT, 0, 1);
-		if (Math.abs(velocityPx) > flickThreshold) {
-			const dir: -1 | 1 = velocityPx > 0 ? -1 : 1;
-			return adjacentStopIndex(dragOriginStop, dir);
-		}
-
-		const originT = verticalStops[dragOriginStop];
-		const displacement = clamped - originT;
-
-		if (displacement > 0 && dragOriginStop < verticalStops.length - 1) {
-			const nextT = verticalStops[dragOriginStop + 1];
-			const gap = nextT - originT;
-			if (displacement / gap > POSITION_COMMIT_RATIO) {
-				return dragOriginStop + 1;
-			}
-		} else if (displacement < 0 && dragOriginStop > 0) {
-			const prevT = verticalStops[dragOriginStop - 1];
-			const gap = originT - prevT;
-			if (Math.abs(displacement) / gap > POSITION_COMMIT_RATIO) {
-				return dragOriginStop - 1;
-			}
-		}
-
-		return dragOriginStop;
-	}
-
-	function choosePanTarget(row: number, velocityPx: number): number | null {
-		const points = panSnapPoints[row];
-		if (!points || points.length === 0) return null;
-
-		const originSnap = panOriginSnap[row];
-		const current = panByRow[row];
-
-		if (Math.abs(velocityPx) > FLICK_VELOCITY_THRESHOLD) {
-			const dir = velocityPx > 0 ? 1 : -1;
-			let bestIdx = -1;
-			let bestDist = Number.POSITIVE_INFINITY;
-			for (let i = 0; i < points.length; i++) {
-				const diff = points[i] - originSnap;
-				if (dir < 0 && diff < -0.01 && Math.abs(diff) < bestDist) {
-					bestIdx = i;
-					bestDist = Math.abs(diff);
-				} else if (dir > 0 && diff > 0.01 && Math.abs(diff) < bestDist) {
-					bestIdx = i;
-					bestDist = Math.abs(diff);
-				}
-			}
-			return bestIdx >= 0 ? points[bestIdx] : nearestSnapPoint(current, points);
-		}
-
-		return nearestSnapPoint(current, points);
-	}
-
-	/** Glide to a stop on a spring that starts at `velocity` (units/s), the
-	 *  speed the shelf was already moving, so the hand-off is seamless. */
-	function beginVerticalAnimation(targetIndex: number, velocity = 0): boolean {
-		const target = verticalStops[targetIndex];
-		if (state === State.ANIMATING && Math.abs(animTargetT - target) < 0.0001) return false;
-		if (state === State.IDLE && Math.abs(verticalT - target) < 0.0001 && velocity === 0) {
+	function lockAxis(g: Gesture, axis: "v" | "h", now: number): boolean {
+		// Sideways moves the shelf in view, or the one the view is heading to.
+		const track = axis === "v" ? vertical : pans[restingIndex(vertical)];
+		if (axis === "h" && track.points.length < 2) {
+			g.ignored = true;
 			return false;
 		}
-
-		const maxSpeed = rowGap * SPRING_MAX_STOPS_PER_S;
-		animTargetT = target;
-		animVelocity = clamp(velocity, -maxSpeed, maxSpeed);
-		state = State.ANIMATING;
+		g.axis = axis;
+		g.track = track;
+		g.scale = track.step / PX_PER_STEP[g.source][axis];
+		// Mid-glide, the gesture counts from where the glide was heading, so
+		// quick repeated swipes each move one more step.
+		g.baseIndex = restingIndex(track);
+		setRange(g, 1);
+		track.target = null;
+		track.velocity = 0;
+		g.raw = track.pos;
+		g.samples = [{ t: now, pos: g.raw }];
 		return true;
 	}
 
-	function beginPanAnimation(row: number, target: number, velocity = 0): boolean {
-		if (Math.abs(panByRow[row] - target) < 0.0001 && velocity === 0) {
-			panAnimating[row] = false;
-			panByRow[row] = target;
-			return false;
-		}
-		panAnimating[row] = true;
-		panAnimTarget[row] = target;
-		panVelocity[row] = clamp(velocity, -SPRING_MAX_STOPS_PER_S, SPRING_MAX_STOPS_PER_S);
-		return true;
+	function setRange(g: Gesture, steps: number): void {
+		const points = g.track?.points ?? [0];
+		g.min = points[Math.max(0, g.baseIndex - steps)];
+		g.max = points[Math.min(points.length - 1, g.baseIndex + steps)];
 	}
 
-	function setVerticalWithRubberBand(raw: number): boolean {
-		const previous = verticalT;
-		if (raw < 0) {
-			verticalT = rubberBand(raw, 1);
-		} else if (raw > 1) {
-			verticalT = 1 + rubberBand(raw - 1, 1);
+	/** Spring the gesture's track to a snap point: the nearest one, or the
+	 *  next one along if the gesture was flicked. A touch flick is judged by
+	 *  release speed; a trackpad's "release" is the end of its momentum, so
+	 *  it's judged by peak speed and how far it got. */
+	function release(g: Gesture): boolean {
+		const track = g.track;
+		if (!track || !g.axis) return false;
+		const velocity = gestureVelocity(g);
+		const nearest = nearestIndex(track.points, track.pos);
+		let index = nearest;
+		if (g.source === "touch") {
+			if (Math.abs(velocity) / track.step > FLICK_SPEED.touch) {
+				index = indexBeyond(track.points, track.pos, Math.sign(velocity)) ?? nearest;
+			}
 		} else {
-			verticalT = raw;
-		}
-		return Math.abs(verticalT - previous) > 0.0001;
-	}
-
-	function getRawVertical(): number {
-		if (verticalT >= 0 && verticalT <= 1) return verticalT;
-		if (verticalT < 0) {
-			const ratio = verticalT / -RUBBER_BAND_FACTOR;
-			if (ratio >= 1) return -2;
-			return 0.5 * Math.log(1 - ratio);
-		}
-		const over = verticalT - 1;
-		const ratio = over / RUBBER_BAND_FACTOR;
-		if (ratio >= 1) return 3;
-		return 1 - 0.5 * Math.log(1 - ratio);
-	}
-
-	function applyPanDelta(panDelta: number): boolean {
-		const clamped = clamp(verticalT, 0, 1);
-		const scaled = clamped * (numRows - 1);
-		const index = Math.floor(scaled);
-		const nextIndex = Math.min(index + 1, numRows - 1);
-		let changed = false;
-
-		const updateRow = (row: number, delta: number): void => {
-			const next = clamp(panByRow[row] + delta, -panLimit, panLimit);
-			if (Math.abs(next - panByRow[row]) > 0.0001) {
-				panByRow[row] = next;
-				changed = true;
-			}
-		};
-
-		if (index === nextIndex) {
-			updateRow(index, panDelta);
-			return changed;
-		}
-
-		const secondaryWeight = scaled - index;
-		const primaryWeight = 1 - secondaryWeight;
-		const norm = primaryWeight * primaryWeight + secondaryWeight * secondaryWeight;
-		const scale = norm > 0 ? 1 / norm : 1;
-		updateRow(index, panDelta * primaryWeight * scale);
-		updateRow(nextIndex, panDelta * secondaryWeight * scale);
-		return changed;
-	}
-
-	function stopAllAnimations(): void {
-		for (let i = 0; i < numRows; i++) {
-			panAnimating[i] = false;
-		}
-	}
-
-	function clearPointerTracking(): void {
-		activePointerId = null;
-		directionLocked = null;
-		pointerSamples.length = 0;
-	}
-
-	function resetWheelState(): void {
-		wheelAccumY = 0;
-		wheelAxisLock = null;
-		trackpadIgnored = false;
-		trackpadActive = false;
-		trackpadSettled = false;
-		trackpadChaining = false;
-		trackpadLastMagnitude = 0;
-		trackpadPeakMagnitude = 0;
-		trackpadDecayCount = 0;
-		trackpadVelocity = 0;
-		if (wheelSettleTimer) {
-			clearTimeout(wheelSettleTimer);
-			wheelSettleTimer = 0;
-		}
-	}
-
-	function captureOrigins(): void {
-		dragOriginStop = nearestStopIndex(verticalT);
-		for (let i = 0; i < numRows; i++) {
-			const points = panSnapPoints[i];
-			panOriginSnap[i] = points && points.length > 0 ? nearestSnapPoint(panByRow[i], points) : 0;
-		}
-	}
-
-	function settleAll(): boolean {
-		let changed = beginVerticalAnimation(nearestStopIndex(verticalT));
-		for (let i = 0; i < numRows; i++) {
-			const points = panSnapPoints[i];
-			if (points && points.length > 0) {
-				changed = beginPanAnimation(i, nearestSnapPoint(panByRow[i], points)) || changed;
+			const travel = (track.pos - track.points[g.baseIndex]) / track.step;
+			if (
+				nearest === g.baseIndex &&
+				g.peakSpeed > FLICK_SPEED.trackpad &&
+				Math.abs(travel) >= TRACKPAD_FLICK_MIN_TRAVEL
+			) {
+				index = indexBeyond(track.points, track.pos, Math.sign(travel)) ?? nearest;
 			}
 		}
-		return changed;
+		return springTo(track, clamp(track.points[index], g.min, g.max), velocity);
 	}
+
+	function endGesture(): boolean {
+		const g = gesture;
+		gesture = null;
+		return g ? release(g) : false;
+	}
+
+	// ── Touch ──
 
 	function onPointerDown(e: PointerEvent): boolean {
-		if (e.button !== 0 || activePointerId !== null) return false;
-
-		stopAllAnimations();
-		resetWheelState();
-		state = State.TRACKING;
-		activePointerId = e.pointerId;
-		pointerDownX = e.clientX;
-		pointerDownY = e.clientY;
-		pointerLastX = e.clientX;
-		pointerLastY = e.clientY;
-		directionLocked = null;
-		pointerSamples.length = 0;
-		pointerSamples.push({ x: e.clientX, y: e.clientY, t: performance.now() });
+		if (e.button !== 0 || pointerId !== null) return false;
+		cancelWheel();
+		pointerId = e.pointerId;
+		downX = lastX = e.clientX;
+		downY = lastY = e.clientY;
 		pendingTap = null;
-		captureOrigins();
+		gesture = newGesture("touch");
 		canvas.setPointerCapture?.(e.pointerId);
 		return false;
 	}
 
 	function onPointerMove(e: PointerEvent): boolean {
-		if (activePointerId !== e.pointerId) return false;
-		if (state !== State.TRACKING && state !== State.DRAGGING) return false;
-
-		const dx = e.clientX - pointerDownX;
-		const dy = e.clientY - pointerDownY;
-		const dist = Math.hypot(dx, dy);
-
-		if (state === State.TRACKING) {
-			if (dist < DIRECTION_LOCK_THRESHOLD) return false;
-			directionLocked = Math.abs(dy) >= Math.abs(dx) ? "v" : "h";
-			state = State.DRAGGING;
-		}
-
-		pointerSamples.push({ x: e.clientX, y: e.clientY, t: performance.now() });
-		if (pointerSamples.length > 20) pointerSamples.shift();
-
-		const moveDx = e.clientX - pointerLastX;
-		const moveDy = e.clientY - pointerLastY;
-		pointerLastX = e.clientX;
-		pointerLastY = e.clientY;
-
-		let changed = false;
-		if (directionLocked === "v") {
-			const rawT = getRawVertical();
-			changed = setVerticalWithRubberBand(rawT - moveDy * dragVerticalSpeed);
-		} else if (directionLocked === "h") {
-			changed = applyPanDelta(-moveDx * DRAG_PAN_SPEED);
-		}
-		return changed ? markChanged() : false;
+		if (e.pointerId !== pointerId || !gesture) return false;
+		const dx = e.clientX - lastX;
+		const dy = e.clientY - lastY;
+		lastX = e.clientX;
+		lastY = e.clientY;
+		return feed(gesture, dx, dy, performance.now()) ? markChanged() : false;
 	}
 
 	function onPointerUp(e: PointerEvent): boolean {
-		if (activePointerId !== e.pointerId) return false;
-		activePointerId = null;
-		const lockedDir = directionLocked;
-		if (canvas.hasPointerCapture?.(e.pointerId)) {
-			canvas.releasePointerCapture(e.pointerId);
+		if (e.pointerId !== pointerId) return false;
+		releasePointer(e.pointerId);
+		if (gesture && !gesture.axis && Math.hypot(e.clientX - downX, e.clientY - downY) <= TAP_PX) {
+			gesture = null;
+			pendingTap = { clientX: e.clientX, clientY: e.clientY };
+			return true;
 		}
-
-		if (state === State.TRACKING) {
-			const dx = e.clientX - pointerDownX;
-			const dy = e.clientY - pointerDownY;
-			if (dx * dx + dy * dy <= TAP_DISTANCE_THRESHOLD * TAP_DISTANCE_THRESHOLD) {
-				pendingTap = { clientX: e.clientX, clientY: e.clientY };
-			}
-			clearPointerTracking();
-			state = State.IDLE;
-			return pendingTap !== null;
-		}
-
-		if (state !== State.DRAGGING) {
-			clearPointerTracking();
-			state = State.IDLE;
-			return false;
-		}
-
-		const vel = estimateVelocity(pointerSamples);
-		clearPointerTracking();
-
-		if (prefersReducedMotion()) {
-			verticalT = verticalStops[nearestStopIndex(verticalT)];
-			for (let i = 0; i < numRows; i++) {
-				const points = panSnapPoints[i];
-				if (points && points.length > 0) {
-					panByRow[i] = nearestSnapPoint(panByRow[i], points);
-				}
-			}
-			state = State.IDLE;
-			return markChanged();
-		}
-
-		let changed = false;
-		if (lockedDir === "v") {
-			changed = beginVerticalAnimation(chooseVerticalTarget(vel.vy), -vel.vy * dragVerticalSpeed);
-			for (let i = 0; i < numRows; i++) {
-				const points = panSnapPoints[i];
-				if (points && points.length > 0) {
-					changed = beginPanAnimation(i, nearestSnapPoint(panByRow[i], points)) || changed;
-				}
-			}
-		} else if (lockedDir === "h") {
-			// Apply the horizontal velocity only to the currently visible row; settle
-			// all other rows to their nearest snap point without the flick velocity.
-			const visibleRow = dragOriginStop;
-			for (let i = 0; i < numRows; i++) {
-				const target =
-					i === visibleRow
-						? choosePanTarget(i, -vel.vx)
-						: (() => {
-								const points = panSnapPoints[i];
-								return points && points.length > 0 ? nearestSnapPoint(panByRow[i], points) : null;
-							})();
-				if (target !== null) {
-					const velocity = i === visibleRow ? -vel.vx * DRAG_PAN_SPEED : 0;
-					changed = beginPanAnimation(i, target, velocity) || changed;
-				}
-			}
-			changed = beginVerticalAnimation(nearestStopIndex(verticalT)) || changed;
-		} else {
-			changed = settleAll();
-		}
-		return changed;
+		return endGesture() ? markChanged() : false;
 	}
 
 	function onPointerCancel(e: PointerEvent): boolean {
-		if (activePointerId !== e.pointerId) return false;
-		activePointerId = null;
-		if (canvas.hasPointerCapture?.(e.pointerId)) {
-			canvas.releasePointerCapture(e.pointerId);
-		}
-		clearPointerTracking();
+		if (e.pointerId !== pointerId) return false;
+		releasePointer(e.pointerId);
 		pendingTap = null;
-		return settleAll();
+		return endGesture() ? markChanged() : false;
 	}
 
-	function cancelActiveGesture(): boolean {
-		const hadWheel = trackpadActive;
-		resetWheelState();
-		if (activePointerId === null && !hadWheel) return false;
-		clearPointerTracking();
-		state = State.IDLE;
-		pendingTap = null;
-		return settleAll();
+	function releasePointer(id: number): void {
+		pointerId = null;
+		if (canvas.hasPointerCapture?.(id)) canvas.releasePointerCapture(id);
 	}
 
-	function wheelGestureEnd(): void {
-		wheelAccumY = 0;
-		// A slow trackpad gesture can end without any momentum: snap now.
-		if (trackpadActive && !trackpadIgnored && !trackpadSettled && !trackpadChaining) {
-			// The fingers have been still for a beat, so the shelf was too.
-			trackpadVelocity = 0;
-			if (settleTrackpad(TRACKPAD_COMMIT)) inputDirty = true;
+	// ── Trackpad ──
+
+	function onTrackpad(dx: number, dy: number, now: number): boolean {
+		const quiet = now - lastWheelAt > TRACKPAD_QUIET_MS;
+		lastWheelAt = now;
+		const magnitude = Math.hypot(dx, dy);
+		const previous = lastMagnitude;
+		lastMagnitude = magnitude;
+		armWheelEnd();
+
+		if (swallowing && !quiet) {
+			const along = swallowing.axis === "v" ? dy : dx;
+			const reversed = Math.abs(along) >= 1 && Math.sign(along) === -swallowing.sign;
+			const jumped =
+				magnitude >= TRACKPAD_NEW_SWIPE_MIN_PX && magnitude > previous * TRACKPAD_NEW_SWIPE_RATIO;
+			if (!reversed && !jumped) return false;
 		}
-		wheelAxisLock = null;
-		trackpadIgnored = false;
-		trackpadActive = false;
-		trackpadSettled = false;
-		trackpadChaining = false;
-	}
+		swallowing = null;
 
-	/** Glide to the nearest stop on the gesture's axis; a gesture that got
-	 *  `commit` of the way to the next stop goes there instead of springing
-	 *  back. Only that axis settles: a vertical scroll leaves every row's
-	 *  sideways position alone (snapping them all made the bottom row jump to
-	 *  a framing that cut the camera off), just as touch scrolling does. */
-	function settleTrackpad(commit: number): boolean {
-		const axis = wheelAxisLock;
-		if (axis === "v") {
-			return beginVerticalAnimation(settleVerticalTarget(commit), trackpadVelocity);
+		let changed = false;
+		if (!gesture || quiet) {
+			changed = endGesture();
+			gesture = newGesture("trackpad");
+			peakMagnitude = 0;
 		}
-		if (axis === "h") {
-			const points = panSnapPoints[trackpadRow];
-			if (!points || points.length === 0) return false;
-			return beginPanAnimation(trackpadRow, settlePanTarget(trackpadRow, commit), trackpadVelocity);
-		}
-		return false;
-	}
+		const g = gesture;
+		peakMagnitude = Math.max(peakMagnitude, magnitude);
+		changed = feed(g, dx, dy, now) || changed;
 
-	function settleVerticalTarget(commit: number): number {
-		const nearest = nearestStopIndex(verticalT);
-		if (nearest !== dragOriginStop) return nearest;
-		const displacement = verticalT - verticalStops[dragOriginStop];
-		const next = verticalStopInDirection(dragOriginStop, displacement > 0 ? 1 : -1);
-		if (next === null) return nearest;
-		const gap = Math.abs(verticalStops[next] - verticalStops[dragOriginStop]);
-		return Math.abs(displacement) > gap * commit ? next : nearest;
-	}
-
-	function settlePanTarget(row: number, commit: number): number {
-		const points = panSnapPoints[row];
-		const origin = panOriginSnap[row];
-		const nearest = nearestSnapPoint(panByRow[row], points);
-		if (Math.abs(nearest - origin) > 0.0001) return nearest;
-		const displacement = panByRow[row] - origin;
-		const next = panSnapInDirection(row, origin, displacement > 0 ? 1 : -1);
-		if (next === null) return nearest;
-		return Math.abs(displacement) > Math.abs(next - origin) * commit ? next : nearest;
-	}
-
-	function armWheelSettle(): void {
-		if (wheelSettleTimer) clearTimeout(wheelSettleTimer);
-		wheelSettleTimer = window.setTimeout(() => {
-			wheelSettleTimer = 0;
-			wheelGestureEnd();
-		}, WHEEL_SETTLE_DELAY_MS);
-	}
-
-	function findNearestLinearIndex(): number {
-		const currentStop = nearestStopIndex(verticalT);
-		let bestIdx = linearIndex;
-		let bestDist = Number.POSITIVE_INFINITY;
-		for (let i = 0; i < linearSequence.length; i++) {
-			const entry = linearSequence[i];
-			if (entry.row !== currentStop) continue;
-			const panDist = Math.abs(panByRow[entry.row] - entry.panTarget);
-			if (panDist < bestDist) {
-				bestIdx = i;
-				bestDist = panDist;
-			}
-		}
-		return bestIdx;
-	}
-
-	function navigateToLinearStop(idx: number): boolean {
-		const target = linearSequence[idx];
-		linearIndex = idx;
-
-		if (prefersReducedMotion()) {
-			verticalT = verticalStops[target.stopIndex];
-			panByRow[target.row] = target.panTarget;
-			for (let i = 0; i < numRows; i++) {
-				if (i === target.row) continue;
-				const points = panSnapPoints[i];
-				if (points && points.length > 0) {
-					panByRow[i] = nearestSnapPoint(panByRow[i], points);
-				}
-			}
-			state = State.IDLE;
-			stopAllAnimations();
-			return true;
-		}
-
-		let changed = beginVerticalAnimation(target.stopIndex);
-		changed = beginPanAnimation(target.row, target.panTarget) || changed;
-		// Snap other rows to their nearest snap point
-		for (let i = 0; i < numRows; i++) {
-			if (i === target.row) continue;
-			const points = panSnapPoints[i];
-			if (points && points.length > 0) {
-				changed = beginPanAnimation(i, nearestSnapPoint(panByRow[i], points)) || changed;
-			}
+		// The momentum has all but faded: settle now, not after the last few
+		// barely-moving events.
+		if (
+			g.axis &&
+			peakMagnitude >= TRACKPAD_TAIL_MIN_PEAK &&
+			magnitude < TRACKPAD_TAIL_PX &&
+			magnitude < peakMagnitude / 4
+		) {
+			swallowing = { axis: g.axis, sign: Math.sign(g.axis === "v" ? dy : dx) || 1 };
+			changed = endGesture() || changed;
 		}
 		return changed;
 	}
 
-	function onWheelDiscrete(rawY: number, now: number): boolean {
-		wheelAccumY += rawY;
-		if (
-			Math.abs(wheelAccumY) < WHEEL_PAGE_THRESHOLD ||
-			now - lastWheelPageTimeY < WHEEL_COOLDOWN_MS
-		) {
-			armWheelSettle();
+	function armWheelEnd(): void {
+		if (wheelEndTimer) clearTimeout(wheelEndTimer);
+		wheelEndTimer = window.setTimeout(() => {
+			wheelEndTimer = 0;
+			swallowing = null;
+			if (gesture?.source === "trackpad" && endGesture()) dirty = true;
+		}, TRACKPAD_QUIET_MS);
+	}
+
+	function cancelWheel(): boolean {
+		if (wheelEndTimer) clearTimeout(wheelEndTimer);
+		wheelEndTimer = 0;
+		swallowing = null;
+		wheelAccum = 0;
+		return gesture?.source === "trackpad" ? endGesture() : false;
+	}
+
+	// ── Mouse wheel: one item per notch ──
+
+	function onWheelStep(dy: number, now: number): boolean {
+		wheelAccum += dy;
+		if (Math.abs(wheelAccum) < WHEEL_STEP_PX || now - lastWheelStepAt < WHEEL_COOLDOWN_MS) {
 			return false;
 		}
-
-		// Sync linear index to current position in case touch/trackpad moved us
-		linearIndex = findNearestLinearIndex();
-
-		const dir = wheelAccumY > 0 ? 1 : -1;
-		const nextIdx = clamp(linearIndex + dir, 0, linearSequence.length - 1);
-		wheelAccumY = 0;
-		lastWheelPageTimeY = now;
-		armWheelSettle();
-
-		if (nextIdx === linearIndex) return false;
-		return navigateToLinearStop(nextIdx);
-	}
-
-	/** Index of the nearest vertical stop from `fromIndex` moving verticalT in `dir`. */
-	function verticalStopInDirection(fromIndex: number, dir: -1 | 1): number | null {
-		const from = verticalStops[fromIndex];
-		let best: number | null = null;
-		let bestDist = Number.POSITIVE_INFINITY;
-		for (let i = 0; i < verticalStops.length; i++) {
-			const dist = (verticalStops[i] - from) * dir;
-			if (dist > 0.0001 && dist < bestDist) {
-				best = i;
-				bestDist = dist;
-			}
-		}
-		return best;
-	}
-
-	/** Index of the nearest stop beyond the position `from` in `dir`. */
-	function verticalStopFrom(from: number, dir: -1 | 1): number | null {
-		let best: number | null = null;
-		let bestDist = Number.POSITIVE_INFINITY;
-		for (let i = 0; i < verticalStops.length; i++) {
-			const dist = (verticalStops[i] - from) * dir;
-			if (dist > 0.0001 && dist < bestDist) {
-				best = i;
-				bestDist = dist;
-			}
-		}
-		return best;
-	}
-
-	/** Nearest pan snap point from `from` in `dir` on `row`, if any. */
-	function panSnapInDirection(row: number, from: number, dir: -1 | 1): number | null {
-		const points = panSnapPoints[row];
-		if (!points) return null;
-		let best: number | null = null;
-		let bestDist = Number.POSITIVE_INFINITY;
-		for (const point of points) {
-			const dist = (point - from) * dir;
-			if (dist > 0.0001 && dist < bestDist) {
-				best = point;
-				bestDist = dist;
-			}
-		}
-		return best;
-	}
-
-	function onWheelContinuous(rawY: number, rawX: number, now: number): boolean {
-		const sinceLast = now - trackpadLastEventAt;
-		const quiet = sinceLast > TRACKPAD_GESTURE_GAP_MS;
-		trackpadLastEventAt = now;
-		const magnitude = Math.hypot(rawY, rawX);
-		const previousMagnitude = trackpadLastMagnitude;
-		trackpadLastMagnitude = magnitude;
-		// Momentum never changes direction, so any push the other way after a
-		// settle is a new swipe: sliding back and forth must respond at once.
-		const settledDelta = trackpadSettledAxis === "h" ? rawX : rawY;
-		const reversed =
-			trackpadSettled &&
-			trackpadSettledSign !== 0 &&
-			Math.abs(settledDelta) >= 1 &&
-			Math.sign(settledDelta) === -trackpadSettledSign;
-		const newSwipe =
-			reversed ||
-			(trackpadSettled &&
-				magnitude > TRACKPAD_NEW_SWIPE_MIN_PX &&
-				magnitude > previousMagnitude * TRACKPAD_NEW_SWIPE_RATIO);
-
-		if (quiet || newSwipe || !trackpadActive) {
-			// A new gesture. Glides already under way keep going: the gesture
-			// only takes over an axis once it has picked one (below). Stopping
-			// everything here froze half-finished row changes, which then
-			// snapped back to the row just left.
-			trackpadActive = true;
-			trackpadIgnored = false;
-			trackpadSettled = false;
-			trackpadChaining = false;
-			trackpadDecayCount = 0;
-			trackpadPeakMagnitude = 0;
-			trackpadVelocity = 0;
-			trackpadLockX = 0;
-			trackpadLockY = 0;
-			wheelAxisLock = null;
-			trackpadVTravel = 0;
-			trackpadPanTravel = 0;
-			trackpadSettledAxis = null;
-			trackpadSettledSign = 0;
-		}
-
-		armWheelSettle();
-		if (trackpadIgnored || trackpadSettled) return false;
-
-		// Fingers lifted: the deltas start shrinking steadily. Snap now, in the
-		// direction of travel, rather than riding the momentum.
-		trackpadPeakMagnitude = Math.max(trackpadPeakMagnitude, magnitude);
-		const decaying =
-			magnitude > 0 &&
-			(magnitude <= previousMagnitude * TRACKPAD_MOMENTUM_DECAY ||
-				(magnitude <= 2 && magnitude <= previousMagnitude));
-		trackpadDecayCount = decaying ? trackpadDecayCount + 1 : 0;
-		if (
-			wheelAxisLock &&
-			!trackpadChaining &&
-			trackpadDecayCount >= TRACKPAD_MOMENTUM_EVENTS &&
-			magnitude <= trackpadPeakMagnitude * TRACKPAD_MOMENTUM_PEAK_RATIO
-		) {
-			trackpadSettled = true;
-			trackpadSettledAxis = wheelAxisLock;
-			trackpadSettledSign = Math.sign(wheelAxisLock === "h" ? rawX : rawY);
-			return settleTrackpad(TRACKPAD_FLICK_COMMIT);
-		}
-
-		// Pick the axis from the accumulated motion, not the first event: swipes
-		// rarely start perfectly straight.
-		if (!wheelAxisLock) {
-			trackpadLockX += rawX;
-			trackpadLockY += rawY;
-			const travel = Math.hypot(trackpadLockX, trackpadLockY);
-			if (travel < TRACKPAD_AXIS_LOCK_PX) return false;
-			const ax = Math.abs(trackpadLockX);
-			const ay = Math.abs(trackpadLockY);
-			const clear =
-				Math.max(ax, ay) >= Math.min(ax, ay) * TRACKPAD_AXIS_DOMINANCE ||
-				travel >= TRACKPAD_AXIS_FORCE_PX;
-			if (!clear) return false;
-			const horizontal = ax > ay;
-			// Where the shelf is heading if it's mid-glide, else where it is.
-			const baseV = state === State.ANIMATING ? animTargetT : verticalT;
-			trackpadRow = nearestStopIndex(baseV);
-			const rowPoints = panSnapPoints[trackpadRow];
-			// A sideways swipe on a row with nothing to pan to is ignored rather
-			// than reinterpreted as vertical.
-			if (horizontal && !(rowPoints && rowPoints.length > 1)) {
-				trackpadIgnored = true;
-				return false;
-			}
-			wheelAxisLock = horizontal ? "h" : "v";
-			if (horizontal) {
-				trackpadChaining = panAnimating[trackpadRow];
-				trackpadPanStart = trackpadChaining ? panAnimTarget[trackpadRow] : panByRow[trackpadRow];
-				trackpadRawPan = panByRow[trackpadRow];
-			} else {
-				trackpadChaining = state === State.ANIMATING;
-				trackpadVStart = baseV;
-				trackpadRawV = getRawVertical();
-			}
-			if (!trackpadChaining) captureOrigins();
-			// Count the travel that went into deciding.
-			rawX = trackpadLockX;
-			rawY = trackpadLockY;
-		}
-
-		// Scrolling down/right moves verticalT/pan down, matching touch drags.
-		const delta =
-			wheelAxisLock === "v" ? -rawY * trackpadVerticalSpeed : -rawX * TRACKPAD_PAN_SPEED;
-		// Events arrive every ~16 ms; a long gap means the speed is unknown.
-		if (!quiet && sinceLast > 0) {
-			const sample = delta / (Math.max(sinceLast, 8) / 1000);
-			trackpadVelocity += (sample - trackpadVelocity) * TRACKPAD_VELOCITY_SMOOTHING;
-		}
-		if (wheelAxisLock === "v") {
-			trackpadRawV += delta;
-			trackpadVTravel += rawY;
-			if (Math.abs(trackpadVTravel) >= TRACKPAD_FLIP_PX) {
-				const next = verticalStopFrom(trackpadVStart, trackpadVTravel > 0 ? -1 : 1);
-				if (next !== null) {
-					trackpadSettled = true;
-					trackpadSettledAxis = "v";
-					trackpadSettledSign = Math.sign(trackpadVTravel);
-					if (trackpadChaining && state === State.ANIMATING) {
-						// Redirect the glide, keeping its current speed.
-						animTargetT = verticalStops[next];
-						return true;
-					}
-					return beginVerticalAnimation(next, trackpadVelocity);
-				}
-			}
-			return trackpadChaining ? false : setVerticalWithRubberBand(trackpadRawV);
-		}
-		trackpadRawPan += delta;
-		trackpadPanTravel += rawX;
-		if (Math.abs(trackpadPanTravel) >= TRACKPAD_FLIP_PX) {
-			const dir = trackpadPanTravel > 0 ? -1 : 1;
-			// Measured from where the row was when this swipe began, so a
-			// reversal mid-glide heads back to the item it just left.
-			const next = panSnapInDirection(trackpadRow, trackpadPanStart, dir);
-			if (next !== null) {
-				trackpadSettled = true;
-				trackpadSettledAxis = "h";
-				trackpadSettledSign = Math.sign(trackpadPanTravel);
-				if (trackpadChaining && panAnimating[trackpadRow]) {
-					panAnimTarget[trackpadRow] = next;
-					return true;
-				}
-				return beginPanAnimation(trackpadRow, next, trackpadVelocity);
-			}
-		}
-		return trackpadChaining ? false : setPanWithRubberBand(trackpadRow, trackpadRawPan);
-	}
-
-	/** Follow a sideways swipe, easing into a short pull past the row's ends. */
-	function setPanWithRubberBand(row: number, raw: number): boolean {
-		const points = panSnapPoints[row];
-		const min = Math.min(...points);
-		const max = Math.max(...points);
-		let next = raw;
-		if (raw < min)
-			next = min - TRACKPAD_PAN_EDGE * (1 - Math.exp(-(min - raw) / TRACKPAD_PAN_EDGE));
-		else if (raw > max) {
-			next = max + TRACKPAD_PAN_EDGE * (1 - Math.exp(-(raw - max) / TRACKPAD_PAN_EDGE));
-		}
-		if (Math.abs(next - panByRow[row]) < 0.0001) return false;
-		panByRow[row] = next;
-		return true;
+		// Same direction as a trackpad: scrolling down moves the view down.
+		const dir = wheelAccum > 0 ? -1 : 1;
+		wheelAccum = 0;
+		lastWheelStepAt = now;
+		const row = restingIndex(vertical);
+		const pan = pans[row].points[restingIndex(pans[row])];
+		const current = linearStops.findIndex((s) => s.row === row && s.pan === pan);
+		return navigateTo(current + dir);
 	}
 
 	function onWheel(e: WheelEvent): boolean {
 		e.preventDefault();
-
+		if (pointerId !== null) return false;
 		const now = performance.now();
-		const rawY = normalizeWheelDelta(e.deltaY, e.deltaMode);
-		const rawX = normalizeWheelDelta(e.deltaX, e.deltaMode);
-
-		// Keep trackpads on the continuous path. Pixel-mode mouse wheels on
-		// Chrome/Edge usually arrive as isolated 100/120-step vertical deltas,
-		// while trackpads are much more variable and often include horizontal data.
-		const discrete = isLikelyDiscretePixelWheelEvent(e);
-
-		if (discrete) {
-			// Linear item navigation — no axis lock needed, vertical only
-			const changed = onWheelDiscrete(rawY, now);
-			return changed ? markChanged() : false;
-		}
-
-		const changed = onWheelContinuous(rawY, rawX, now);
+		const dx = normalizeWheelDelta(e.deltaX, e.deltaMode);
+		const dy = normalizeWheelDelta(e.deltaY, e.deltaMode);
+		const changed = isDiscreteWheel(e) ? onWheelStep(dy, now) : onTrackpad(dx, dy, now);
 		return changed ? markChanged() : false;
 	}
 
-	function tick(dt: number): boolean {
-		const hadInput = inputDirty;
-		inputDirty = false;
-		let changed = hadInput;
+	// ── Programmatic ──
 
-		if (state === State.ANIMATING) {
-			const next = springStep(verticalT, animVelocity, animTargetT, dt);
-			verticalT = next.x;
-			animVelocity = next.v;
-			changed = true;
-			if (springAtRest(next.x, next.v, animTargetT)) {
-				verticalT = animTargetT;
-				animVelocity = 0;
-				state = State.IDLE;
-			}
-		}
-
-		for (let i = 0; i < numRows; i++) {
-			if (!panAnimating[i]) continue;
-			const next = springStep(panByRow[i], panVelocity[i], panAnimTarget[i], dt);
-			panByRow[i] = next.x;
-			panVelocity[i] = next.v;
-			changed = true;
-			if (springAtRest(next.x, next.v, panAnimTarget[i])) {
-				panByRow[i] = panAnimTarget[i];
-				panVelocity[i] = 0;
-				panAnimating[i] = false;
-			}
-		}
-
+	function navigateTo(idx: number): boolean {
+		const stop = linearStops[idx];
+		if (!stop) return false;
+		gesture = null;
+		let changed = springTo(vertical, verticalStops[stop.row]);
+		changed = springTo(pans[stop.row], stop.pan) || changed;
 		return changed;
 	}
 
-	function consumeTap(): TapPoint | null {
-		const tap = pendingTap;
+	function markChanged(): true {
+		dirty = true;
+		syncPans();
+		return true;
+	}
+
+	function tick(dt: number): boolean {
+		let changed = dirty;
+		dirty = false;
+		changed = stepTrack(vertical, dt) || changed;
+		for (const track of pans) changed = stepTrack(track, dt) || changed;
+		if (changed) syncPans();
+		return changed;
+	}
+
+	function cancelActiveGesture(): boolean {
+		if (pointerId !== null) releasePointer(pointerId);
 		pendingTap = null;
-		return tap;
+		const changed = cancelWheel() || endGesture();
+		return changed ? markChanged() : false;
 	}
 
 	function resetTo(t: number): boolean {
 		const next = clamp(t, 0, 1);
-		const changed =
-			Math.abs(verticalT - next) > 0.0001 || panByRow.some((value) => Math.abs(value) > 0.0001);
-		verticalT = next;
-		state = State.IDLE;
-		stopAllAnimations();
-		clearPointerTracking();
-		pendingTap = null;
-		inputDirty = false;
-		resetWheelState();
-		for (let i = 0; i < numRows; i++) {
-			panByRow[i] = 0;
+		const changed = Math.abs(vertical.pos - next) > 1e-4 || pans.some((p) => p.pos !== 0);
+		cancelActiveGesture();
+		for (const track of [vertical, ...pans]) {
+			track.target = null;
+			track.velocity = 0;
+			track.pos = 0;
 		}
+		vertical.pos = next;
+		dirty = false;
+		syncPans();
 		return changed;
 	}
 
 	function dispose(): void {
-		state = State.IDLE;
-		stopAllAnimations();
-		clearPointerTracking();
-		pendingTap = null;
-		inputDirty = false;
-		resetWheelState();
+		cancelActiveGesture();
+		dirty = false;
 	}
 
 	return {
@@ -1110,15 +613,16 @@ export function createMobileScrollController(
 		onWheel,
 		tick,
 		get verticalT() {
-			return verticalT;
+			return vertical.pos;
 		},
-		get panByRow() {
-			return panByRow;
+		panByRow,
+		consumeTap() {
+			const tap = pendingTap;
+			pendingTap = null;
+			return tap;
 		},
-		consumeTap,
 		navigateToLinearStop(idx: number): boolean {
-			const clamped = clamp(idx, 0, linearSequence.length - 1);
-			return navigateToLinearStop(clamped) ? markChanged() : false;
+			return navigateTo(clamp(idx, 0, linearStops.length - 1)) ? markChanged() : false;
 		},
 		resetTo,
 		dispose,

@@ -3,6 +3,7 @@ import { createMobileScrollController, type MobileScrollController } from "./mob
 
 const STOPS = [0, 1 / 3, 2 / 3, 1] as const;
 const HOME = STOPS[2];
+const ROW = 1 / 3;
 const FRAME_MS = 16;
 
 let now = 0;
@@ -16,40 +17,62 @@ function fakeCanvas(): HTMLCanvasElement {
 	} as unknown as HTMLCanvasElement;
 }
 
-function pointer(clientY: number): PointerEvent {
-	return { pointerId: 1, button: 0, clientX: 100, clientY } as unknown as PointerEvent;
+function pointer(clientY: number, clientX = 100): PointerEvent {
+	return { pointerId: 1, button: 0, clientX, clientY } as unknown as PointerEvent;
 }
 
 function wheel(deltaY: number, deltaX = 0): WheelEvent {
-	return {
-		deltaX,
-		deltaY,
-		deltaMode: 0,
-		preventDefault: () => {},
-	} as unknown as WheelEvent;
+	return { deltaX, deltaY, deltaMode: 0, preventDefault: () => {} } as unknown as WheelEvent;
 }
 
-/** Advance time one frame, ticking the controller. */
+/** One frame: time passes, then the controller ticks. */
 function frame(): void {
 	now += FRAME_MS;
+	vi.advanceTimersByTime(FRAME_MS);
 	scroll.tick(FRAME_MS / 1000);
 }
 
 function settle(): void {
-	vi.advanceTimersByTime(500);
-	for (let i = 0; i < 120; i++) frame();
+	for (let i = 0; i < 90; i++) frame();
 }
 
 /** Drag a finger from y=500 by `dy` px over `ms`, then lift it. */
-function drag(dy: number, ms: number): void {
+function drag(dy: number, ms: number, lift = true): void {
 	scroll.onPointerDown(pointer(500));
 	const steps = Math.max(1, Math.round(ms / FRAME_MS));
 	for (let i = 1; i <= steps; i++) {
 		now += FRAME_MS;
 		scroll.onPointerMove(pointer(500 + (dy * i) / steps));
 	}
-	scroll.onPointerUp(pointer(500 + dy));
+	if (lift) scroll.onPointerUp(pointer(500 + dy));
 }
+
+type Delta = number | [dy: number, dx: number];
+
+/** Trackpad events, one per frame. */
+function swipe(deltas: readonly Delta[]): void {
+	for (const d of deltas) {
+		const [dy, dx] = typeof d === "number" ? [d, 0] : d;
+		now += FRAME_MS;
+		vi.advanceTimersByTime(FRAME_MS);
+		scroll.onWheel(wheel(dy, dx));
+		scroll.tick(FRAME_MS / 1000);
+	}
+}
+
+/** A trackpad swipe: steady finger deltas, then a fading momentum tail. */
+function flick(perEvent: number, fingerEvents: number, decay = 0.92): number[] {
+	const fingers = Array.from({ length: fingerEvents }, () => perEvent);
+	const tail: number[] = [];
+	for (let d = perEvent * decay; Math.abs(d) > 0.3; d *= decay) tail.push(d);
+	return [...fingers, ...tail];
+}
+
+const sideways = (deltas: number[]): Delta[] => deltas.map((d) => [0, d]);
+
+/** The part of a flick up to where its momentum has faded. */
+const faded = (deltas: number[]): number[] =>
+	deltas.slice(0, deltas.findIndex((d) => Math.abs(d) < 1.5) + 1);
 
 beforeEach(() => {
 	now = 0;
@@ -64,153 +87,148 @@ beforeEach(() => {
 	scroll.resetTo(HOME);
 });
 
-describe("touch dragging", () => {
-	it("moves one row per ~260px of finger travel, whatever the stop count", () => {
-		scroll.onPointerDown(pointer(500));
-		for (let y = 490; y >= 370; y -= 10) {
-			now += FRAME_MS;
-			scroll.onPointerMove(pointer(y));
-		}
-		// 130px of travel (after the 8px direction lock) is about half a row.
-		const rows = (scroll.verticalT - HOME) / (1 / 3);
-		expect(rows).toBeGreaterThan(0.4);
-		expect(rows).toBeLessThan(0.55);
+describe("touch", () => {
+	it("follows the finger 1:1, a shelf per 260px", () => {
+		drag(130, 1000, false); // finger down: the view moves down the shelves
+		expect(scroll.verticalT).toBeCloseTo(HOME - ROW / 2, 4);
+	});
+
+	it("locks on: one slow gesture can't drag past the next shelf", () => {
+		drag(700, 3000, false);
+		expect(scroll.verticalT).toBeCloseTo(STOPS[1], 4);
+		scroll.onPointerUp(pointer(1200));
+		settle();
+		expect(scroll.verticalT).toBeCloseTo(STOPS[1], 4);
 	});
 
 	it("springs back from a short, slow drag", () => {
-		drag(-60, 600);
+		drag(60, 800);
 		settle();
 		expect(scroll.verticalT).toBeCloseTo(HOME, 4);
 	});
 
-	it("carries the finger's speed into the glide instead of jolting", () => {
-		drag(-80, 120); // a quick flick upward
+	it("moves on from a short flick, carrying its speed", () => {
+		drag(70, 100);
 		const released = scroll.verticalT;
 		frame();
-		const firstStep = scroll.verticalT - released;
-		// Keeps moving the same way, at roughly the finger's speed
-		// (80px / 120ms ≈ 0.0034 per frame after the speed cap).
-		expect(firstStep).toBeGreaterThan(0.002);
+		expect(scroll.verticalT).toBeLessThan(released); // keeps going, no jolt back
 		settle();
-		expect(scroll.verticalT).toBeCloseTo(STOPS[3], 4);
+		expect(scroll.verticalT).toBeCloseTo(STOPS[1], 4);
+	});
+
+	it("can cover two shelves, but only with a fast, long drag", () => {
+		drag(600, 200);
+		settle();
+		expect(scroll.verticalT).toBeCloseTo(STOPS[0], 4);
+	});
+
+	it("treats a still touch as a tap", () => {
+		scroll.onPointerDown(pointer(500));
+		scroll.onPointerUp(pointer(504));
+		expect(scroll.consumeTap()).toEqual({ clientX: 100, clientY: 504 });
 	});
 });
 
 describe("trackpad", () => {
-	function swipe(deltas: number[]): void {
-		for (const d of deltas) {
-			now += FRAME_MS;
-			vi.advanceTimersByTime(FRAME_MS);
-			scroll.onWheel(wheel(d));
-			scroll.tick(FRAME_MS / 1000);
-		}
-	}
+	it("follows the fingers 1:1, a shelf per 400px", () => {
+		swipe(Array.from({ length: 10 }, () => 10));
+		expect(scroll.verticalT).toBeCloseTo(HOME - ROW / 4, 4);
+	});
 
-	it("moves one row per swipe, however fast", () => {
-		// A hard swipe: big deltas, then a long momentum tail. Followed 1:1
-		// this would travel ~1300px, over three rows.
-		const fingers = Array.from({ length: 8 }, () => 60);
-		const momentum = Array.from({ length: 40 }, (_, i) => 60 * 0.93 ** (i + 1));
-		swipe([...fingers, ...momentum]);
+	it("moves one shelf per ordinary swipe, never past it", () => {
+		for (const d of flick(25, 10)) {
+			swipe([d]);
+			expect(scroll.verticalT).toBeGreaterThanOrEqual(STOPS[1] - 1e-6);
+		}
 		settle();
 		expect(scroll.verticalT).toBeCloseTo(STOPS[1], 4);
 	});
 
-	it("snaps to the next row once momentum starts, without reversing", () => {
-		const fingers = Array.from({ length: 10 }, () => 12.5);
-		const momentum = Array.from({ length: 30 }, (_, i) => 12.5 * 0.9 ** (i + 1));
-		swipe([...fingers, ...momentum.slice(0, 6)]);
-		const before = scroll.verticalT;
-		frame();
-		expect(scroll.verticalT).toBeLessThan(before);
-		swipe(momentum.slice(6));
+	it("settles as the momentum fades, without waiting out the tail", () => {
+		swipe(faded(flick(25, 10)));
+		for (let i = 0; i < 25; i++) frame();
+		expect(scroll.verticalT).toBeCloseTo(STOPS[1], 3);
+	});
+
+	it("can cover two shelves with a hard, long flick", () => {
+		swipe(flick(70, 8, 0.95));
 		settle();
-		expect(scroll.verticalT).toBeCloseTo(STOPS[1], 4);
+		expect(scroll.verticalT).toBeCloseTo(STOPS[0], 4);
 	});
 
 	it("springs back from a small nudge", () => {
-		swipe([3.5, 4.5, 4.5, 3.5]);
+		swipe([3.5, 4.5, 4.5, 3.5, 2, 1]);
 		settle();
 		expect(scroll.verticalT).toBeCloseTo(HOME, 4);
 	});
 
-	it("flips sideways to the next item quickly, ignoring the momentum", () => {
-		// Home row's items sit at -0.78 and 0.3; it starts on 0.3.
-		const fingers = [6, 9, 12, 12];
-		const momentum = Array.from({ length: 40 }, (_, i) => 12 * 0.93 ** (i + 1));
-		for (const dx of [...fingers, ...momentum]) {
-			now += FRAME_MS;
-			vi.advanceTimersByTime(FRAME_MS);
-			scroll.onWheel(wheel(0, dx));
-			scroll.tick(FRAME_MS / 1000);
-			// Never sails past the item it's heading for.
-			expect(scroll.panByRow[2]).toBeGreaterThanOrEqual(-0.78 - 0.001);
+	it("moves on from a quick, short swipe", () => {
+		swipe(flick(20, 4, 0.8));
+		settle();
+		expect(scroll.verticalT).toBeCloseTo(STOPS[1], 4);
+	});
+
+	it("reads a crooked vertical swipe as vertical", () => {
+		swipe([[1, 4], [3, 3], ...flick(15, 6).map((d): Delta => [d, 1])]);
+		settle();
+		expect(scroll.verticalT).toBeCloseTo(STOPS[1], 4);
+		expect(scroll.panByRow[2]).toBe(0);
+	});
+
+	it("flips sideways to the next item without overshooting", () => {
+		// The home shelf's items sit at -0.78 and 0.3.
+		for (const d of sideways(flick(15, 8))) {
+			swipe([d]);
+			expect(scroll.panByRow[2]).toBeGreaterThanOrEqual(-0.78 - 1e-6);
 		}
-		// Arrived well before the momentum ran out.
-		expect(scroll.panByRow[2]).toBeCloseTo(-0.78, 2);
 		settle();
 		expect(scroll.panByRow[2]).toBeCloseTo(-0.78, 4);
 		expect(scroll.verticalT).toBeCloseTo(HOME, 4);
 	});
 
-	it("turns straight round when the swipe reverses mid-momentum", () => {
-		const send = (dx: number): void => {
-			now += FRAME_MS;
-			vi.advanceTimersByTime(FRAME_MS);
-			scroll.onWheel(wheel(0, dx));
-			scroll.tick(FRAME_MS / 1000);
-		};
-		// Flick toward -0.78, then while its momentum is still arriving, push
-		// back the other way with no pause in between.
-		for (const dx of [6, 9, 12, 12, 11, 10, 9]) send(dx);
-		const back = [-5, -9, -12, -12, -11, -10, -9];
-		for (const dx of back) send(dx);
-		// Heading home again right away, not waiting for a quiet moment.
+	it("turns straight round when a swipe reverses mid-momentum", () => {
+		swipe(sideways(flick(15, 8).slice(0, 14)));
 		const turnedAt = scroll.panByRow[2];
-		send(-8);
+		swipe([[0, -6]]);
 		expect(scroll.panByRow[2]).toBeGreaterThan(turnedAt);
-		for (let i = 0; i < 20; i++) send(-8 * 0.9 ** i);
-		expect(scroll.panByRow[2]).toBeCloseTo(0.3, 2);
+		swipe(sideways(flick(-15, 8)));
+		settle();
+		expect(scroll.panByRow[2]).toBeCloseTo(0.3, 4);
 	});
 
-	describe("gestures that start while the shelf is moving or crooked", () => {
-		const send = (dy: number, dx = 0): void => {
-			now += FRAME_MS;
-			vi.advanceTimersByTime(FRAME_MS);
-			scroll.onWheel(wheel(dy, dx));
-			scroll.tick(FRAME_MS / 1000);
-		};
-		const pause = (ms: number): void => {
-			for (let t = 0; t < ms; t += FRAME_MS) frame();
-			vi.advanceTimersByTime(ms);
-		};
+	it("chains a second swipe on from where the first is heading", () => {
+		swipe(faded(flick(20, 6)));
+		frame();
+		swipe(flick(20, 6));
+		settle();
+		expect(scroll.verticalT).toBeCloseTo(STOPS[0], 4);
+	});
 
-		it("reads a crooked vertical swipe as vertical", () => {
-			// Starts drifting sideways before the real upward motion.
-			send(1, 4);
-			send(3, 3);
-			for (let i = 0; i < 6; i++) send(12, 1);
-			settle();
-			expect(scroll.verticalT).toBeCloseTo(STOPS[1], 4);
-			expect(scroll.panByRow[2]).toBe(0);
-		});
+	it("finishes a shelf change when a sideways swipe interrupts it", () => {
+		swipe(faded(flick(20, 6)));
+		frame();
+		// The view is heading to the shelf below, so that's the shelf that pans.
+		swipe(sideways(flick(15, 8)));
+		settle();
+		expect(scroll.verticalT).toBeCloseTo(STOPS[1], 4);
+		expect(scroll.panByRow[1]).toBeCloseTo(-0.65, 4);
+	});
 
-		it("finishes a row change when a sideways swipe interrupts it", () => {
-			for (const dy of [8, 12, 12]) send(dy);
-			// Right away, early in the glide: a fresh, much stronger push.
-			for (let i = 0; i < 6; i++) send(0, 40);
-			settle();
-			// Used to freeze the glide and snap back to the row it left.
-			expect(scroll.verticalT).toBeCloseTo(STOPS[1], 4);
-			expect(scroll.panByRow[1]).toBeCloseTo(-0.65, 4);
-		});
+	it("ignores sideways swipes on a shelf with nothing beside it", () => {
+		scroll.resetTo(STOPS[3]);
+		swipe(sideways(flick(15, 8)));
+		settle();
+		expect(scroll.verticalT).toBeCloseTo(STOPS[3], 4);
+		expect(scroll.panByRow[3]).toBe(0);
+	});
+});
 
-		it("chains a second swipe on from where the first is heading", () => {
-			for (const dy of [8, 12, 12]) send(dy);
-			pause(200);
-			for (const dy of [8, 12, 12]) send(dy);
-			settle();
-			expect(scroll.verticalT).toBeCloseTo(STOPS[0], 4);
-		});
+describe("mouse wheel", () => {
+	it("steps one item per notch", () => {
+		// Home shelf: items at -0.78 and 0.3; pan 0 rests nearest 0.3.
+		scroll.onWheel(wheel(100));
+		settle();
+		expect(scroll.verticalT).toBeCloseTo(HOME, 4);
+		expect(scroll.panByRow[2]).toBeCloseTo(-0.78, 4);
 	});
 });
