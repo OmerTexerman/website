@@ -548,7 +548,11 @@ export function createShelfWall(
 	badgeTarget.position.set(WALL_X - SHELF_DEPTH - 0.004, BOT_Y + SHELF_THICK / 2, WALL_Z + 0.3);
 	badge.root.rotation.y = -Math.PI / 2;
 	badgeTarget.add(badge.root);
-	addHitbox(badgeTarget, 0.08);
+	// Sized from the hanging lanyard and card only: measured whole, the box
+	// took in the straps tucked back under the dictionary, so taps on the
+	// word of the day opened the about card.
+	badgeTarget.updateMatrixWorld(true);
+	addHitbox(badgeTarget, 0.03, badge.parts.swing);
 	wall.add(badgeTarget);
 	entries.push({
 		sectionId: "about",

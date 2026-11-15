@@ -173,12 +173,19 @@ export function createWallIdBadge({
 		}
 	}
 
+	// The pivot is where the lanyard leaves its support: the peg, or the
+	// shelf's bottom front corner (not its top edge, which swung the strap
+	// tops sideways across the plank's face). `hang` puts the parts back at
+	// their positions relative to the mount origin.
 	const sway = new Group();
 	if (mount === "wall") sway.position.set(0, 0.01, 0.085);
-	else sway.position.set(0, 0, DRAPE_FACE_Z);
+	else sway.position.set(0, -DRAPE_EDGE, DRAPE_FACE_Z);
 	body.add(sway);
 	const swing = new Group();
 	sway.add(swing);
+	const hang = new Group();
+	if (mount === "draped") hang.position.y = DRAPE_EDGE;
+	swing.add(hang);
 
 	// Lanyard: two straps down to the clip. From a hook they start together
 	// and spread to the clip's ends; draped over an edge they start apart
@@ -199,7 +206,7 @@ export function createWallIdBadge({
 		const strap = new Mesh(new BoxGeometry(STRAP_W, len, 0.004), strapMat);
 		strap.position.set((x0 + x1) / 2, topY - drop / 2 + overlap / 2, 0);
 		strap.rotation.z = Math.atan2(x1 - x0, drop);
-		swing.add(strap);
+		hang.add(strap);
 	}
 
 	// Light brushed metal with a little self-light: a dark clip vanished
@@ -215,14 +222,14 @@ export function createWallIdBadge({
 		}),
 	);
 	clip.position.y = -LANYARD_DROP - 0.02;
-	swing.add(clip);
+	hang.add(clip);
 
 	// The card stood upright (face +z, top up) under the clip.
 	const card = createBadgeCard();
 	card.rotation.x = Math.PI / 2;
 	card.position.y = -LANYARD_DROP - 0.04 - BADGE_H / 2;
 	card.position.z = 0.006;
-	swing.add(card);
+	hang.add(card);
 
 	// It moves every frame and shadow maps only refresh on demand, so its
 	// shadow on the wall would lag behind; it casts none.
