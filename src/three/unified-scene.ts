@@ -607,9 +607,9 @@ export function initUnifiedScene(
 		// (the window balances the right), mouth open under a pipe out of the wall.
 		const slopGuy = createSlopGuy({ turn: 0.6 });
 		slopGuy.root.position.set(-4.4, -2, -1.7);
-		// Sized from him alone, not his pipe, which reaches toward the badge.
-		slopGuy.root.updateMatrixWorld(true);
-		addHitbox(slopGuy.root, 0.04, slopGuy.parts.seated);
+		// Sized from him and his chair alone (not his pipe, which reaches
+		// toward the badge), turned with him, flush with the floor.
+		addHitbox(slopGuy.parts.seated, 0.04, slopGuy.parts.seated, { padBelow: false });
 		greetingRoot.add(slopGuy.root);
 		roots.push(greetingRoot);
 

@@ -50,6 +50,24 @@ export function collectMeshesBy(scene: Scene, key: string): Mesh[] {
 	return meshes;
 }
 
+/** Solid scenery that should block clicks and taps from reaching the
+ *  clickable things behind it: shelf planks, the desk, walls. Opaque,
+ *  visible meshes outside any `key` group; see-through dressing (fake
+ *  shadows, glows) and parts made unclickable don't block. */
+export function collectOccluders(scene: Scene, key: string): Mesh[] {
+	const meshes: Mesh[] = [];
+	const visit = (obj: Object3D): void => {
+		if (!obj.visible || obj.userData?.[key]) return;
+		if (obj instanceof Mesh && obj.raycast === Mesh.prototype.raycast) {
+			const materials = Array.isArray(obj.material) ? obj.material : [obj.material];
+			if (materials.every((m) => m.visible && !m.transparent)) meshes.push(obj);
+		}
+		for (const child of obj.children) visit(child);
+	};
+	visit(scene);
+	return meshes;
+}
+
 /** Check if an object and all its ancestors are visible */
 function isWorldVisible(obj: Object3D): boolean {
 	let current: Object3D | null = obj;

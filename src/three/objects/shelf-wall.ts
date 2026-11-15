@@ -121,6 +121,9 @@ function contactShadowMaterial(strength = 0.55): MeshBasicMaterial {
 	});
 }
 
+/** For fake shadows: decoration, not part of what's clicked or tapped. */
+function ignoreClicks(): void {}
+
 function enableShadows(obj: Object3D): void {
 	obj.traverse((child) => {
 		if (!(child instanceof Mesh)) return;
@@ -302,7 +305,7 @@ function addDecorItem(
 	position: [number, number, number],
 	label: string,
 	activate: () => void,
-	hitboxPadding = 0.06,
+	{ hitboxPadding = 0.06, onShelf = false }: { hitboxPadding?: number; onShelf?: boolean } = {},
 ): ShelfDecorEntry {
 	item.position.set(...position);
 	item.rotation.y = -Math.PI / 2;
@@ -310,7 +313,7 @@ function addDecorItem(
 	const target = new Group();
 	target.userData = { interactive: true };
 	target.add(item);
-	addHitbox(target, hitboxPadding);
+	addHitbox(target, hitboxPadding, target, { padBelow: !onShelf });
 	parent.add(target);
 	return { label, target, activate };
 }
@@ -424,6 +427,7 @@ export function createShelfWall(
 				(_clearanceBox.min.z + _clearanceBox.max.z) / 2,
 			);
 			footprint.renderOrder = 1;
+			footprint.raycast = ignoreClicks;
 			target.add(footprint);
 			// And a soft shade on the wall behind it, nudged away from the key
 			// light (which sits off to +z). Without it nothing ties the item to
@@ -440,6 +444,7 @@ export function createShelfWall(
 				(_clearanceBox.min.z + _clearanceBox.max.z) / 2 - 0.07,
 			);
 			wallShade.renderOrder = 1;
+			wallShade.raycast = ignoreClicks;
 			target.add(wallShade);
 			// Shadows of the item where it rests: hidden while it's off the
 			// shelf (see unified-scene's shelf selection).
@@ -452,7 +457,9 @@ export function createShelfWall(
 		_clearanceBox.setFromObject(layout.item);
 		const frontEdgeLocalX = WALL_X - SHELF_DEPTH - target.position.x;
 		const frontClearance = Math.max(0, _clearanceBox.max.x - frontEdgeLocalX) + 0.04;
-		addHitbox(target, layout.hitboxPadding);
+		// Flush with the plank underneath: padding below reached through it
+		// and claimed taps on the wall under the shelf.
+		addHitbox(target, layout.hitboxPadding, target, { padBelow: false });
 		wall.add(target);
 		entries.push({
 			sectionId: layout.sectionId,
@@ -478,6 +485,7 @@ export function createShelfWall(
 			() => {
 				toggleCandle(candle);
 			},
+			{ onShelf: true },
 		),
 	);
 	// The jar is glass and the flame is the light source: neither should
@@ -520,6 +528,7 @@ export function createShelfWall(
 			() => {
 				void animateHeadphonePulse(headphones);
 			},
+			{ onShelf: true },
 		),
 	);
 
@@ -579,8 +588,9 @@ export function createShelfWall(
 	// Faces into the room (-x), with his back to the shelf wall.
 	slopGuy.root.rotation.y = -Math.PI / 2;
 	slopTarget.add(slopGuy.root);
-	slopTarget.updateMatrixWorld(true);
-	addHitbox(slopTarget, 0.04, slopGuy.parts.seated);
+	// Turned with him, flush with the floor, and sized from him and his
+	// chair (not the pipe, stream or floor shadow).
+	addHitbox(slopGuy.parts.seated, 0.04, slopGuy.parts.seated, { padBelow: false });
 	wall.add(slopTarget);
 	entries.push({
 		sectionId: "slop",

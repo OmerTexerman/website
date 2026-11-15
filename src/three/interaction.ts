@@ -1,6 +1,12 @@
 import { type Camera, type Object3D, Raycaster, type Scene, Vector2 } from "three";
 import { CLICK_DISTANCE_THRESHOLD } from "./constants";
-import { collectGroupsBy, collectMeshesBy, getAncestorWith, updatePointer } from "./raycast-utils";
+import {
+	collectGroupsBy,
+	collectMeshesBy,
+	collectOccluders,
+	getAncestorWith,
+	updatePointer,
+} from "./raycast-utils";
 
 export interface DeskInteraction {
 	href?: string;
@@ -17,7 +23,12 @@ export function createInteractionPicker(
 	camera: Camera,
 	scene: Scene,
 ): InteractionPicker {
-	const meshes = collectMeshesBy(scene, "interactive");
+	// Clickable meshes, plus the solid scenery in front of or around them:
+	// a tap on a shelf plank lands on the plank, not on whatever's behind it.
+	const meshes = [
+		...collectMeshesBy(scene, "interactive"),
+		...collectOccluders(scene, "interactive"),
+	];
 	const pointer = new Vector2();
 	const raycaster = new Raycaster();
 
